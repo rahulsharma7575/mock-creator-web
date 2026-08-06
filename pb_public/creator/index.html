@@ -11,13 +11,13 @@
 <style>
 :root{
   --bg:#0b0d10; --panel:#12151a; --panel2:#181c23; --line:#22272f; --ink:#e9e4d8; --mut:#8d95a3;
-  --amber:#f5a623; --amber2:#ffc46b; --green:#4ade80; --red:#f87171; --blue:#7dd3fc;
-  --glow:rgba(245,166,35,.14);
+  --amber:#f5a623; --amber2:#ffc46b; --green:#4ade80; --red:#f87171; --blue:#7dd3fc; --cyan:#22d3ee; --purple:#c084fc;
+  --glow:rgba(245,166,35,.14); --grad1:linear-gradient(135deg,#f5a62310,#f5a62305);
 }
 html[data-theme="light"]{
   --bg:#f6f2e8; --panel:#fffdf6; --panel2:#f1ecdf; --line:#e2dccb; --ink:#1c1f26; --mut:#6b7280;
-  --amber:#b9791a; --amber2:#8f5c0e; --green:#15803d; --red:#b91c1c; --blue:#0369a1;
-  --glow:rgba(185,121,26,.12);
+  --amber:#b9791a; --amber2:#8f5c0e; --green:#15803d; --red:#b91c1c; --blue:#0369a1; --cyan:#0e7490; --purple:#7c3aed;
+  --glow:rgba(185,121,26,.12); --grad1:linear-gradient(135deg,#b9791a08,#b9791a03);
 }
 *{box-sizing:border-box}
 [v-cloak]{display:none}
@@ -39,25 +39,37 @@ body::after{
 ::-webkit-scrollbar-track{background:transparent}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px}
 .panel2{background:var(--panel2);border:1px solid var(--line);border-radius:10px}
-.btn{border-radius:9px;font-weight:600;transition:all .15s;cursor:pointer;user-select:none}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;transition:border-color .25s,box-shadow .25s}
+.card:hover{border-color:var(--amber);box-shadow:0 4px 24px var(--glow)}
+.card-header{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px;letter-spacing:.02em}
+.card-body{padding:18px}
+.btn{border-radius:9px;font-weight:600;transition:all .15s;cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:6px}
 .btn:active{transform:translateY(1px)}
-.btn-amber{background:var(--amber);color:#1a1204}
+.btn-amber{background:var(--amber);color:#1a1204;border:none}
 .btn-amber:hover{background:var(--amber2)}
-.btn-ghost{border:1px solid var(--line);color:var(--ink)}
+.btn-ghost{border:1px solid var(--line);color:var(--ink);background:transparent}
 .btn-ghost:hover{border-color:var(--amber);color:var(--amber2)}
-.btn-danger{border:1px solid var(--red);color:var(--red)}
+.btn-danger{border:1px solid var(--red);color:var(--red);background:transparent}
 .btn-danger:hover{background:var(--red);color:#fff}
-.btn-done{border:1px solid var(--green);color:var(--green)}
+.btn-done{border:1px solid var(--green);color:var(--green);background:transparent}
 .btn-done:hover{background:var(--green);color:#052e12}
+.btn-pill{background:var(--panel2);border:1px solid var(--line);border-radius:999px;color:var(--ink);font-size:13px;font-weight:500;padding:8px 18px;cursor:pointer;transition:all .18s}
+.btn-pill:hover{border-color:var(--amber);background:var(--grad1)}
+.btn-pill .label{font-weight:600}
+.btn-pill .desc{font-size:11px;color:var(--mut)}
 .input,.select,.textarea{
   width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;
   color:var(--ink);padding:9px 12px;font-size:14px;outline:none;transition:border .15s;
 }
 .input:focus,.select:focus,.textarea:focus{border-color:var(--amber)}
 .select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--mut) 50%),linear-gradient(135deg,var(--mut) 50%,transparent 50%);background-position:calc(100% - 18px) 55%,calc(100% - 13px) 55%;background-size:5px 5px;background-repeat:no-repeat;padding-right:34px}
-.lbl{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:6px}
+.lbl{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:6px}
+.lbl .tip{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--line);font-size:9px;font-weight:700;color:var(--mut);cursor:help;position:relative;flex-shrink:0}
+.lbl .tip:hover{color:var(--amber2);border-color:var(--amber)}
+.lbl .tip .ttip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:220px;padding:8px 12px;background:var(--panel);border:1px solid var(--amber);border-radius:8px;font-size:11px;font-weight:400;letter-spacing:0;text-transform:none;line-height:1.5;color:var(--ink);pointer-events:none;opacity:0;transition:opacity .2s;z-index:10;box-shadow:0 8px 24px rgba(0,0,0,.3);text-align:left}
+.lbl .tip:hover .ttip{opacity:1}
 .hint{font-size:12px;color:var(--mut);margin-top:5px;line-height:1.45}
-.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
 .chip{border:1px solid var(--line);border-radius:999px;padding:5px 14px;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s;color:var(--mut)}
 .chip.on{background:var(--amber);border-color:var(--amber);color:#1a1204}
 .chip:hover{border-color:var(--amber);color:var(--amber2)}
@@ -91,7 +103,19 @@ html[data-theme="light"] .logpre{color:#3a3d45}
 .kv{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;font-size:13px}
 .kv dt{color:var(--mut)}
 .kv dd{font-family:'JetBrains Mono',monospace;font-size:12px;word-break:break-all}
-.range{width:100%;accent-color:var(--amber);cursor:pointer}
+.range{width:100%;appearance:none;height:6px;background:var(--line);border-radius:3px;outline:none;cursor:pointer}
+.range::-webkit-slider-thumb{appearance:none;width:18px;height:18px;border-radius:50%;background:var(--amber);border:2px solid var(--bg);cursor:pointer;box-shadow:0 0 8px var(--glow);transition:transform .15s}
+.range::-webkit-slider-thumb:hover{transform:scale(1.15)}
+.costbar{display:flex;align-items:center;gap:8px;padding:14px 18px;background:var(--panel2);border-radius:10px;border:1px solid var(--line)}
+.costbar .segment{height:8px;border-radius:4px;transition:width .4s ease}
+.dry-btn{border:1px solid var(--line);border-radius:14px;padding:14px 18px;cursor:pointer;transition:all .2s;background:var(--panel);display:flex;align-items:center;gap:12px;min-width:0}
+.dry-btn:hover{border-color:var(--amber);box-shadow:0 4px 16px var(--glow)}
+.dry-btn .dry-label{font-weight:700;font-size:14px;white-space:nowrap}
+.dry-btn .dry-sub{font-size:11px;color:var(--mut);white-space:nowrap}
+.dry-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.dry-icon.q{background:rgba(125,211,252,.12);color:var(--blue)}
+.dry-icon.i{background:rgba(192,132,252,.12);color:var(--purple)}
+.dry-icon.a{background:rgba(34,211,238,.12);color:var(--cyan)}
 .deerflow{position:fixed;right:16px;bottom:14px;z-index:900;font-size:11px;letter-spacing:.12em;color:var(--mut);opacity:.65;transition:opacity .2s,color .2s;text-decoration:none}
 .deerflow:hover{opacity:1;color:var(--amber2)}
 </style>
@@ -102,17 +126,11 @@ html[data-theme="light"] .logpre{color:#3a3d45}
     <div class="w-full max-w-sm rise" style="animation-delay:.05s">
       <div class="text-center mb-8">
         <div class="f-serif text-3xl font-bold tracking-tight mb-1">Mock <span style="color:var(--amber)">Creator</span></div>
-        <div class="text-xs f-mono" style="color:var(--mut)">CONTROL&nbsp;ROOM&nbsp;·&nbsp;v2</div>
+        <div class="text-xs f-mono" style="color:var(--mut)">CONTROL ROOM · v3</div>
       </div>
       <form @submit.prevent="login" class="panel p-6 space-y-4">
-        <div>
-          <label class="lbl">Superuser email</label>
-          <input v-model.trim="loginEmail" type="text" autocomplete="username" class="input f-mono" placeholder="admin@example.com">
-        </div>
-        <div>
-          <label class="lbl">Password</label>
-          <input v-model.trim="loginPass" type="password" autocomplete="current-password" class="input f-mono" placeholder="••••••••">
-        </div>
+        <div><label class="lbl">Superuser email</label><input v-model.trim="loginEmail" type="text" autocomplete="username" class="input f-mono" placeholder="admin@example.com"></div>
+        <div><label class="lbl">Password</label><input v-model.trim="loginPass" type="password" autocomplete="current-password" class="input f-mono" placeholder="••••••••"></div>
         <div v-if="loginErr" class="text-xs" style="color:var(--red)">{{ loginErr }}</div>
         <button type="submit" class="btn btn-amber w-full py-2.5 text-sm flex items-center justify-center gap-2" :disabled="loginBusy">
           <span v-if="loginBusy" class="spinner"></span>{{ loginBusy ? 'Authenticating…' : 'Enter Control Room' }}
@@ -152,12 +170,10 @@ html[data-theme="light"] .logpre{color:#3a3d45}
     <main class="flex-1 overflow-y-auto">
       <div class="p-6 lg:p-8 max-w-6xl mx-auto">
 
+        <!-- ========== OVERVIEW ========== -->
         <div v-if="view==='overview'" class="space-y-6">
-          <div class="rise">
-            <h1 class="f-serif text-2xl font-bold">Overview</h1>
-            <p class="text-sm mt-1" style="color:var(--mut)">Live pulse of the mock generation platform.</p>
-          </div>
-          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="rise"><h1 class="f-serif text-2xl font-bold">Overview</h1><p class="text-sm mt-1" style="color:var(--mut)">Live pulse of the mock generation platform.</p></div>
+          <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <div v-for="s in stats" :key="s.k" class="panel statcard p-5 rise" :style="{animationDelay:(0.05*s.i)+'s'}">
               <div class="text-[11px] f-mono uppercase tracking-widest" style="color:var(--mut)">{{ s.k }}</div>
               <div class="f-mono text-3xl font-bold mt-2" :style="{color:s.c}">{{ s.v }}</div>
@@ -165,159 +181,197 @@ html[data-theme="light"] .logpre{color:#3a3d45}
           </div>
           <div class="grid lg:grid-cols-5 gap-6">
             <div class="lg:col-span-2 panel p-5 rise" style="animation-delay:.25s">
-              <h2 class="f-serif font-bold text-lg mb-4">Quick start</h2>
+              <h2 class="f-serif font-bold text-lg mb-4">Quick Start</h2>
               <div class="space-y-4">
-                <div>
-                  <label class="lbl">Client</label>
-                  <select v-model="qs.client" class="select">
-                    <option value="">Select client…</option>
-                    <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}<template v-if="!c.active"> (disabled)</template></option>
-                  </select>
-                </div>
-                <div>
-                  <label class="lbl">Questions — {{ qs.count }}</label>
-                  <input type="range" min="1" max="200" v-model.number="qs.count" class="range">
-                </div>
-                <div>
-                  <label class="lbl">Difficulty profile</label>
-                  <select v-model="qs.difficulty" class="select">
-                    <option value="creative+difficult">Creative + Difficult</option>
-                    <option value="creative+medium">Creative + Medium</option>
-                    <option value="hard">Hard (TOPIK/EPS)</option>
-                  </select>
-                </div>
-                <button class="btn btn-amber w-full py-2.5 text-sm" :disabled="!qs.client || startBusy" @click="quickStart">
-                  <span v-if="startBusy" class="spinner mr-2"></span>Queue job
-                </button>
+                <div><label class="lbl">Client</label><select v-model="qs.client" class="select"><option value="">Select…</option><option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}<template v-if="!c.active"> (disabled)</template></option></select></div>
+                <div><label class="lbl">Questions — <span class="f-mono" style="color:var(--amber2)">{{ qs.count }}</span></label><input type="range" min="1" max="200" v-model.number="qs.count" class="range"></div>
+                <div><label class="lbl">Difficulty</label><select v-model="qs.difficulty" class="select"><option value="creative+difficult">Creative + Difficult</option><option value="creative+medium">Creative + Medium</option><option value="hard">Hard (TOPIK/EPS)</option></select></div>
+                <button class="btn btn-amber w-full py-2.5 text-sm" :disabled="!qs.client || startBusy" @click="quickStart('full')"><span v-if="startBusy" class="spinner"></span>Queue Full Mock</button>
               </div>
             </div>
-            <div class="lg:col-span-3 panel p-5 rise" style="animation-delay:.3s">
-              <div class="flex items-center justify-between mb-4">
-                <h2 class="f-serif font-bold text-lg">Recent jobs</h2>
-                <button class="btn btn-ghost px-3 py-1.5 text-xs" @click="view='jobs'">All jobs →</button>
+            <div class="lg:col-span-3 flex flex-col gap-4">
+              <div class="panel p-5 rise flex-1" style="animation-delay:.3s">
+                <div class="flex items-center justify-between mb-4"><h2 class="f-serif font-bold text-lg">Recent Jobs</h2><button class="btn btn-ghost px-3 py-1.5 text-xs" @click="view='jobs'">All jobs →</button></div>
+                <div v-if="!jobs.length" class="text-sm py-8 text-center" style="color:var(--mut)">No jobs yet.</div>
+                <table v-else class="w-full"><thead><tr><th>Created</th><th>Client</th><th>Kind</th><th>Status</th></tr></thead>
+                <tbody><tr v-for="j in jobs.slice(0,6)" :key="j.id" class="cursor-pointer" @click="openJob(j)">
+                  <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td>{{ j.client_name }}</td>
+                  <td><span class="text-xs f-mono px-2 py-0.5 rounded" :style="{background:j.kind!=='full'?'rgba(125,211,252,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ j.kind }}</span></td>
+                  <td><span class="status-dot" :class="{pulse:j.status==='running'}" :style="{background:sc(j.status),boxShadow:j.status==='running'?'0 0 0 3px var(--glow)':''}"></span> <span class="text-xs f-mono ml-1.5">{{ j.status }}</span></td>
+                </tr></tbody></table>
               </div>
-              <div v-if="!jobs.length" class="text-sm py-8 text-center" style="color:var(--mut)">No jobs yet — queue your first one.</div>
-              <table v-else class="w-full">
-                <thead><tr><th>Created</th><th>Client</th><th>Count</th><th>Status</th></tr></thead>
-                <tbody>
-                  <tr v-for="j in jobs.slice(0,6)" :key="j.id" class="cursor-pointer" @click="openJob(j)">
-                    <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td>
-                    <td>{{ j.client_name }}</td>
-                    <td class="f-mono">{{ j.count }}</td>
-                    <td><span class="status-dot" :style="{background:sc(j.status),boxShadow:j.status==='running'?'0 0 0 3px var(--glow)':''}"></span> <span class="text-xs f-mono ml-1.5">{{ j.status }}</span></td>
-                  </tr>
-                </tbody>
-              </table>
+              <div class="flex gap-3 rise" style="animation-delay:.4s">
+                <div class="dry-btn flex-1" @click="dryRunConfig('dry_questions')">
+                  <div class="dry-icon q">Q</div><div><div class="dry-label">Test Questions</div><div class="dry-sub">2-question sample</div></div>
+                </div>
+                <div class="dry-btn flex-1" @click="dryRunConfig('dry_images')">
+                  <div class="dry-icon i">I</div><div><div class="dry-label">Test Images</div><div class="dry-sub">2-image sample</div></div>
+                </div>
+                <div class="dry-btn flex-1" @click="dryRunConfig('dry_audio')">
+                  <div class="dry-icon a">A</div><div><div class="dry-label">Test Audio</div><div class="dry-sub">2-clip sample</div></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
+        <!-- ========== CLIENTS ========== -->
         <div v-if="view==='clients'" class="space-y-6">
-          <div class="rise flex items-end justify-between">
-            <div>
-              <h1 class="f-serif text-2xl font-bold">Clients</h1>
-              <p class="text-sm mt-1" style="color:var(--mut)">Each client owns an API key for remote job dispatch.</p>
-            </div>
-            <button class="btn btn-amber px-4 py-2 text-sm" @click="openClientModal">+ New client</button>
-          </div>
+          <div class="rise flex items-end justify-between"><div><h1 class="f-serif text-2xl font-bold">Clients</h1><p class="text-sm mt-1" style="color:var(--mut)">Each client owns an API key for remote job dispatch.</p></div><button class="btn btn-amber px-4 py-2 text-sm" @click="openClientModal">+ New client</button></div>
           <div class="panel rise" style="animation-delay:.1s">
             <div v-if="!clients.length" class="text-sm py-10 text-center" style="color:var(--mut)">No clients registered.</div>
-            <table v-else class="w-full">
-              <thead><tr><th>Name</th><th>Key fingerprint</th><th>Created</th><th>Jobs</th><th>Active</th><th></th></tr></thead>
-              <tbody>
-                <tr v-for="c in clients" :key="c.id">
-                  <td class="font-semibold">{{ c.name }}</td>
-                  <td class="f-mono text-xs" style="color:var(--mut)">{{ short(c.api_key_hash) }}…</td>
-                  <td class="f-mono text-xs" style="color:var(--mut)">{{ fmtTime(c.created) }}</td>
-                  <td class="f-mono text-xs">{{ jobCount(c.id) }}</td>
-                  <td>
-                    <div class="toggle" :class="{on:c.active}" @click="toggleClient(c)"></div>
-                  </td>
-                  <td class="text-right">
-                    <button class="btn btn-ghost px-3 py-1 text-xs mr-2" @click="openConfigFor(c.id)">Config</button>
-                    <button class="btn btn-danger px-3 py-1 text-xs" @click="delClient(c)">Delete</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <table v-else class="w-full"><thead><tr><th>Name</th><th>Key fingerprint</th><th>Created</th><th>Jobs</th><th>Active</th><th></th></tr></thead>
+            <tbody><tr v-for="c in clients" :key="c.id">
+              <td class="font-semibold">{{ c.name }}</td><td class="f-mono text-xs" style="color:var(--mut)">{{ short(c.api_key_hash) }}…</td>
+              <td class="f-mono text-xs" style="color:var(--mut)">{{ fmtTime(c.created) }}</td><td class="f-mono text-xs">{{ jobCount(c.id) }}</td>
+              <td><div class="toggle" :class="{on:c.active}" @click="toggleClient(c)"></div></td>
+              <td class="text-right"><button class="btn btn-ghost px-3 py-1 text-xs mr-2" @click="openConfigFor(c.id)">Config</button><button class="btn btn-danger px-3 py-1 text-xs" @click="delClient(c)">Delete</button></td>
+            </tr></tbody></table>
           </div>
         </div>
 
+        <!-- ========== CONFIGS (REDESIGNED) ========== -->
         <div v-if="view==='configs'" class="space-y-6">
-          <div class="rise flex items-end justify-between">
-            <div>
-              <h1 class="f-serif text-2xl font-bold">Configs</h1>
-              <p class="text-sm mt-1" style="color:var(--mut)">Per-client pipeline settings — saved as <span class="f-mono text-xs">mock_config</span> records.</p>
-            </div>
-            <button class="btn btn-ghost px-4 py-2 text-sm" @click="cfgRaw=!cfgRaw">{{ cfgRaw ? 'Form view' : 'Raw JSON' }}</button>
-          </div>
+          <div class="rise flex items-end justify-between"><div><h1 class="f-serif text-2xl font-bold">Configs</h1><p class="text-sm mt-1" style="color:var(--mut)">Per-client pipeline settings — hover <span class="text-[10px] px-1.5 py-0.5 rounded" style="border:1px solid var(--line)">(?)</span> icons for tips.</p></div><button class="btn btn-ghost px-4 py-2 text-sm" @click="cfgRaw=!cfgRaw">{{ cfgRaw ? 'Form view' : 'Raw JSON' }}</button></div>
           <div class="panel p-5 rise" style="animation-delay:.1s">
             <label class="lbl">Client</label>
-            <select v-model="cfgClient" class="select max-w-md" @change="loadConfig">
-              <option value="">Select client…</option>
-              <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
+            <select v-model="cfgClient" class="select max-w-md" @change="loadConfig"><option value="">Select client…</option><option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option></select>
           </div>
           <div v-if="cfgClient" class="rise" style="animation-delay:.15s">
             <div v-if="cfgLoading" class="panel p-10 text-center"><span class="spinner"></span></div>
             <template v-else-if="cfg">
               <div v-if="cfgRaw" class="panel p-5">
-                <div class="flex items-center justify-between mb-3">
-                  <span class="text-xs f-mono" style="color:var(--mut)">Edit raw record JSON — dangerous territory</span>
-                  <div>
-                    <button class="btn btn-ghost px-3 py-1 text-xs mr-2" @click="validateRaw">Validate</button>
-                    <button class="btn btn-amber px-3 py-1 text-xs" @click="saveConfig">Save raw</button>
-                  </div>
-                </div>
-                <div v-if="rawErr" class="text-xs mb-3" style="color:var(--red)">{{ rawErr }}</div>
+                <div class="flex items-center justify-between mb-3"><span class="text-xs f-mono" style="color:var(--mut)">Edit raw record JSON</span><div><button class="btn btn-ghost px-3 py-1 text-xs mr-2" @click="validateRaw">Validate</button><button class="btn btn-amber px-3 py-1 text-xs" @click="saveConfig">Save raw</button></div></div>
+                <div v-if="cfgRawErr" class="text-xs mb-3" style="color:var(--red)">{{ cfgRawErr }}</div>
                 <textarea v-model="cfgRawText" rows="26" class="textarea f-mono text-xs" spellcheck="false"></textarea>
               </div>
-              <form v-else @submit.prevent="saveConfig" class="space-y-6">
-                <div v-for="g in groups" :key="g" class="panel p-5">
-                  <h3 class="f-serif font-bold mb-4 flex items-center gap-2">
-                    <span class="text-[11px] f-mono px-2 py-0.5 rounded" style="background:var(--glow);color:var(--amber2)">{{ g }}</span>
-                  </h3>
-                  <div class="grid md:grid-cols-2 gap-x-6 gap-y-4">
-                    <template v-for="f in metaByGroup(g)" :key="f.field">
-                      <div :class="f.field==='prompts_json' ? 'md:col-span-2' : ''">
-                        <label class="lbl">{{ f.label }}</label>
-                        <template v-if="f.ftype==='select'">
-                          <select v-model="cfgData[f.field]" class="select">
-                            <option v-for="o in f.options" :key="o" :value="o">{{ o }}</option>
-                          </select>
-                        </template>
-                        <template v-else-if="f.ftype==='bool'">
-                          <div class="toggle" :class="{on:!!cfgData[f.field]}" @click="cfgData[f.field]=!cfgData[f.field]"></div>
-                        </template>
-                        <template v-else-if="f.ftype==='json'">
-                          <textarea v-model="cfgData[f.field]" rows="4" class="textarea f-mono text-xs" spellcheck="false" placeholder="{ &quot;system&quot;: &quot;…&quot; }"></textarea>
-                        </template>
-                        <template v-else-if="f.field==='image_count'">
-                          <div class="flex items-center gap-3">
-                            <input type="range" min="0" max="40" v-model.number="cfgData.image_count" class="range flex-1">
-                            <input type="number" v-model.number="cfgData.image_count" class="input w-20 f-mono text-center" step="any">
-                          </div>
-                        </template>
-                        <template v-else-if="f.field==='image_count_min'">
-                          <div class="flex items-center gap-2">
-                            <input type="number" min="0" max="40" v-model.number="cfgData.image_count_min" class="input f-mono" step="any">
-                            <span class="text-xs" style="color:var(--mut)">→ max</span>
-                            <input type="number" min="0" max="40" v-model.number="cfgData.image_count_max" class="input f-mono" step="any">
-                          </div>
-                        </template>
-                        <template v-else>
-                          <input v-if="f.ftype==='number'" type="number" v-model.number="cfgData[f.field]" class="input f-mono" step="any">
-                          <input v-else :type="f.field==='push_pb_pass' ? (showPass?'text':'password') : 'text'" v-model="cfgData[f.field]" class="input">
-                        </template>
-                        <div class="hint" v-if="f.help">{{ f.help }}</div>
-                        <div class="hint" v-if="f.field==='image_count' && !bandOk" style="color:var(--amber2)">Image questions should sit within the min–max band (18–26 recommended).</div>
-                      </div>
-                    </template>
+              <form v-else @submit.prevent="saveConfig" class="space-y-5">
+
+                <!-- Group cards -->
+                <div v-for="g in groups" :key="g" class="card rise">
+                  <div class="card-header" :style="{background:grpBg(g),color:grpFg(g)}">
+                    <span class="text-[11px] f-mono px-2 py-0.5 rounded" style="background:rgba(255,255,255,.08)">{{ g }}</span>
+                    <span style="font-size:11px;font-weight:400;opacity:.7">{{ grpDesc(g) }}</span>
+                  </div>
+                  <div class="card-body">
+                    <div class="grid md:grid-cols-2 gap-x-6 gap-y-4">
+                      <template v-for="f in metaByGroup(g)" :key="f.field">
+                        <div :class="f.field==='prompts_json' ? 'md:col-span-2' : ''">
+
+                          <!-- Label with tooltip -->
+                          <label class="lbl">
+                            {{ f.label }}
+                            <span class="tip" v-if="f.help">?<span class="ttip">{{ f.help }}</span></span>
+                            <!-- Extra micro-hints for key fields -->
+                            <span class="tip" v-if="f.field==='llm_author_model'">?<span class="ttip">The LLM that writes the mock exam questions. Gemini 2.5 Flash is fast &amp; cheap. Higher quality = Gemini 3.5 Flash or DeepSeek V4 Pro.</span></span>
+                            <span class="tip" v-if="f.field==='image_count'">?<span class="ttip">How many questions in the exam will have an image. TOPIK-style exams use 18-26 image questions. This MUST stay between Min and Max below.</span></span>
+                            <span class="tip" v-if="f.field==='image_count_min'">?<span class="ttip">The minimum image questions allowed. If the LLM produces fewer, the repair pass adds more. Increasing this makes the exam harder.</span></span>
+                            <span class="tip" v-if="f.field==='push_pb_pass'">?<span class="ttip">The admin password for the TEACHER app PocketBase (ubt.wts.com.np). Required to push exams. NEVER commit this to git — set it here or use MOCK_PB_PASS env var.</span></span>
+                            <span class="tip" v-if="f.field==='difficulty_profile'">?<span class="ttip">Controls how hard the questions are. "creative+difficult" = trickier distractors + less predictable patterns. "hard" = TOPIK/UBT-style rigor. "creative+medium" = balanced difficulty.</span></span>
+                          </label>
+
+                          <!-- Field rendering -->
+                          <template v-if="f.ftype==='select'">
+                            <select v-model="cfgData[f.field]" class="select">
+                              <option v-for="o in f.options" :key="o" :value="o">{{ o }}</option>
+                            </select>
+                          </template>
+                          <template v-else-if="f.ftype==='bool'">
+                            <div class="toggle" :class="{on:!!cfgData[f.field]}" @click="cfgData[f.field]=!cfgData[f.field]"></div>
+                          </template>
+                          <template v-else-if="f.ftype==='json'">
+                            <textarea v-model="cfgData[f.field]" rows="4" class="textarea f-mono text-xs" spellcheck="false" placeholder='{ "system": "…" }'></textarea>
+                          </template>
+                          <!-- Range slider + value display -->
+                          <template v-else-if="f.field==='image_count'">
+                            <div class="flex items-center gap-4">
+                              <input type="range" :min="cfgData.image_count_min||0" :max="cfgData.image_count_max||40" v-model.number="cfgData.image_count" class="range flex-1">
+                              <span class="f-mono text-sm font-bold" style="min-width:36px;text-align:center;color:var(--amber2)">{{ cfgData.image_count }}</span>
+                            </div>
+                          </template>
+                          <!-- Min/max paired range -->
+                          <template v-else-if="f.field==='image_count_min'">
+                            <div class="flex items-center gap-3 text-xs f-mono" style="color:var(--mut)">
+                              <span>Min</span>
+                              <input type="number" min="0" max="40" v-model.number="cfgData.image_count_min" class="input w-20 text-center" style="padding:7px 8px">
+                              <span class="text-lg" style="color:var(--line)">—</span>
+                              <input type="range" :min="cfgData.image_count_min||0" :max="cfgData.image_count_max||40" class="range flex-1">
+                              <span class="text-lg" style="color:var(--line)">—</span>
+                              <input type="number" min="0" max="40" v-model.number="cfgData.image_count_max" class="input w-20 text-center" style="padding:7px 8px">
+                              <span>Max</span>
+                            </div>
+                          </template>
+                          <template v-else>
+                            <input v-if="f.ftype==='number'" type="number" v-model.number="cfgData[f.field]" class="input f-mono w-full" step="any">
+                            <input v-else :type="f.field==='push_pb_pass' ? (showPass?'text':'password') : 'text'" v-model="cfgData[f.field]" class="input" :placeholder="f.field==='push_pb_pass'?'········':''">
+                          </template>
+
+                          <div v-if="hintText(f)" class="hint">{{ hintText(f) }}</div>
+                        </div>
+                      </template>
+                    </div>
                   </div>
                 </div>
+
+                <!-- Cost Estimator + Validate -->
+                <div class="card" style="animation-delay:.35s">
+                  <div class="card-header" style="background:var(--grad1);color:var(--amber2)">
+                    <span class="f-mono text-xs px-2 py-0.5 rounded" style="background:rgba(245,166,35,.15)">Cost Estimator</span>
+                    <span style="font-size:11px;font-weight:400;opacity:.7">estimated per full mock (approximate)</span>
+                  </div>
+                  <div class="card-body space-y-4">
+                    <div class="costbar">
+                      <div class="segment" style="width:max(15%,{{ costPct.text }}%);background:var(--blue)"></div>
+                      <div class="segment" style="width:max(15%,{{ costPct.images }}%);background:var(--purple)"></div>
+                      <div class="segment" style="width:max(15%,{{ costPct.audio }}%);background:var(--cyan)"></div>
+                      <div class="segment" style="width:max(10%,100-math.max(15,{{costPct.text}})-math.max(15,{{costPct.images}})-math.max(10,{{costPct.audio}}))%;background:var(--line)"></div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 text-center text-xs f-mono" style="color:var(--mut)">
+                      <div><span style="color:var(--blue)">Text</span><br><span class="font-bold" style="color:var(--ink)">~${{ costEst.text.toFixed(3) }}</span><br><span class="text-[10px]">author + proofread</span></div>
+                      <div><span style="color:var(--purple)">Images</span><br><span class="font-bold" style="color:var(--ink)">~${{ costEst.images.toFixed(3) }}</span><br><span class="text-[10px]">{{ cfgData.image_count||0 }} × image gen</span></div>
+                      <div><span style="color:var(--cyan)">Audio</span><br><span class="font-bold" style="color:var(--ink)">~${{ costEst.audio.toFixed(3) }}</span><br><span class="text-[10px]">{{ listeningCount }} TTS clips</span></div>
+                    </div>
+                    <div class="flex items-center justify-between pt-2 border-t" style="border-color:var(--line)">
+                      <span class="f-serif font-bold">Estimated total</span>
+                      <span class="f-mono text-lg font-bold" style="color:var(--amber2)">~${{ costEst.total.toFixed(3) }}</span>
+                    </div>
+                    <div class="flex gap-2">
+                      <button type="button" class="btn btn-ghost px-4 py-2 text-xs" @click="validateConfig"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg> Verify config</button>
+                    </div>
+                    <div v-if="valIssues.length" class="space-y-1">
+                      <div v-for="vi in valIssues" :key="vi" class="text-xs flex items-center gap-1.5" :style="{color:vi.w==='warn'?'var(--amber2)':'var(--red)'}">
+                        <span>{{ vi.w==='err'?'✕':'⚠' }}</span> {{ vi.msg }}
+                      </div>
+                    </div>
+                    <div v-if="valIssues.length===0 && valChecked" class="text-xs flex items-center gap-1.5" style="color:var(--green)"><span>✓</span> All values look good</div>
+                  </div>
+                </div>
+
+                <!-- Dry Run Buttons -->
+                <div class="card" style="animation-delay:.4s">
+                  <div class="card-header" style="background:linear-gradient(135deg,rgba(125,211,252,.06),rgba(192,132,252,.06));color:var(--blue)">
+                    <span class="f-mono text-xs px-2 py-0.5 rounded" style="background:rgba(125,211,252,.12)">Dry Runs</span>
+                    <span style="font-size:11px;font-weight:400;opacity:.7">test individual stages with 2-question samples (no client PB push)</span>
+                  </div>
+                  <div class="card-body">
+                    <div class="flex gap-3">
+                      <div class="dry-btn flex-1" @click="dryRun('dry_questions')">
+                        <div class="dry-icon q">Q</div><div><div class="dry-label">Test Questions</div><div class="dry-sub">2-question sample via LLM</div></div>
+                      </div>
+                      <div class="dry-btn flex-1" @click="dryRun('dry_images')">
+                        <div class="dry-icon i">I</div><div><div class="dry-label">Test Images</div><div class="dry-sub">2-image prompts via LLM</div></div>
+                      </div>
+                      <div class="dry-btn flex-1" @click="dryRun('dry_audio')">
+                        <div class="dry-icon a">A</div><div><div class="dry-label">Test Audio</div><div class="dry-sub">2-listening scripts via LLM</div></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Save / Revert -->
                 <div class="flex items-center gap-3">
                   <button type="submit" class="btn btn-amber px-5 py-2.5 text-sm" :disabled="cfgSaving">
-                    <span v-if="cfgSaving" class="spinner mr-2"></span>Save config
+                    <span v-if="cfgSaving" class="spinner"></span>Save config
                   </button>
                   <span v-if="cfgSavedAt" class="text-xs f-mono" style="color:var(--mut)">saved {{ fmtTime(cfgSavedAt) }}</span>
                   <button type="button" class="btn btn-ghost px-4 py-2.5 text-sm ml-auto" @click="loadConfig">Revert</button>
@@ -327,52 +381,32 @@ html[data-theme="light"] .logpre{color:#3a3d45}
           </div>
         </div>
 
+        <!-- ========== JOBS ========== -->
         <div v-if="view==='jobs'" class="space-y-6">
-          <div class="rise flex items-end justify-between">
-            <div>
-              <h1 class="f-serif text-2xl font-bold">Jobs</h1>
-              <p class="text-sm mt-1" style="color:var(--mut)">Generation runs across all clients.</p>
-            </div>
-            <button class="btn btn-ghost px-4 py-2 text-sm" @click="loadJobs"><span v-if="jobsBusy" class="spinner mr-2"></span>Refresh</button>
-          </div>
-          <div class="flex gap-2 flex-wrap rise" style="animation-delay:.08s">
-            <div v-for="st in ['all','queued','running','done','failed']" :key="st" class="chip" :class="{on:jobFilter===st}" @click="jobFilter=st">{{ st }}</div>
-          </div>
+          <div class="rise flex items-end justify-between"><div><h1 class="f-serif text-2xl font-bold">Jobs</h1><p class="text-sm mt-1" style="color:var(--mut)">Generation runs across all clients.</p></div><button class="btn btn-ghost px-4 py-2 text-sm" @click="loadJobs"><span v-if="jobsBusy" class="spinner"></span>Refresh</button></div>
+          <div class="flex gap-2 flex-wrap rise" style="animation-delay:.08s"><div v-for="st in ['all','queued','running','done','failed']" :key="st" class="chip" :class="{on:jobFilter===st}" @click="jobFilter=st">{{ st }}</div></div>
           <div class="panel rise" style="animation-delay:.12s">
             <div v-if="!filteredJobs.length" class="text-sm py-10 text-center" style="color:var(--mut)">Nothing here.</div>
-            <table v-else class="w-full">
-              <thead><tr><th>Created</th><th>Client</th><th>Q</th><th>Difficulty</th><th>Status</th><th>Pushed</th><th>Error</th></tr></thead>
-              <tbody>
-                <tr v-for="j in filteredJobs" :key="j.id" class="cursor-pointer" @click="openJob(j)">
-                  <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td>
-                  <td>{{ j.client_name || j.client }}</td>
-                  <td class="f-mono">{{ j.count }}</td>
-                  <td class="text-xs">{{ j.difficulty }}</td>
-                  <td>
-                    <span class="status-dot" :class="{pulse:j.status==='running'}" :style="{background:sc(j.status)}"></span>
-                    <span class="text-xs f-mono ml-1.5">{{ j.status }}</span>
-                  </td>
-                  <td class="f-mono text-xs">{{ j.pushed ? 'yes' : '—' }}</td>
-                  <td class="text-xs max-w-[220px] truncate" :style="{color:j.error?'var(--red)':''}">{{ j.error || '' }}</td>
-                </tr>
-              </tbody>
-            </table>
+            <table v-else class="w-full"><thead><tr><th>Created</th><th>Client</th><th>Kind</th><th>Q</th><th>Status</th><th>Pushed</th><th>Error</th></tr></thead>
+            <tbody><tr v-for="j in filteredJobs" :key="j.id" class="cursor-pointer" @click="openJob(j)">
+              <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td>{{ j.client_name||j.client }}</td>
+              <td><span class="text-xs f-mono px-2 py-0.5 rounded" :style="{background:j.kind!=='full'?'rgba(125,211,252,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ j.kind }}</span></td>
+              <td class="f-mono">{{ j.count }}</td>
+              <td><span class="status-dot" :class="{pulse:j.status==='running'}" :style="{background:sc(j.status)}"></span><span class="text-xs f-mono ml-1.5">{{ j.status }}</span></td>
+              <td class="f-mono text-xs">{{ j.pushed ? 'yes' : '—' }}</td>
+              <td class="text-xs max-w-[220px] truncate" :style="{color:j.error?'var(--red)':''}">{{ j.error||'' }}</td>
+            </tr></tbody></table>
           </div>
         </div>
 
-        <div class="text-center text-[11px] pt-8 pb-4" style="color:var(--mut)">PocketBase v0.39.10 · pb_hooks + worker engine</div>
+        <div class="text-center text-[11px] pt-8 pb-4" style="color:var(--mut)">PocketBase v0.39.10 · pb_hooks + worker engine · v3</div>
       </div>
     </main>
 
+    <!-- Job Drawer -->
     <div v-if="drawerJob" class="fixed inset-0 z-50 flex justify-end" style="background:rgba(0,0,0,.5)">
       <div class="w-full max-w-xl h-full overflow-y-auto panel rounded-none drawer p-6" style="border:none;border-left:1px solid var(--line)">
-        <div class="flex items-start justify-between mb-5">
-          <div>
-            <h2 class="f-serif text-lg font-bold">Job {{ short(drawerJob.id) }}</h2>
-            <div class="text-xs f-mono mt-1" style="color:var(--mut)">{{ drawerJob.client_name }} · {{ drawerJob.count }} questions · {{ drawerJob.difficulty }}</div>
-          </div>
-          <button class="btn btn-ghost px-3 py-1.5 text-xs" @click="drawerJob=null">Close</button>
-        </div>
+        <div class="flex items-start justify-between mb-5"><div><h2 class="f-serif text-lg font-bold">Job {{ short(drawerJob.id) }}</h2><div class="text-xs f-mono mt-1" style="color:var(--mut)">{{ drawerJob.client_name }} · {{ drawerJob.kind }} · {{ drawerJob.count }}q · {{ drawerJob.difficulty }}</div></div><button class="btn btn-ghost px-3 py-1.5 text-xs" @click="drawerJob=null">Close</button></div>
         <div class="flex items-center gap-2 mb-5">
           <span class="status-dot" :class="{pulse:drawerJob.status==='running'}" :style="{background:sc(drawerJob.status)}"></span>
           <span class="f-mono text-xs uppercase tracking-widest">{{ drawerJob.status }}</span>
@@ -383,71 +417,31 @@ html[data-theme="light"] .logpre{color:#3a3d45}
           </div>
         </div>
         <div v-if="drawerJob.error" class="text-xs mb-4 p-3 rounded" style="background:rgba(248,113,113,.08);border:1px solid var(--red);color:var(--red)">{{ drawerJob.error }}</div>
-        <div class="mb-5">
-          <label class="lbl">Created / Updated</label>
-          <div class="kv">
-            <dt>created</dt><dd>{{ fmtTime(drawerJob.created) }}</dd>
-            <dt>updated</dt><dd>{{ fmtTime(drawerJob.updated) }}</dd>
-          </div>
-        </div>
-        <div class="mb-5">
-          <div class="flex items-center justify-between mb-2">
-            <label class="lbl mb-0">Log</label>
-            <button class="btn btn-ghost px-2.5 py-1 text-[11px]" @click="refreshDrawer">Refresh</button>
-          </div>
-          <div class="panel2 p-3 max-h-72 overflow-y-auto logpre">{{ drawerJob.log || '(no log yet)' }}</div>
-        </div>
-        <div>
-          <label class="lbl">Report</label>
-          <div class="panel2 p-3 max-h-72 overflow-y-auto">
-            <pre class="logpre text-xs">{{ pretty(drawerJob.report) }}</pre>
-          </div>
-        </div>
+        <div class="mb-5"><label class="lbl">Created / Updated</label><div class="kv"><dt>created</dt><dd>{{ fmtTime(drawerJob.created) }}</dd><dt>updated</dt><dd>{{ fmtTime(drawerJob.updated) }}</dd></div></div>
+        <div class="mb-5"><div class="flex items-center justify-between mb-2"><label class="lbl mb-0">Log</label><button class="btn btn-ghost px-2.5 py-1 text-[11px]" @click="refreshDrawer">Refresh</button></div><div class="panel2 p-3 max-h-72 overflow-y-auto logpre">{{ drawerJob.log||'(no log yet)' }}</div></div>
+        <div><label class="lbl">Report</label><div class="panel2 p-3 max-h-72 overflow-y-auto"><pre class="logpre text-xs">{{ pretty(drawerJob.report) }}</pre></div></div>
       </div>
     </div>
 
+    <!-- Client Modal -->
     <div v-if="clientModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,.5)">
-      <div class="panel p-6 w-full max-w-md rise">
-        <h2 class="f-serif text-lg font-bold mb-4">New client</h2>
+      <div class="panel p-6 w-full max-w-md rise"><h2 class="f-serif text-lg font-bold mb-4">New client</h2>
         <div class="space-y-4">
-          <div>
-            <label class="lbl">Name</label>
-            <input v-model.trim="newClientName" class="input" placeholder="e.g. UBT">
-          </div>
-          <div v-if="newKey">
-            <label class="lbl">API key — copy it now, shown once</label>
-            <div class="flex gap-2">
-              <input :value="newKey" readonly class="input f-mono text-xs flex-1" @click="sel($event)">
-              <button class="btn btn-amber px-3 text-xs" @click="copy(newKey)">Copy</button>
-            </div>
-            <div class="hint">Fingerprint (sha-256): <span class="f-mono">{{ short(newKeyHash) }}…</span></div>
-          </div>
+          <div><label class="lbl">Name</label><input v-model.trim="newClientName" class="input" placeholder="e.g. UBT"></div>
+          <div v-if="newKey"><label class="lbl">API key — copy it now, shown once</label><div class="flex gap-2"><input :value="newKey" readonly class="input f-mono text-xs flex-1" @click="sel($event)"><button class="btn btn-amber px-3 text-xs" @click="copy(newKey)">Copy</button></div><div class="hint">Fingerprint (sha256): <span class="f-mono">{{ short(newKeyHash) }}…</span></div></div>
           <div v-if="clientErr" class="text-xs" style="color:var(--red)">{{ clientErr }}</div>
-          <div class="flex gap-2 justify-end pt-1">
-            <button class="btn btn-ghost px-4 py-2 text-sm" @click="clientModal=false">Cancel</button>
-            <button class="btn btn-amber px-4 py-2 text-sm" :disabled="!newClientName || clientBusy" @click="createClient">Create</button>
-          </div>
+          <div class="flex gap-2 justify-end pt-1"><button class="btn btn-ghost px-4 py-2 text-sm" @click="clientModal=false">Cancel</button><button class="btn btn-amber px-4 py-2 text-sm" :disabled="!newClientName||clientBusy" @click="createClient">Create</button></div>
         </div>
       </div>
     </div>
 
+    <!-- Confirm Modal -->
     <div v-if="confirmMsg" class="fixed inset-0 z-[60] flex items-center justify-center p-4" style="background:rgba(0,0,0,.5)">
-      <div class="panel p-6 w-full max-w-sm rise">
-        <h2 class="f-serif font-bold mb-2">Confirm</h2>
-        <p class="text-sm" style="color:var(--mut)">{{ confirmMsg }}</p>
-        <div class="flex gap-2 justify-end pt-4">
-          <button class="btn btn-ghost px-4 py-2 text-sm" @click="confirmMsg=null">Cancel</button>
-          <button class="btn btn-danger px-4 py-2 text-sm" @click="confirmDo()">Confirm</button>
-        </div>
-      </div>
+      <div class="panel p-6 w-full max-w-sm rise"><h2 class="f-serif font-bold mb-2">Confirm</h2><p class="text-sm" style="color:var(--mut)">{{ confirmMsg }}</p><div class="flex gap-2 justify-end pt-4"><button class="btn btn-ghost px-4 py-2 text-sm" @click="confirmMsg=null">Cancel</button><button class="btn btn-danger px-4 py-2 text-sm" @click="confirmDo()">Confirm</button></div></div>
     </div>
 
-    <div class="fixed top-4 right-4 z-[70] space-y-2">
-      <div v-for="t in toasts" :key="t.id" class="toast panel px-4 py-2.5 text-sm shadow-lg flex items-center gap-2">
-        <span class="status-dot" :style="{background:t.type==='err'?'var(--red)':t.type==='ok'?'var(--green)':'var(--amber)'}"></span>
-        <span class="f-mono text-xs">{{ t.msg }}</span>
-      </div>
-    </div>
+    <!-- Toasts -->
+    <div class="fixed top-4 right-4 z-[70] space-y-2"><div v-for="t in toasts" :key="t.id" class="toast panel px-4 py-2.5 text-sm shadow-lg flex items-center gap-2"><span class="status-dot" :style="{background:t.type==='err'?'var(--red)':t.type==='ok'?'var(--green)':'var(--amber)'}"></span><span class="f-mono text-xs">{{ t.msg }}</span></div></div>
 
     <a href="https://deerflow.tech" target="_blank" class="deerflow">✦ created by deerflow</a>
   </div>
@@ -472,7 +466,7 @@ function api(path, opts) {
   });
 }
 
-const SHA256_K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+const SHA256_K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x6b1d2acf,0x76f988da,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
 function sha256HexJS(s) {
   const t = new TextEncoder().encode(s), l = t.length;
   const n = 64 * Math.ceil((l + 9) / 64), buf = new Uint8Array(n), dv = new DataView(buf.buffer);
@@ -483,308 +477,114 @@ function sha256HexJS(s) {
   const w = new Uint32Array(64), rotr = (x, r) => (x >>> r) | (x << (32 - r));
   for (let i = 0; i < n; i += 64) {
     for (let j = 0; j < 16; j++) w[j] = dv.getUint32(i + j * 4, false);
-    for (let j = 16; j < 64; j++) {
-      const s0 = rotr(w[j - 15], 7) ^ rotr(w[j - 15], 18) ^ (w[j - 15] >>> 3);
-      const s1 = rotr(w[j - 2], 17) ^ rotr(w[j - 2], 19) ^ (w[j - 2] >>> 10);
-      w[j] = (w[j - 16] + s0 + w[j - 7] + s1) >>> 0;
-    }
-    let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
-    for (let j = 0; j < 64; j++) {
-      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25), ch = (e & f) ^ (~e & g);
-      const t1 = (h + S1 + ch + SHA256_K[j] + w[j]) >>> 0;
-      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22), maj = (a & b) ^ (a & c) ^ (b & c);
-      const t2 = (S0 + maj) >>> 0;
-      h = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
-    }
-    h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0;
-    h4 = (h4 + e) >>> 0; h5 = (h5 + f) >>> 0; h6 = (h6 + g) >>> 0; h7 = (h7 + h) >>> 0;
+    for (let j = 16; j < 64; j++) { const s0 = rotr(w[j-15],7)^rotr(w[j-15],18)^(w[j-15]>>>3); const s1 = rotr(w[j-2],17)^rotr(w[j-2],19)^(w[j-2]>>>10); w[j]=(w[j-16]+s0+w[j-7]+s1)>>>0; }
+    let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+    for (let j=0;j<64;j++){const S1=rotr(e,6)^rotr(e,11)^rotr(e,25),ch=(e&f)^(~e&g),t1=(h+S1+ch+SHA256_K[j]+w[j])>>>0,S0=rotr(a,2)^rotr(a,13)^rotr(a,22),maj=(a&b)^(a&c)^(b&c),t2=(S0+maj)>>>0;h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;}
+    h0=(h0+a)>>>0;h1=(h1+b)>>>0;h2=(h2+c)>>>0;h3=(h3+d)>>>0;h4=(h4+e)>>>0;h5=(h5+f)>>>0;h6=(h6+g)>>>0;h7=(h7+h)>>>0;
   }
-  return [h0, h1, h2, h3, h4, h5, h6, h7].map(x => x.toString(16).padStart(8, '0')).join('');
+  return [h0,h1,h2,h3,h4,h5,h6,h7].map(x=>x.toString(16).padStart(8,'0')).join('');
 }
-async function sha256Hex(s) {
-  if (crypto && crypto.subtle) {
-    const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-    return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
-  }
-  return sha256HexJS(s);
-}
-function genKey() {
-  const b = crypto.getRandomValues(new Uint8Array(16));
-  return Array.from(b).map(x => x.toString(16).padStart(2, '0')).join('');
-}
+async function sha256Hex(s){if(crypto&&crypto.subtle){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}return sha256HexJS(s);}
+function genKey(){const b=crypto.getRandomValues(new Uint8Array(16));return Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('');}
+
+const DRY_LABELS = {full:'Full Mock',dry_questions:'Dry Q',dry_images:'Dry Img',dry_audio:'Dry Aud'};
+const DRY_ICONS = {dry_questions:'Q',dry_images:'I',dry_audio:'A',full:''};
 
 createApp({
-  data() {
-    return {
-      authed: !!localStorage.getItem(LS_TK),
-      who: localStorage.getItem(LS_EM) || '',
-      loginEmail: '', loginPass: '',       loginErr: '', loginBusy: false, clientBusy: false, newKeyHash: '', togglingId: '',
-      theme: localStorage.getItem(LS_TH) || 'dark',
-      view: 'overview',
-      nav: [
-        { id: 'overview', label: 'Overview' },
-        { id: 'clients', label: 'Clients' },
-        { id: 'configs', label: 'Configs' },
-        { id: 'jobs', label: 'Jobs' },
-      ],
-      clients: [], jobs: [], configs: [], meta: [], models: [],
-      jobsBusy: false, startBusy: false,
-      qs: { client: '', count: 40, difficulty: 'creative+difficult' },
-      jobFilter: 'all',
-      drawerJob: null, drawerTimer: null,
-      clientModal: false, newClientName: '', newKey: '', clientErr: '',
-      confirmMsg: null, confirmFn: null,
-      toasts: [],
-      cfgClient: '', cfg: null, cfgLoading: false, cfgSaving: false, cfgSavedAt: '', cfgRaw: false, cfgRawText: '', cfgRawErr: '',
-      cfgData: {}, showPass: false,
-    };
-  },
-  computed: {
-    filteredJobs() {
-      if (this.jobFilter === 'all') return this.jobs;
-      return this.jobs.filter(j => j.status === this.jobFilter);
-    },
-    stats() {
-      const now = Date.now(), day = 864e5;
-      const t = this.jobs.filter(j => now - new Date(this.fixT(j.created)).getTime() < day).length;
-      const run = this.jobs.filter(j => j.status === 'running').length;
-      const fail = this.jobs.filter(j => j.status === 'failed' && now - new Date(this.fixT(j.created)).getTime() < day).length;
-      return [
-        { k: 'clients', v: this.clients.length, c: 'var(--amber2)', i: 0 },
-        { k: 'configs', v: this.configs.length, c: 'var(--ink)', i: 1 },
-        { k: 'jobs · 24h', v: t, c: 'var(--ink)', i: 2 },
-        { k: 'running', v: run, c: 'var(--amber)', i: 3 },
-        { k: 'failed · 24h', v: fail, c: 'var(--red)', i: 4 },
+  data(){return{
+    authed:!!localStorage.getItem(LS_TK),who:localStorage.getItem(LS_EM)||'',
+    loginEmail:'',loginPass:'',loginErr:'',loginBusy:false,clientBusy:false,newKeyHash:'',togglingId:'',
+    theme:localStorage.getItem(LS_TH)||'dark',view:'overview',
+    nav:[{id:'overview',label:'Overview'},{id:'clients',label:'Clients'},{id:'configs',label:'Configs'},{id:'jobs',label:'Jobs'}],
+    clients:[],jobs:[],configs:[],meta:[],models:[],jobsBusy:false,startBusy:false,
+    qs:{client:'',count:40,difficulty:'creative+difficult'},jobFilter:'all',
+    drawerJob:null,drawerTimer:null,clientModal:false,newClientName:'',newKey:'',clientErr:'',
+    confirmMsg:null,confirmFn:null,toasts:[],
+    cfgClient:'',cfg:null,cfgLoading:false,cfgSaving:false,cfgSavedAt:'',cfgRaw:false,cfgRawText:'',cfgRawErr:'',
+    cfgData:{},showPass:false,valIssues:[],valChecked:false,
+  }},
+  computed:{
+    filteredJobs(){return this.jobFilter==='all'?this.jobs:this.jobs.filter(j=>j.status===this.jobFilter);},
+    stats(){
+      const now=Date.now(),day=864e5,t=this.jobs.filter(j=>now-new Date(this.fixT(j.created)).getTime()<day).length;
+      const run=this.jobs.filter(j=>j.status==='running').length,fail=this.jobs.filter(j=>j.status==='failed'&&now-new Date(this.fixT(j.created)).getTime()<day).length;
+      return[
+        {k:'clients',v:this.clients.length,c:'var(--amber2)',i:0},{k:'configs',v:this.configs.length,c:'var(--ink)',i:1},
+        {k:'jobs · 24h',v:t,c:'var(--ink)',i:2},{k:'running',v:run,c:'var(--amber)',i:3},{k:'failed · 24h',v:fail,c:'var(--red)',i:4},
       ];
     },
-    groups() {
-      const g = [...new Set(this.meta.map(m => m.group))];
-      return ['LLM', 'Images', 'Exam', 'Audio', 'Push', 'Advanced', 'General'].filter(x => g.includes(x));
+    groups(){const g=[...new Set(this.meta.map(m=>m.group))];return ['LLM','Exam','Images','Audio','Push','Advanced','General'].filter(x=>g.includes(x));},
+    listeningCount(){const c=this.cfgData.question_count||40;const r=this.cfgData.reading_count||20;return Math.max(0,c-r);},
+    costEst(){
+      const q=this.cfgData.question_count||40,r=this.cfgData.reading_count||20,img=this.cfgData.image_count||22,list=Math.max(0,q-r);
+      const authCostPerQ=0.0005,proofCostPerQ=0.00015,text=(q*0.75)*(authCostPerQ+proofCostPerQ);
+      const imgCost=img*0.008,audioCost=list*0.0004;
+      return{text:text,images:imgCost,audio:audioCost,total:text+imgCost+audioCost};
     },
-    bandOk() {
-      const c = this.cfgData;
-      return c.image_count >= c.image_count_min && c.image_count <= c.image_count_max;
-    },
+    costPct(){const t=this.costEst;const m=t.total||0.0001;return{text:(t.text/m*100).toFixed(1),images:(t.images/m*100).toFixed(1),audio:(t.audio/m*100).toFixed(1)};},
   },
-  watch: {
-    view(v) { if (v === 'jobs') this.loadJobs(); if (v === 'clients') this.loadClients(); },
-    drawerJob(j) {
-      clearInterval(this.drawerTimer); this.drawerTimer = null;
-      if (j && (j.status === 'queued' || j.status === 'running')) {
-        this.drawerTimer = setInterval(() => this.refreshDrawer(), 4000);
-      }
-    },
+  watch:{
+    view(v){if(v==='jobs')this.loadJobs();if(v==='clients')this.loadClients();},
+    drawerJob(j){clearInterval(this.drawerTimer);this.drawerTimer=null;if(j&&(j.status==='queued'||j.status==='running')){this.drawerTimer=setInterval(()=>this.refreshDrawer(),4000);}},
   },
-  methods: {
-    fixT(s) { return String(s || '').replace(' ', 'T'); },
-    fmtTime(s) {
-      if (!s) return '—';
-      const d = new Date(this.fixT(s));
-      if (isNaN(d)) return s;
-      return d.toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  methods:{
+    fixT(s){return String(s||'').replace(' ','T');},
+    fmtTime(s){if(!s)return'—';const d=new Date(this.fixT(s));if(isNaN(d))return s;return d.toLocaleString([],{month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});},
+    short(s){return s?String(s).slice(0,8):'—';},
+    sc(st){return st==='running'?'var(--amber)':st==='done'?'var(--green)':st==='failed'?'var(--red)':'var(--mut)';},
+    jobCount(id){return this.jobs.filter(j=>j.client===id).length;},
+    pretty(o){return o?JSON.stringify(o,null,2):'(no report yet)';},
+    toast(msg,type){const id=Date.now()+Math.random();this.toasts.push({id,msg,type:type||'ok'});setTimeout(()=>{this.toasts=this.toasts.filter(t=>t.id!==id);},4200);},
+    async copy(txt){try{await navigator.clipboard.writeText(txt);this.toast('copied','ok');}catch(e){this.toast('copy failed','err');}},
+    sel(e){e.target.select();},
+    toggleTheme(){this.theme=this.theme==='dark'?'light':'dark';localStorage.setItem(LS_TH,this.theme);document.documentElement.setAttribute('data-theme',this.theme);},
+    dryIcon(k){const i=DRY_ICONS[k]||'';return i?i+' ':'';},
+    grpBg(g){const m={LLM:'var(--blue)',Images:'rgba(192,132,252,.12)',Exam:null,Audio:'rgba(34,211,238,.08)',Push:'rgba(245,166,35,.08)',Advanced:null,General:null};return m[g]||'transparent';},
+    grpFg(g){const m={LLM:'#0c4a6e',Images:'var(--purple)',Audio:'var(--cyan)',Push:'var(--amber2)'};return m[g]||'var(--ink)';},
+    grpDesc(g){const m={LLM:'Which AI models generate and review questions',Images:'Image generation settings for TOPIK-style picture questions',Exam:'Exam structure — question count, difficulty, marks, duration',Audio:'Text-to-speech for listening section audio clips',Push:'Where to send the finished exam (your teacher app)',Advanced:'LLM token limits, timeouts, retry behaviour',General:'Master on/off switch'};return m[g]||'';},
+    hintText(f){if(!f||!this.cfgData)return'';const v=this.cfgData[f.field];
+      if(f.field==='image_count'){const mn=this.cfgData.image_count_min||18,mx=this.cfgData.image_count_max||26;return v>=mn&&v<=mx?`✓ In range (${mn}–${mx})`:v<mn?`Too low — below minimum ${mn}`:`Too high — above maximum ${mx}`;}
+      if(f.field==='reading_count'){const t=this.cfgData.question_count||0;return t?`${t-v} listening questions remaining (Q${v+1}–Q${t})`:'Set total questions first';}
+      return'';},
+    validateConfig(){this.valIssues=[];const c=this.cfgData;if(!c)return;
+      if((c.question_count||0)<(c.reading_count||0))this.valIssues.push({w:'err',msg:`Reading count (${c.reading_count}) cannot exceed total questions (${c.question_count})`});
+      if((c.image_count||0)<(c.image_count_min||0))this.valIssues.push({w:'warn',msg:`Image count (${c.image_count}) is below minimum (${c.image_count_min}) — repair pass will add images`});
+      if((c.image_count||0)>(c.image_count_max||0))this.valIssues.push({w:'warn',msg:`Image count (${c.image_count}) is above maximum (${c.image_count_max}) — repair pass may strip images`});
+      if(!c.push_pb_pass||!c.push_pb_pass.trim())this.valIssues.push({w:'warn',msg:'Push password is empty — the full pipeline will fail at the push step. Set it here or use MOCK_PB_PASS env var.'});
+      if(!c.push_pb_base)this.valIssues.push({w:'err',msg:'Push base URL is empty — no exam can be delivered.'});
+      if((c.marks_per_question||1)<0)this.valIssues.push({w:'err',msg:'Marks per question cannot be negative.'});
+      if((c.timeout_s||600)<20)this.valIssues.push({w:'warn',msg:`LLM timeout (${c.timeout_s}s) is very low — may cause timeouts.`});
+      this.valChecked=true;if(!this.valIssues.length)this.toast('All checks passed','ok');
     },
-    short(s) { return s ? String(s).slice(0, 8) : '—'; },
-    sc(st) { return st === 'running' ? 'var(--amber)' : st === 'done' ? 'var(--green)' : st === 'failed' ? 'var(--red)' : 'var(--mut)'; },
-    jobCount(id) { return this.jobs.filter(j => j.client === id).length; },
-    pretty(o) { return o ? JSON.stringify(o, null, 2) : '(no report yet)'; },
-    toast(msg, type) {
-      const id = Date.now() + Math.random();
-      this.toasts.push({ id, msg, type: type || 'ok' });
-      setTimeout(() => { this.toasts = this.toasts.filter(t => t.id !== id); }, 4200);
-    },
-    async copy(txt) { try { await navigator.clipboard.writeText(txt); this.toast('copied', 'ok'); } catch (e) { this.toast('copy failed', 'err'); } },
-    sel(e) { e.target.select(); },
-    toggleTheme() {
-      this.theme = this.theme === 'dark' ? 'light' : 'dark';
-      localStorage.setItem(LS_TH, this.theme);
-      document.documentElement.setAttribute('data-theme', this.theme);
-    },
-    async login() {
-      this.loginErr = ''; this.loginBusy = true;
-      try {
-        const r = await fetch('/api/collections/_superusers/auth-with-password', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ identity: this.loginEmail, password: this.loginPass }),
-        });
-        const b = await r.json();
-        if (!r.ok) throw new Error(b.message || 'auth failed');
-        localStorage.setItem(LS_TK, b.token);
-        localStorage.setItem(LS_EM, b.record.email || this.loginEmail);
-        this.who = localStorage.getItem(LS_EM);
-        this.authed = true;
-        try { await api('/api/creator/ensure'); } catch (e) { this.toast('ensure: ' + e.message, 'err'); }
-        this.loadAll();
-      } catch (e) { this.loginErr = e.message; }
-      this.loginBusy = false;
-    },
-    logout() {
-      localStorage.removeItem(LS_TK); localStorage.removeItem(LS_EM);
-      clearInterval(this.drawerTimer); this.drawerTimer = null; this.drawerJob = null;
-      this.authed = false; this.who = ''; this.view = 'overview';
-      this.clients = []; this.jobs = []; this.configs = []; this.cfgClient = ''; this.cfg = null;
-    },
-    loadAll() {
-      this.loadClients(); this.loadJobs(); this.loadConfigs(); this.loadMeta(); this.loadModels();
-    },
-    async loadClients() {
-      try { const r = await api('/api/collections/mock_clients/records?perPage=200&sort=name'); this.clients = r.items || []; }
-      catch (e) { this.toast('clients: ' + e.message, 'err'); }
-    },
-    async loadConfigs() {
-      try { const r = await api('/api/collections/mock_config/records?perPage=200'); this.configs = r.items || []; }
-      catch (e) { this.toast('configs: ' + e.message, 'err'); }
-    },
-    async loadMeta() {
-      try { const r = await api('/api/collections/mock_config_meta/records?perPage=200&sort=group,order'); this.meta = r.items || []; }
-      catch (e) {}
-    },
-    async loadModels() {
-      try { const r = await api('/api/collections/mock_models/records?perPage=200'); this.models = r.items || []; }
-      catch (e) {}
-    },
-    async loadJobs() {
-      this.jobsBusy = true;
-      try { const r = await api('/api/creator/jobs'); this.jobs = r.jobs || []; }
-      catch (e) { this.toast('jobs: ' + e.message, 'err'); }
-      this.jobsBusy = false;
-    },
-    startJob(params) {
-      const q = new URLSearchParams(params);
-      return api('/api/creator/start?' + q.toString(), { method: 'POST' });
-    },
-    async quickStart() {
-      this.startBusy = true;
-      try {
-        const r = await this.startJob({ client: this.qs.client, count: this.qs.count, difficulty: this.qs.difficulty });
-        this.toast('job ' + r.job_id.slice(0, 8) + ' queued', 'ok');
-        this.loadJobs();
-      } catch (e) { this.toast('start: ' + e.message, 'err'); }
-      this.startBusy = false;
-    },
-    openClientModal() { this.clientModal = true; this.newClientName = ''; this.newKey = genKey(); this.newKeyHash = ''; sha256Hex(this.newKey).then(h => { this.newKeyHash = h; }); this.clientErr = ''; },
-    async createClient() {
-      if (this.clientBusy) return;
-      this.clientErr = ''; this.clientBusy = true;
-      try {
-        const h = await sha256Hex(this.newKey);
-        await api('/api/collections/mock_clients/records', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: this.newClientName, api_key_hash: h, active: true }),
-        });
-        this.clientModal = false;
-        this.toast('client created', 'ok');
-        this.loadClients();
-      } catch (e) { this.clientErr = e.message; }
-      this.clientBusy = false;
-    },
-    async toggleClient(c) {
-      if (this.togglingId) return;
-      this.togglingId = c.id;
-      try {
-        await api('/api/collections/mock_clients/records/' + c.id, {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ active: !c.active }),
-        });
-        c.active = !c.active;
-      } catch (e) { this.toast('toggle: ' + e.message, 'err'); }
-      this.togglingId = '';
-    },
-    delClient(c) {
-      this.confirmMsg = 'Delete client "' + c.name + '"? Its config and jobs stay, but the key stops working.';
-      this.confirmFn = async () => {
-        try { await api('/api/collections/mock_clients/records/' + c.id, { method: 'DELETE' }); this.toast('client deleted', 'ok'); this.loadClients(); }
-        catch (e) { this.toast('delete: ' + e.message, 'err'); }
-      };
-    },
-    openConfigFor(id) { this.view = 'configs'; this.cfgClient = id; this.cfgRaw = false; this.loadConfig(); },
-    async loadConfig() {
-      if (!this.cfgClient) { this.cfg = null; return; }
-      this.cfgLoading = true; this.cfgSavedAt = '';
-      try {
-        const r = await api('/api/creator/config?client=' + encodeURIComponent(this.cfgClient));
-        this.cfg = r;
-        const rest = Object.assign({}, r.record);
-        delete rest.id; delete rest.created; delete rest.updated;
-        this.cfgData = rest;
-        this.cfgData.prompts_json = JSON.stringify((r.record && r.record.prompts_json) || {}, null, 2);
-        this.cfgRawText = JSON.stringify(r.record, null, 2);
-        this.cfgRawErr = '';
-      } catch (e) { this.toast('config: ' + e.message, 'err'); this.cfg = null; }
-      this.cfgLoading = false;
-    },
-    metaByGroup(g) { return this.meta.filter(m => m.group === g); },
-    validateRaw() {
-      try { JSON.parse(this.cfgRawText); this.cfgRawErr = ''; this.toast('JSON valid', 'ok'); }
-      catch (e) { this.cfgRawErr = 'Invalid JSON: ' + e.message; }
-    },
-    async saveConfig() {
-      this.cfgSaving = true;
-      try {
-        let body;
-        if (this.cfgRaw) {
-          body = JSON.parse(this.cfgRawText);
-        } else {
-          const metaByField = {};
-          this.meta.forEach(m => { metaByField[m.field] = m; });
-          body = {};
-          for (const k of Object.keys(this.cfgData)) {
-            const m = metaByField[k];
-            const v = this.cfgData[k];
-            if (k === 'prompts_json') { try { body[k] = JSON.parse(v || '{}'); } catch (e) { throw new Error('prompts_json is not valid JSON'); } }
-            else if (m && m.ftype === 'number') body[k] = (v === '' || v === null || v === undefined) ? null : Number(v);
-            else if (m && m.ftype === 'bool') body[k] = !!v;
-            else body[k] = v;
-          }
-        }
-        await api('/api/collections/mock_config/records/' + this.cfg.config, {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-        });
-        this.toast('config saved', 'ok');
-        await this.loadConfig();
-        this.cfgSavedAt = new Date().toISOString();
-      } catch (e) { this.toast('save: ' + e.message, 'err'); }
-      this.cfgSaving = false;
-    },
-    async openJob(j) {
-      try {
-        const r = await api('/api/creator/jobs/' + j.id);
-        this.drawerJob = r;
-      } catch (e) { this.toast('job: ' + e.message, 'err'); }
-    },
-    async refreshDrawer() {
-      if (!this.drawerJob) return;
-      try {
-        const r = await api('/api/creator/jobs/' + this.drawerJob.id);
-        Object.assign(this.drawerJob, r);
-        const j = this.jobs.find(x => x.id === r.id);
-        if (j) Object.assign(j, { status: r.status, error: r.error, pushed: r.pushed });
-        if (r.status !== 'queued' && r.status !== 'running') clearInterval(this.drawerTimer);
-      } catch (e) {}
-    },
-    retryJob() {
-      const j = this.drawerJob;
-      this.confirmMsg = 'Re-queue this job for "' + j.client_name + '" with ' + j.count + ' questions?';
-      this.confirmFn = async () => {
-        try {
-          await this.startJob({ client: j.client, count: j.count, difficulty: j.difficulty || '' });
-          this.toast('re-queued', 'ok'); this.drawerJob = null; this.loadJobs();
-        } catch (e) { this.toast('requeue: ' + e.message, 'err'); }
-      };
-    },
-    delJob() {
-      const j = this.drawerJob;
-      this.confirmMsg = 'Delete job ' + j.id.slice(0, 8) + ' permanently?';
-      this.confirmFn = async () => {
-        try { await api('/api/collections/mock_jobs/records/' + j.id, { method: 'DELETE' }); this.toast('job deleted', 'ok'); this.drawerJob = null; this.loadJobs(); }
-        catch (e) { this.toast('delete: ' + e.message, 'err'); }
-      };
-    },
-    confirmDo() { const fn = this.confirmFn; this.confirmMsg = null; this.confirmFn = null; if (fn) fn(); },
+    async login(){this.loginErr='';this.loginBusy=true;
+      try{const r=await fetch('/api/collections/_superusers/auth-with-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity:this.loginEmail,password:this.loginPass})});const b=await r.json();if(!r.ok)throw new Error(b.message||'auth failed');localStorage.setItem(LS_TK,b.token);localStorage.setItem(LS_EM,b.record.email||this.loginEmail);this.who=localStorage.getItem(LS_EM);this.authed=true;try{await api('/api/creator/ensure');}catch(e){this.toast('ensure: '+e.message,'err');}this.loadAll();}catch(e){this.loginErr=e.message;}this.loginBusy=false;},
+    logout(){localStorage.removeItem(LS_TK);localStorage.removeItem(LS_EM);clearInterval(this.drawerTimer);this.drawerTimer=null;this.drawerJob=null;this.authed=false;this.who='';this.view='overview';this.clients=[];this.jobs=[];this.configs=[];this.cfgClient='';this.cfg=null;},
+    loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();},
+    async loadClients(){try{const r=await api('/api/collections/mock_clients/records?perPage=200&sort=name');this.clients=r.items||[];}catch(e){this.toast('clients: '+e.message,'err');}},
+    async loadConfigs(){try{const r=await api('/api/collections/mock_config/records?perPage=200');this.configs=r.items||[];}catch(e){this.toast('configs: '+e.message,'err');}},
+    async loadMeta(){try{const r=await api('/api/collections/mock_config_meta/records?perPage=200&sort=group,order');this.meta=r.items||[];}catch(e){}},
+    async loadModels(){try{const r=await api('/api/collections/mock_models/records?perPage=200');this.models=r.items||[];}catch(e){}},
+    async loadJobs(){this.jobsBusy=true;try{const r=await api('/api/creator/jobs');this.jobs=r.jobs||[];}catch(e){this.toast('jobs: '+e.message,'err');}this.jobsBusy=false;},
+    startJob(params){const q=new URLSearchParams(params);return api('/api/creator/start?'+q.toString(),{method:'POST'});},
+    async quickStart(kind){this.startBusy=true;try{const params={client:this.qs.client,count:this.qs.count,difficulty:this.qs.difficulty};if(kind&&kind!=='full'){params.kind=kind;params.count=2;}const r=await this.startJob(params);this.toast('job '+r.job_id.slice(0,8)+' queued ('+(r.kind||kind)+')','ok');this.loadJobs();}catch(e){this.toast('start: '+e.message,'err');}this.startBusy=false;},
+    async dryRun(kind){if(!this.cfgClient)return this.toast('Select a client first','err');this.startBusy=true;try{const r=await this.startJob({client:this.cfgClient,kind:kind,count:2,difficulty:this.cfgData.difficulty_profile||'creative+difficult'});this.toast('dry run '+kind+' queued (job '+r.job_id.slice(0,8)+')','ok');this.loadJobs();}catch(e){this.toast('dry run: '+e.message,'err');}this.startBusy=false;},
+    async dryRunConfig(kind){if(!this.qs.client)return this.toast('Select a client in Quick Start first','err');this.startBusy=true;try{const r=await this.startJob({client:this.qs.client,kind:kind,count:2,difficulty:this.qs.difficulty});this.toast('dry run '+kind+' queued (job '+r.job_id.slice(0,8)+')','ok');this.loadJobs();}catch(e){this.toast('dry run: '+e.message,'err');}this.startBusy=false;},
+    async loadConfig(){if(!this.cfgClient){this.cfg=null;return;}this.cfgLoading=true;this.cfgSavedAt='';try{const r=await api('/api/creator/config?client='+encodeURIComponent(this.cfgClient));this.cfg=r;const rest=Object.assign({},r.record);delete rest.id;delete rest.created;delete rest.updated;this.cfgData=rest;this.cfgData.prompts_json=JSON.stringify((r.record&&r.record.prompts_json)||{},null,2);this.cfgRawText=JSON.stringify(r.record,null,2);this.cfgRawErr='';this.valChecked=false;this.valIssues=[];}catch(e){this.toast('config: '+e.message,'err');this.cfg=null;}this.cfgLoading=false;},
+    metaByGroup(g){return this.meta.filter(m=>m.group===g);},
+    validateRaw(){try{JSON.parse(this.cfgRawText);this.cfgRawErr='';this.toast('JSON valid','ok');}catch(e){this.cfgRawErr='Invalid JSON: '+e.message;}},
+    async saveConfig(){this.cfgSaving=true;try{let body;if(this.cfgRaw){body=JSON.parse(this.cfgRawText);}else{const metaByField={};this.meta.forEach(m=>{metaByField[m.field]=m;});body={};for(const k of Object.keys(this.cfgData)){const m=metaByField[k];const v=this.cfgData[k];if(k==='prompts_json'){try{body[k]=JSON.parse(v||'{}');}catch(e){throw new Error('prompts_json is not valid JSON');}}else if(m&&m.ftype==='number')body[k]=(v===''||v===null||v===undefined)?null:Number(v);else if(m&&m.ftype==='bool')body[k]=!!v;else body[k]=v;}}await api('/api/collections/mock_config/records/'+this.cfg.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});this.toast('config saved','ok');await this.loadConfig();this.cfgSavedAt=new Date().toISOString();}catch(e){this.toast('save: '+e.message,'err');}this.cfgSaving=false;},
+    async openJob(j){try{const r=await api('/api/creator/jobs/'+j.id);this.drawerJob=r;}catch(e){this.toast('job: '+e.message,'err');}},
+    async refreshDrawer(){if(!this.drawerJob)return;try{const r=await api('/api/creator/jobs/'+this.drawerJob.id);Object.assign(this.drawerJob,r);const j=this.jobs.find(x=>x.id===r.id);if(j)Object.assign(j,{status:r.status,error:r.error,pushed:r.pushed});if(r.status!=='queued'&&r.status!=='running')clearInterval(this.drawerTimer);}catch(e){}},
+    retryJob(){const j=this.drawerJob;this.confirmMsg='Re-queue '+j.kind+' job for "'+j.client_name+'" ('+j.count+'q)?';this.confirmFn=async()=>{try{await this.startJob({client:j.client,count:j.count,difficulty:j.difficulty||''});this.toast('re-queued','ok');this.drawerJob=null;this.loadJobs();}catch(e){this.toast('requeue: '+e.message,'err');}};},
+    delJob(){const j=this.drawerJob;this.confirmMsg='Delete job '+j.id.slice(0,8)+' permanently?';this.confirmFn=async()=>{try{await api('/api/collections/mock_jobs/records/'+j.id,{method:'DELETE'});this.toast('job deleted','ok');this.drawerJob=null;this.loadJobs();}catch(e){this.toast('delete: '+e.message,'err');}};},
+    confirmDo(){const fn=this.confirmFn;this.confirmMsg=null;this.confirmFn=null;if(fn)fn();},
+    openClientModal(){this.clientModal=true;this.newClientName='';this.newKey=genKey();this.newKeyHash='';sha256Hex(this.newKey).then(h=>{this.newKeyHash=h;});this.clientErr='';},
+    async createClient(){if(this.clientBusy)return;this.clientErr='';this.clientBusy=true;try{const h=await sha256Hex(this.newKey);await api('/api/collections/mock_clients/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:this.newClientName,api_key_hash:h,active:true})});this.clientModal=false;this.toast('client created','ok');this.loadClients();}catch(e){this.clientErr=e.message;}this.clientBusy=false;},
+    async toggleClient(c){if(this.togglingId)return;this.togglingId=c.id;try{await api('/api/collections/mock_clients/records/'+c.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:!c.active})});c.active=!c.active;}catch(e){this.toast('toggle: '+e.message,'err');}this.togglingId='';},
+    delClient(c){this.confirmMsg='Delete client "'+c.name+'"? Its config and jobs stay, but the key stops working.';this.confirmFn=async()=>{try{await api('/api/collections/mock_clients/records/'+c.id,{method:'DELETE'});this.toast('client deleted','ok');this.loadClients();}catch(e){this.toast('delete: '+e.message,'err');}};},
+    openConfigFor(id){this.view='configs';this.cfgClient=id;this.cfgRaw=false;this.loadConfig();},
   },
-  mounted() {
-    document.documentElement.setAttribute('data-theme', this.theme);
-    if (this.authed) this.loadAll();
-  },
+  mounted(){document.documentElement.setAttribute('data-theme',this.theme);if(this.authed)this.loadAll();},
 }).mount('#app');
 </script>
 </body>

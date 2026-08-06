@@ -124,6 +124,7 @@ SCHEMA = [
         f("client", "relation", required=True,
           collectionId=COLLECTION_IDS["mock_clients"], maxSelect=1, minSelect=0),
         f("status", "select", values=["queued", "running", "done", "failed"], maxSelect=1),
+        f("kind", "select", values=["full", "dry_questions", "dry_images", "dry_audio"], maxSelect=1),
         f("count", "number", min=1, max=200),
         f("difficulty", "select", values=["creative+difficult", "creative+medium", "hard", ""], maxSelect=1),
         f("overrides", "json", maxSize=65536),
@@ -336,10 +337,14 @@ try {
   try { count = parseInt(q.get("count") || "40", 10) } catch (err) {}
   if (isNaN(count) || count < 1 || count > 200) count = 40
   var difficulty = q.get("difficulty") || cfg.getString("difficulty_profile") || "creative+difficult"
+  var kind = (q.get("kind") || "full").trim()
+  if (kind === "dry") kind = "dry_questions"
+  if (["full","dry_questions","dry_images","dry_audio"].indexOf(kind) === -1) kind = "full"
   var jobCol = $app.findCollectionByNameOrId("mock_jobs")
   var job = new Record(jobCol)
   job.set("client", client.id)
   job.set("status", "queued")
+  job.set("kind", kind)
   job.set("count", count)
   job.set("difficulty", difficulty)
   job.set("overrides", {})
@@ -347,6 +352,7 @@ try {
   return e.json(200, {
     job_id: job.id,
     status: "queued",
+    kind: kind,
     client: client.getString("name"),
     count: count,
     difficulty: difficulty
@@ -418,6 +424,7 @@ try {
       client: r.getString("client"),
       client_name: cname,
       status: r.getString("status"),
+      kind: r.getString("kind") || "full",
       count: r.getInt("count"),
       difficulty: r.getString("difficulty"),
       pushed: r.getBool("pushed"),
@@ -459,6 +466,7 @@ try {
     client: rec.getString("client"),
     client_name: cname,
     status: rec.getString("status"),
+    kind: rec.getString("kind") || "full",
     count: rec.getInt("count"),
     difficulty: rec.getString("difficulty"),
     overrides: rec.get("overrides"),

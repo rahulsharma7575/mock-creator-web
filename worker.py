@@ -243,6 +243,14 @@ def run_job(job):
 
     cfg["is_active"] = True  # pipeline pushes only when active
 
+    kind = job.get("kind", "full") or "full"
+    if kind.startswith("dry_"):
+        dry_mode = kind[4:]  # questions | images | audio
+        cfg["dry_mode"] = dry_mode
+        cfg["question_count"] = 2
+        cfg["reading_count"] = 1
+        log(f"job {job_id}: dry run mode={dry_mode}, sample_size=2")
+
     if not cfg.get("pb_pass"):
         log(f"job {job_id}: push credentials missing for client {client_name}")
         patch_job(job_id, {
@@ -261,8 +269,10 @@ def run_job(job):
 
     patch_job(job_id, {
         "status": "running",
-        "log": f"[worker] job started for {client_name} (count={cfg.get('question_count')}, "
-               f"difficulty={cfg.get('difficulty_profile')})",
+        "log": ("[worker] dry_run=" + cfg.get("dry_mode", "full") +
+                " started for " + client_name +
+                " (count=" + str(cfg.get("question_count")) +
+                ", difficulty=" + str(cfg.get("difficulty_profile")) + ")"),
         "error": "",
     })
 
@@ -271,6 +281,8 @@ def run_job(job):
     env["MOCK_ROOT"] = str(workdir / "mocks")
     env["MOCK_CONFIG"] = str(cfgfile)
     cmd = [sys.executable, str(MOCK_NEXT), "--config", str(cfgfile)]
+    if kind.startswith("dry_"):
+        cmd.append("--dry-run")
 
     log_tail = ""
     rc = -1
