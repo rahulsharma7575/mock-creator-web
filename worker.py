@@ -243,6 +243,16 @@ def run_job(job):
 
     cfg["is_active"] = True  # pipeline pushes only when active
 
+    if not cfg.get("pb_pass"):
+        log(f"job {job_id}: push credentials missing for client {client_name}")
+        patch_job(job_id, {
+            "status": "failed",
+            "error": ("push_pb_pass is empty for client " + client_name +
+                      " - set the Push password in the /creator config editor "
+                      "(Push group) or add MOCK_PB_PASS to the container env"),
+        })
+        return
+
     workdir = WORK_ROOT / job_id
     workdir.mkdir(parents=True, exist_ok=True)
     (workdir / "mocks").mkdir(parents=True, exist_ok=True)

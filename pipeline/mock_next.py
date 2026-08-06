@@ -312,7 +312,7 @@ def chat_json(key, model, system, user, max_tokens=32000, temperature=0.7, extra
         raise RuntimeError(f"LLM HTTP {r.status_code}: {json.dumps(j, ensure_ascii=False)[:300]}")
     content = j["choices"][0]["message"].get("content") or ""
     content = re.sub(r"^```(?:json)?|```$", "", content.strip()).strip()
-    return json.loads(content), j.get("usage", {})
+    return json.loads(content, strict=False), j.get("usage", {})
 
 
 AUTHOR_SYSTEM = """You are a senior EPS-TOPIK UBT exam writer and psychometric expert. Output ONLY valid JSON."""
@@ -474,6 +474,37 @@ def repair_exam(key, qs, stats=None, model_cfg=None):
     return qs
 
 
+def strip_html(text):
+    """Remove stray HTML-like tags from LLM output, keeping <보기>/</보기> markers."""
+    if not isinstance(text, str):
+        return text
+    out = re.sub(r"<(?!\/?보기>)[a-zA-Z/][^>]*>", "", text)
+    return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", " ", out).strip()
+
+
+def sanitize_exam(qs):
+    """Deterministic cleanup of model quirks: HTML tags + control chars in text fields."""
+    if not isinstance(qs, list):
+        return qs
+    for q in qs:
+        if not isinstance(q, dict):
+            continue
+        for field in ("question_text", "explanation", "imagePrompt"):
+            if isinstance(q.get(field), str):
+                q[field] = strip_html(q[field])
+        opts = q.get("options")
+        if isinstance(opts, list):
+            q["options"] = [strip_html(o) if isinstance(o, str) else o for o in opts]
+        listening = q.get("listening")
+        if isinstance(listening, dict):
+            script = listening.get("audioScript")
+            if isinstance(script, list):
+                for t in script:
+                    if isinstance(t, dict) and isinstance(t.get("text"), str):
+                        t["text"] = strip_html(t["text"])
+    return qs
+
+
 def validate_exam(qs, stage="final"):
     """stage='author' = structure only (repair pass fixes the rest); 'final' = everything.
 
@@ -545,7 +576,7 @@ def llm_author(key, attempt, model_cfg):
                 break
     if isinstance(qs, list):
         qs = [q for q in qs if isinstance(q, dict)]
-    return qs, usage
+    return sanitize_exam(qs), usage
 
 
 def llm_proofread(key, qs, model_cfg):
@@ -562,7 +593,7 @@ def llm_proofread(key, qs, model_cfg):
                     break
         if isinstance(fixed, list):
             fixed = [q for q in fixed if isinstance(q, dict)]
-        return fixed, usage
+        return sanitize_exam(fixed), usage
     except Exception as e:
         print(f"[proofread] failed ({e}) — keeping original")
         return qs, {}
@@ -574,7 +605,7 @@ def llm_proofread(key, qs, model_cfg):
 
 def pb_headers():
     if not PB_PASS:
-        raise RuntimeError("pb_pass not configured — set it in the job config file or MOCK_CONFIG")
+        raise RuntimeError("pb_pass not configured - set it in the job config file, MOCK_CONFIG, or the MOCK_PB_PASS env var")
     r = httpx.post(PB_BASE + "/api/collections/_superusers/auth-with-password",
                    json={"identity": PB_EMAIL, "password": PB_PASS}, timeout=30)
     r.raise_for_status()
