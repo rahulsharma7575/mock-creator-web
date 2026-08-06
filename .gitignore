@@ -1,6 +1,8 @@
 .env
 .env.*
 !.env.example
+opencode.json
+opencode.jsonc
 data/
 __pycache__/
 *.pyc

@@ -1,0 +1,64 @@
+{
+  "_comment": "Pipeline config for mock_next.py. Every value is also editable per-client via the /creator/ GUI (mock_config collection). Overrides: --config <file> | $MOCK_CONFIG | individual $MOCK_<KEY> env vars (e.g. MOCK_IMAGE_COUNT=24).",
+
+  "or_api": "https://openrouter.ai/api/v1/chat/completions",
+  "or_img": "https://openrouter.ai/api/v1/images/generations",
+  "llm_timeout_s": 600,
+
+  "pb_base": "https://ubt.wts.com.np",
+  "pb_email": "shiva@cld.com.np",
+  "pb_pass": "",
+  "subject_id": "illfosglou0e3j6",
+
+  "question_count": 40,
+  "reading_count": 20,
+  "listening_count": 20,
+
+  "image_count": 22,
+  "image_count_min": 18,
+  "image_count_max": 26,
+  "difficulty_profile": "creative+difficult",
+
+  "marks_per_question": 1,
+  "negative_marks": 0,
+  "is_active": true,
+
+  "duration_minutes": 50,
+  "pass_marks": 24,
+  "shuffle_questions": true,
+  "shuffle_options": false,
+
+  "author_model": "google/gemini-2.5-flash",
+  "author_retries": 3,
+  "author_max_tokens": 32000,
+  "author_timeout_s": 600,
+
+  "proof_model": "qwen/qwen3.5-flash-02-23",
+  "proof_retries": 2,
+  "proof_max_tokens": 32000,
+  "proof_temperature": 0.3,
+  "proof_timeout_s": 600,
+
+  "repair_model": "google/gemini-2.5-flash",
+  "repair_max_tokens": 4000,
+
+  "img_model": "z-image",
+  "img_fallback_model": "p-image-ideogram-1k",
+  "img_workers": 3,
+  "img_retries": 2,
+  "img_fallback_retries": 2,
+  "img_aspect": "1:1",
+  "img_size": "square_hd",
+  "img_quality": 80,
+  "img_max_size": 1024,
+  "img_timeout_s": 240,
+  "image_verify_after": true,
+  "image_style_prompt": "Simple flat vector illustration in the standard Korean TOPIK test style, minimal clean line art, plain solid white background, simple everyday scene, centered single main subject, clear silhouette, no text, no letters, no numbers, no watermark, no border",
+
+  "tts_model": "fish-audio/s2.1-pro-free:free",
+  "tts_fallback_model": "microsoft/mai-voice-2-flash",
+  "tts_fallback_voice": "ko-KR-Haena",
+  "tts_rate": 44100,
+  "tts_gap_ms": 400,
+  "tts_voices": {}
+}

@@ -12,6 +12,7 @@ echo Syncing pipeline files from questions-creator...
 copy /Y "%SRC%\mock_next.py"            "%BASE%pipeline\" >nul
 copy /Y "%SRC%\mock_audio_builder.py"   "%BASE%pipeline\" >nul
 copy /Y "%SRC%\magnific_mcp.py"         "%BASE%pipeline\" >nul
+copy /Y "%SRC%\mock-config.example.json" "%BASE%pipeline\" >nul
 if errorlevel 1 goto :err
 
 set "SCRIPTS=%USERPROFILE%\.config\opencode\scripts"

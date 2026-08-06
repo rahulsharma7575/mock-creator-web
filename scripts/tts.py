@@ -297,6 +297,8 @@ def make_speech(model: str, voice: str, text: str, fmt: str, key: str, speed: fl
             log(f"  (empty response - retrying {_attempt + 1}/3)")
             time.sleep(2 * _attempt)
             return make_speech(model, voice, text, fmt, key, speed, rate_override, _attempt + 1)
+        if not r.content:
+            sys.exit("ERROR: TTS returned empty audio after 3 attempts")
         return r.content
     if r.status_code == 400 and "pcm" in r.text and fmt and fmt != "pcm":
         log("  (model needs pcm - retrying and converting)")
@@ -425,13 +427,25 @@ def main():
 
     if len(parts) == 1:
         data = make_speech(args.model, voice, parts[0], fmt, key, args.speed, args.rate)
-        with open(out, "wb") as f:
-            f.write(data)
-        log(f"Saved:  {out} ({len(data) / 1024:.0f} KB)")
         if args.format == "wav" and fmt == "pcm":
-            rate = args.rate or model_rate(args.model) or 44100
-            subprocess.run([find_ffmpeg(), "-y", "-f", "s16le", "-ar", str(rate), "-ac", "1", "-i", out, out.rsplit(".", 1)[0] + ".wav"], capture_output=True)
-            log(f"Saved:  {out.rsplit('.', 1)[0] + '.wav'} (wav)")
+            rate = args.rate or model_rate(args.model)
+            if not rate:
+                sys.exit("ERROR: unknown sample rate for wav output — pass --rate")
+            tmp = tempfile.mktemp(suffix=".pcm")
+            with open(tmp, "wb") as f:
+                f.write(data)
+            res = subprocess.run(
+                [find_ffmpeg(), "-y", "-f", "s16le", "-ar", str(rate), "-ac", "1", "-i", tmp, out],
+                capture_output=True,
+            )
+            os.remove(tmp)
+            if res.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
+                sys.exit(f"ERROR: wav conversion failed: {res.stderr.decode(errors='ignore')[:300]}")
+            log(f"Saved:  {out} ({os.path.getsize(out) / 1024:.0f} KB) (wav)")
+        else:
+            with open(out, "wb") as f:
+                f.write(data)
+            log(f"Saved:  {out} ({len(data) / 1024:.0f} KB)")
         return
 
     # Multiple chunks -> generate parts IN PARALLEL then concat
@@ -458,12 +472,28 @@ def main():
         concat_mp3(part_files, out)
     elif args.format == "wav":
         rate = args.rate or model_rate(args.model) or 44100
+        ffmpeg = find_ffmpeg()
         wavs = []
         for pf in part_files:
             wf = pf.rsplit(".", 1)[0] + ".wav"
-            subprocess.run([find_ffmpeg(), "-y", "-i", pf, "-ar", str(rate), "-ac", "1", wf], capture_output=True)
+            res = subprocess.run([ffmpeg, "-y", "-i", pf, "-ar", str(rate), "-ac", "1", wf], capture_output=True)
+            if res.returncode != 0:
+                sys.exit(f"ERROR: wav conversion failed: {res.stderr.decode(errors='ignore')[:300]}")
             wavs.append(wf)
-        concat_mp3(wavs, out)
+        # concat with re-encode: "-c copy" on wav parts would keep per-part RIFF
+        # headers and produce a corrupt output file
+        listfile = out + f".parts.{os.getpid()}.txt"
+        with open(listfile, "w", encoding="utf-8") as f:
+            for p in wavs:
+                f.write(f"file '{os.path.abspath(p)}'\n")
+        res = subprocess.run(
+            [ffmpeg, "-y", "-f", "concat", "-safe", "0", "-i", listfile,
+             "-ar", str(rate), "-ac", "1", "-c:a", "pcm_s16le", out],
+            capture_output=True,
+        )
+        os.remove(listfile)
+        if res.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
+            sys.exit(f"ERROR: wav concat failed: {res.stderr.decode(errors='ignore')[:300]}")
     else:
         sys.exit("ERROR: pcm output for multi-chunk text not supported - use --format mp3 or wav")
     log(f"Saved:  {out}")

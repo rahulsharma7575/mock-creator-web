@@ -36,6 +36,10 @@ class MagnificError(RuntimeError):
     pass
 
 
+class ModelNotFoundError(MagnificError):
+    """The requested model is not exposed on the REST endpoint (HTTP 404)."""
+
+
 # ---------------------------------------------------------------------------
 # Path A — API-key REST (preferred)
 # ---------------------------------------------------------------------------
@@ -60,24 +64,30 @@ def _api_headers():
             "Accept": "application/json"}
 
 
-def generate_image_api(prompt, image_size="square_hd", timeout_s=240):
-    """REST z-image: POST task -> poll status -> return generated image URL."""
+def generate_image_api(prompt, model="z-image", image_size="square_hd", timeout_s=240):
+    """REST text-to-image: POST task for `model` -> poll status -> image URL.
+
+    model is any slug served under /v1/ai/text-to-image/<model> (verified:
+    "z-image"). Models the REST API does not expose (e.g. p-image-ideogram)
+    return HTTP 404 -> ModelNotFoundError so callers can auto-degrade."""
     headers = _api_headers()
-    r = httpx.post(API_URL + "/v1/ai/text-to-image/z-image", headers=headers,
+    r = httpx.post(API_URL + f"/v1/ai/text-to-image/{model}", headers=headers,
                    json={"prompt": prompt, "image_size": image_size}, timeout=60)
     if r.status_code == 401:
         raise MagnificError("Magnific API key rejected (401) — check MAGNIFIC_API_KEY in .env")
+    if r.status_code == 404:
+        raise ModelNotFoundError(f"model '{model}' not exposed on Magnific REST API (404) — degrading to z-image")
     if r.status_code != 200:
-        raise MagnificError(f"z-image POST HTTP {r.status_code}: {r.text[:200]}")
+        raise MagnificError(f"{model} POST HTTP {r.status_code}: {r.text[:200]}")
     task = (r.json().get("data") or {}).get("task_id")
     if not task:
-        raise MagnificError(f"no task_id in z-image response: {r.text[:200]}")
+        raise MagnificError(f"no task_id in {model} response: {r.text[:200]}")
     deadline = time.time() + timeout_s
     while time.time() < deadline:
-        s = httpx.get(API_URL + f"/v1/ai/text-to-image/z-image/{task}",
+        s = httpx.get(API_URL + f"/v1/ai/text-to-image/{model}/{task}",
                       headers=headers, timeout=60)
         if s.status_code != 200:
-            raise MagnificError(f"z-image status HTTP {s.status_code}: {s.text[:200]}")
+            raise MagnificError(f"{model} status HTTP {s.status_code}: {s.text[:200]}")
         data = s.json().get("data") or {}
         status = str(data.get("status", "")).upper()
         if status in ("COMPLETED", "SUCCESS"):
@@ -86,14 +96,9 @@ def generate_image_api(prompt, image_size="square_hd", timeout_s=240):
                 raise MagnificError("task completed but no generated URLs")
             return urls[0]
         if status in ("FAILED", "ERROR", "CANCELLED"):
-            raise MagnificError(f"z-image task {status}: {s.text[:200]}")
+            raise MagnificError(f"{model} task {status}: {s.text[:200]}")
         time.sleep(4)
-    raise MagnificError(f"z-image task timed out after {timeout_s}s")
-
-
-def check_balance_api():
-    """REST API has no balance endpoint — return None so callers skip the check."""
-    return None
+    raise MagnificError(f"{model} task timed out after {timeout_s}s")
 
 
 def _tokens():
@@ -250,17 +255,24 @@ def simulate_cost(prompt: str) -> dict:
         })
 
 
-def generate_image(prompt: str, aspect: str = "1:1", timeout_s: int = 240) -> str:
-    """Generate ONE z-image; returns the full-resolution image URL.
+def generate_image(prompt: str, model: str = "z-image", aspect: str = "1:1", timeout_s: int = 240) -> str:
+    """Generate ONE image for `model`; returns the full-resolution image URL.
 
-    Uses the Magnific REST API when MAGNIFIC_API_KEY is set (preferred);
-    falls back to the OAuth/MCP path otherwise.
+    API-key mode: REST /v1/ai/text-to-image/<model>; models the REST API does
+    not expose (404, e.g. p-image-ideogram) auto-degrade to z-image with a
+    warning. OAuth/MCP mode: images_generate with mode=<model>.
     """
     if api_key():
-        return generate_image_api(prompt, timeout_s=timeout_s)
+        try:
+            return generate_image_api(prompt, model=model, timeout_s=timeout_s)
+        except ModelNotFoundError as e:
+            print(f"[magnific] WARNING: {e}")
+            if model != "z-image":
+                return generate_image_api(prompt, model="z-image", timeout_s=timeout_s)
+            raise
     with MagnificSession(read_access_token()) as s:
         res = s.call_tool("images_generate", {
-            "mode": "z-image", "prompt": prompt, "aspectRatio": aspect, "count": 1})
+            "mode": model, "prompt": prompt, "aspectRatio": aspect, "count": 1})
         ids = _extract_ids(res)
         if not ids:
             raise MagnificError(f"no creation identifier in images_generate result: {str(res)[:300]}")
@@ -356,12 +368,13 @@ if __name__ == "__main__":
     ap.add_argument("--balance", action="store_true", help="show account balance")
     ap.add_argument("--cost", default="", help="simulate cost for a prompt")
     ap.add_argument("--gen", default="", help="generate one image from a prompt (prints URL)")
+    ap.add_argument("--model", default="z-image", help="Magnific model slug (default z-image)")
     args = ap.parse_args()
     if args.balance:
         print(check_balance())
     elif args.cost:
         print(simulate_cost(args.cost))
     elif args.gen:
-        print(generate_image(args.gen))
+        print(generate_image(args.gen, model=args.model))
     else:
         ap.print_help()

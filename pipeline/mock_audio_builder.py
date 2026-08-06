@@ -74,6 +74,58 @@ DEFAULT_GAP_MS = 400
 SAMPLE_RATE = 44100
 TMP = Path(os.environ.get("MOCK_TMP") or Path(tempfile.gettempdir()) / "mock_audio_builder")
 
+# TTS pipeline values (all editable per-client via the /creator/ GUI -> mock_config,
+# or MOCK_CONFIG file / $MOCK_* env vars — same keys as mock_next.py)
+TTS_DEFAULTS = {
+    "tts_model": "fish-audio/s2.1-pro-free:free",
+    "tts_fallback_model": "microsoft/mai-voice-2-flash",
+    "tts_fallback_voice": "ko-KR-Haena",
+    "tts_rate": 44100,
+    "tts_gap_ms": 400,
+    "tts_workers": 4,
+    "tts_voices": {},
+}
+
+
+def _coerce(default, raw):
+    if isinstance(default, bool):
+        return str(raw).strip().lower() in ("1", "true", "yes", "on")
+    if isinstance(default, int):
+        try:
+            return int(float(raw))
+        except ValueError:
+            return default
+    if isinstance(default, float):
+        try:
+            return float(raw)
+        except ValueError:
+            return default
+    if isinstance(default, (list, dict)) and raw.startswith(("[", "{")):
+        try:
+            return json.loads(raw)
+        except Exception:
+            return default
+    return raw
+
+
+def load_tts_config(path=None) -> dict:
+    """Merge $MOCK_CONFIG file + individual $MOCK_* env vars over TTS_DEFAULTS."""
+    cfg = dict(TTS_DEFAULTS)
+    path = path or os.environ.get("MOCK_CONFIG")
+    if path and os.path.exists(path):
+        try:
+            data = json.loads(Path(path).read_text(encoding="utf-8"))
+            for k in TTS_DEFAULTS:
+                if k in data:
+                    cfg[k] = data[k]
+        except Exception as e:
+            print(f"WARNING: unreadable MOCK_CONFIG ({e}) — using TTS defaults", flush=True)
+    for k in TTS_DEFAULTS:
+        env = os.environ.get("MOCK_" + k.upper())
+        if env is not None:
+            cfg[k] = _coerce(TTS_DEFAULTS[k], env)
+    return cfg
+
 
 def rand8() -> str:
     return "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
@@ -102,23 +154,34 @@ def load_tts():
         return None
 
 
-def synth(tts, text: str, voice: str, out: Path, model: str) -> bool:
-    """Synthesize one clip. Uses the tts module directly; falls back to subprocess."""
+def synth(tts, text: str, voice: str, out: Path, model: str,
+          fallback_model: str = "", fallback_voice: str = "") -> bool:
+    """Synthesize one clip. Uses the tts module directly; falls back to subprocess.
+    On failure retries once with the fallback model/voice (config-driven)."""
     key = os.environ.get("OPENROUTER_API_KEY") or (tts.find_key(None) if tts else None)
-    if tts is not None:
-        try:
-            data = tts.make_speech(model, voice, text, "mp3", key, None)
-            out.write_bytes(data)
-            return out.stat().st_size > 2000
-        except Exception as e:
-            print(f"    module synth failed: {e}", flush=True)
-    tts_path = Path.home() / ".config" / "opencode" / "scripts" / "tts.py"
-    r = subprocess.run(
-        [sys.executable, str(tts_path), "--model", model, "--voice", voice,
-         "--text", text, "--out", str(out)],
-        capture_output=True, text=True, timeout=180,
-    )
-    return r.returncode == 0 and out.exists() and out.stat().st_size > 2000
+
+    def try_one(m, v):
+        if tts is not None:
+            try:
+                data = tts.make_speech(m, v, text, "mp3", key, None)
+                out.write_bytes(data)
+                return out.stat().st_size > 2000
+            except Exception as e:
+                print(f"    module synth ({m}) failed: {e}", flush=True)
+        tts_path = Path.home() / ".config" / "opencode" / "scripts" / "tts.py"
+        r = subprocess.run(
+            [sys.executable, str(tts_path), "--model", m, "--voice", v,
+             "--text", text, "--out", str(out)],
+            capture_output=True, text=True, timeout=180,
+        )
+        return r.returncode == 0 and out.exists() and out.stat().st_size > 2000
+
+    if try_one(model, voice):
+        return True
+    if fallback_model and fallback_model != model:
+        print(f"    falling back to {fallback_model} (voice {fallback_voice})", flush=True)
+        return try_one(fallback_model, fallback_voice or voice)
+    return False
 
 
 def parse_script(script):
@@ -221,11 +284,22 @@ def resolve_mock_paths(mock: int) -> tuple:
 def main() -> None:
     ap = argparse.ArgumentParser(description="Generate listening audio for a mock set (see mock-blueprint.md)")
     ap.add_argument("--mock", required=True, type=int, help="Mock number (reads mock<N>_questions.json)")
-    ap.add_argument("--workers", type=int, default=4, help="Parallel TTS workers (default 4)")
-    ap.add_argument("--gap", type=int, default=DEFAULT_GAP_MS, help="Gap between dialogue lines in ms (default 400)")
+    ap.add_argument("--workers", type=int, default=0, help="Parallel TTS workers (default: config tts_workers=4)")
+    ap.add_argument("--gap", type=int, default=0, help="Gap between dialogue lines in ms (default: config tts_gap_ms=400)")
     ap.add_argument("--out-dir", default="", help="Override output dir (default mock<N>/audio)")
     ap.add_argument("--dry-run", action="store_true", help="Report what would be synthesized, do nothing")
     args = ap.parse_args()
+
+    cfg = load_tts_config()
+    if args.workers <= 0:
+        args.workers = int(cfg["tts_workers"])
+    if args.gap <= 0:
+        args.gap = int(cfg["tts_gap_ms"])
+    global SAMPLE_RATE
+    SAMPLE_RATE = int(cfg["tts_rate"])
+    voices = cfg.get("tts_voices") or {}
+    if isinstance(voices, dict):
+        VOICES.update({k: v for k, v in voices.items() if v})
 
     qfile, out_dir = resolve_mock_paths(args.mock)
     if not qfile.exists():
@@ -286,7 +360,7 @@ def main() -> None:
 
     done = 0
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        futs = {pool.submit(_gen, j, tts, args): j for j in jobs}
+        futs = {pool.submit(_gen, j, tts, args, cfg): j for j in jobs}
         for fut in as_completed(futs):
             n, k, ok = fut.result()
             if ok:
@@ -321,13 +395,14 @@ def main() -> None:
     print(f"Map written -> {map_file}")
 
 
-def _gen(job, tts, args):
+def _gen(job, tts, args, cfg):
     n, k, voice, text, out = job
     if out.exists() and out.stat().st_size > 2000:
         return (n, k, True)
     for attempt in range(3):
         try:
-            if synth(tts, text, voice, out, MODEL):
+            if synth(tts, text, voice, out, cfg["tts_model"],
+                     cfg.get("tts_fallback_model", ""), cfg.get("tts_fallback_voice", "")):
                 print(f"  ok q{n}_{k:02d} ({out.stat().st_size} bytes)", flush=True)
                 return (n, k, True)
         except SystemExit:

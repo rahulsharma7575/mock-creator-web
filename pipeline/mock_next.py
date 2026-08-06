@@ -40,12 +40,171 @@ import magnific_mcp
 
 SRC = pathlib.Path(__file__).resolve().parent
 BASE = pathlib.Path(os.environ.get("MOCK_ROOT") or SRC)  # MOCK_ROOT override for container/web use
-OR_API = "https://openrouter.ai/api/v1/chat/completions"
-OR_IMG = "https://openrouter.ai/api/v1/images/generations"
-PB_BASE = "https://ubt.wts.com.np"
-PB_EMAIL = "shiva@cld.com.np"
-PB_PASS = "shiva@saharsh"
-SUBJECT_ID = "illfosglou0e3j6"          # Korean Language UBT
+
+# ---------------------------------------------------------------------------
+# Pipeline configuration — every dynamic value lives in DEFAULTS (classic
+# Mock.cmd behavior). Override with:  --config <file.json>  or  $MOCK_CONFIG.
+# The SaaS app mirrors these 1:1 into the PocketBase `mock_config` collection
+# and materializes a JSON file per job; the GUI edits the same fields.
+# ---------------------------------------------------------------------------
+
+DEFAULTS = {
+    # network / providers
+    "or_api": "https://openrouter.ai/api/v1/chat/completions",
+    "or_img": "https://openrouter.ai/api/v1/images/generations",
+    "llm_timeout_s": 600,
+    # push target (per client)
+    "pb_base": "https://ubt.wts.com.np",
+    "pb_email": "shiva@cld.com.np",
+    "pb_pass": "",
+    "subject_id": "illfosglou0e3j6",        # Korean Language UBT
+    # exam shape
+    "question_count": 40,
+    "reading_count": 20,
+    "listening_count": 20,
+    "image_count": 22,                       # target number of random image questions
+    "image_count_min": 18,
+    "image_count_max": 26,
+    "difficulty_profile": "creative+difficult",  # creative+difficult | creative+medium | hard | standard
+    "marks_per_question": 1,
+    "negative_marks": 0,
+    "is_active": True,
+    "duration_minutes": 50,
+    "pass_marks": 24,
+    "shuffle_questions": True,
+    "shuffle_options": False,
+    # question creator (author) — OpenRouter
+    "author_model": "google/gemini-2.5-flash",
+    "author_retries": 3,
+    "author_max_tokens": 32000,
+    "author_timeout_s": 600,
+    # proofreading — OpenRouter
+    "proof_model": "qwen/qwen3.5-flash-02-23",
+    "proof_retries": 2,
+    "proof_max_tokens": 32000,
+    "proof_temperature": 0.3,
+    "proof_timeout_s": 600,
+    # repair pass (always a strong model)
+    "repair_model": "google/gemini-2.5-flash",
+    "repair_max_tokens": 4000,
+    # images — Magnific only (z-image confirmed; p-image-ideogram-1k auto-degrades
+    # to z-image while Magnific does not expose it on the REST API)
+    "img_model": "z-image",
+    "img_fallback_model": "p-image-ideogram-1k",
+    "img_workers": 3,
+    "img_retries": 2,
+    "img_fallback_retries": 2,
+    "img_aspect": "1:1",
+    "img_size": "square_hd",
+    "img_quality": 80,
+    "img_max_size": 1024,
+    "img_timeout_s": 240,
+    "image_style_prompt": (
+        "Simple flat vector illustration in the standard Korean TOPIK test style, "
+        "minimal clean line art, plain solid white background, simple everyday scene, "
+        "centered single main subject, clear silhouette, no text, no letters, no numbers, "
+        "no watermark, no border"
+    ),
+    "image_verify_after": True,
+    # audio / TTS — OpenRouter
+    "tts_model": "fish-audio/s2.1-pro-free:free",
+    "tts_fallback_model": "microsoft/mai-voice-2-flash",
+    "tts_fallback_voice": "ko-KR-Haena",
+    "tts_rate": 44100,
+    "tts_gap_ms": 400,
+    "tts_voices": {},                          # optional speaker->voice map override
+}
+
+DIFFICULTY_PROFILES = {
+    "creative+difficult": (
+        "Difficulty: \"medium\", \"hard\", or \"very hard\" only (no easy) — lean toward hard. "
+        "Make questions creative: tricky but fair distractors, complex real-life situations, "
+        "nuanced grammar traps."),
+    "creative+medium": (
+        "Difficulty: mostly \"medium\" with a few \"hard\" (no easy). Creative everyday "
+        "situations with natural, believable distractors."),
+    "hard": (
+        "Difficulty: \"hard\" or \"very hard\" only — complex grammar, idioms, multi-step "
+        "comprehension, minimal \"medium\"."),
+    "standard": (
+        "Difficulty: balanced mix of \"medium\", \"hard\" and \"very hard\" (no easy), "
+        "standard EPS-TOPIK UBT feel."),
+}
+
+CFG = dict(DEFAULTS)          # active config (after file/env overrides)
+CFG_PATH = None               # config file path (propagated to subprocesses via MOCK_CONFIG)
+
+
+def _coerce_value(default, raw):
+    if isinstance(default, bool):
+        return str(raw).strip().lower() in ("1", "true", "yes", "on")
+    if isinstance(default, int):
+        try:
+            return int(float(raw))
+        except ValueError:
+            return default
+    if isinstance(default, float):
+        try:
+            return float(raw)
+        except ValueError:
+            return default
+    if isinstance(default, list) and raw.startswith("["):
+        try:
+            return json.loads(raw)
+        except Exception:
+            return default
+    if isinstance(default, dict) and raw.startswith("{"):
+        try:
+            return json.loads(raw)
+        except Exception:
+            return default
+    return raw
+
+
+def load_config(path=None):
+    """Merge <--config file> + $MOCK_CONFIG + individual $MOCK_* env vars over DEFAULTS.
+
+    Returns True when a config file was applied (switches model selection from
+    interactive menus to config values)."""
+    global CFG, CFG_PATH, CONFIG_LOADED
+    path = path or os.environ.get("MOCK_CONFIG")
+    if path and os.path.exists(path):
+        data = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+        for k, v in data.items():
+            if k in DEFAULTS:
+                CFG[k] = v
+        CFG_PATH = str(path)
+        CONFIG_LOADED = True
+    for k in DEFAULTS:
+        env = os.environ.get("MOCK_" + k.upper())
+        if env is not None:
+            CFG[k] = _coerce_value(DEFAULTS[k], env)
+    return CFG_PATH is not None
+
+
+def render_prompt(template):
+    """Fill {placeholders} in a prompt template from the active config."""
+    out = template
+    ctx = {**CFG,
+           "difficulty_note": DIFFICULTY_PROFILES.get(CFG.get("difficulty_profile"), ""),
+           "listening_start": int(CFG.get("reading_count", 20)) + 1}
+    for k, v in ctx.items():
+        if isinstance(v, (str, int, float)):
+            out = out.replace("{" + k + "}", str(v))
+    return out
+
+
+CONFIG_LOADED = load_config()   # reads $MOCK_CONFIG at import time (before main)
+
+# Convenience module vars used throughout (mirror CFG at load time)
+OR_API = CFG["or_api"]
+OR_IMG = CFG["or_img"]
+PB_BASE = CFG["pb_base"]
+PB_EMAIL = CFG["pb_email"]
+PB_PASS = CFG["pb_pass"]
+SUBJECT_ID = CFG["subject_id"]
+STYLE_PROMPT = CFG["image_style_prompt"]
+IMG_WORKERS = CFG["img_workers"]
 
 # Model choices for interactive selection (Mock.cmd asks the user)
 AUTHOR_MODELS = [
@@ -63,18 +222,11 @@ PROOF_MODELS = [
     {"key": "2", "name": "gemini-3.5-flash", "slug": "google/gemini-3.5-flash",
      "price": "$1.50/$9.00 per M (best quality)", "extra": {"reasoning_effort": "minimal"}},
 ]
-IMG_MODEL_NANO = "google/gemini-2.5-flash-image"   # OpenRouter fallback ($0.039/img)
-IMG_MODEL_Z = "z-image"                           # Magnific MCP (5 credits/img — preferred)
-IMG_WORKERS = 3
-REPAIR_MODEL = {"name": "gemini-2.5-flash", "slug": "google/gemini-2.5-flash",
-                "price": "$0.30/$2.50 per M", "extra": {}}  # repair always uses a strong model
+IMG_MODEL_NANO = "google/gemini-2.5-flash-image"   # OpenRouter nano-banana (explicit --img-model nano-banana only)
 
-STYLE_PROMPT = (
-    "Simple flat vector illustration in the standard Korean TOPIK test style, "
-    "minimal clean line art, plain solid white background, simple everyday scene, "
-    "centered single main subject, clear silhouette, no text, no letters, no numbers, "
-    "no watermark, no border"
-)
+def repair_cfg():
+    """Repair pass model config (strong model; overridable via config)."""
+    return slug_cfg(CFG["repair_model"], AUTHOR_MODELS)
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
@@ -151,7 +303,8 @@ def chat_json(key, model, system, user, max_tokens=32000, temperature=0.7, extra
     }
     if extra:
         payload.update(extra)
-    r = httpx.post(OR_API, headers={"Authorization": f"Bearer {key}"}, json=payload, timeout=600)
+    r = httpx.post(OR_API, headers={"Authorization": f"Bearer {key}"}, json=payload,
+                   timeout=int(CFG.get("llm_timeout_s", 600)))
     j = r.json()
     if "choices" not in j:
         raise RuntimeError(f"LLM HTTP {r.status_code}: {json.dumps(j, ensure_ascii=False)[:300]}")
@@ -162,27 +315,28 @@ def chat_json(key, model, system, user, max_tokens=32000, temperature=0.7, extra
 
 AUTHOR_SYSTEM = """You are a senior EPS-TOPIK UBT exam writer and psychometric expert. Output ONLY valid JSON."""
 
-AUTHOR_USER = """Write a complete Korean EPS-TOPIK UBT mock exam: EXACTLY 40 questions as a JSON array.
+AUTHOR_USER = """Write a complete Korean EPS-TOPIK UBT mock exam: EXACTLY {question_count} questions as a JSON array.
 
 HARD RULES:
-- Q1-20 section "reading", Q21-40 section "listening" (in that order, number 1..40 unique).
-- Difficulty: "medium", "hard", or "very hard" only (no easy). Never beginner drills.
+- Q1-{reading_count} section "reading", Q{listening_start}-{question_count} section "listening" (in that order, number 1..{question_count} unique).
+- {difficulty_note}
 - Each question: number, section, difficulty, type (short English label), question_text (Korean,
   starts with "Q<N>. ", NO html), options (4 REAL Korean strings — natural, believable, similar
   length, only ONE best; options MUST be actual Korean words/phrases, NEVER numbers, digits,
   placeholders like "0 1 2 3", or empty), correct_answer (array with ONE option index string
-  like ["2"]), marks 1, explanation (Korean, 1-2 sentences), requiresImage (bool), imagePrompt
+  like ["2"]), marks {marks_per_question}, explanation (Korean, 1-2 sentences), requiresImage (bool), imagePrompt
   (English, detailed: people/objects/actions/environment/camera angle/key visual clues — ONLY
   when requiresImage true).
 - NEVER reuse the exact same question_text for two questions in the exam — vary the stems
   (e.g. "그림을 보고 알맞은 것을 고르십시오." vs "그림을 보고 알맞지 않은 것을 고르십시오." vs
   "그림을 보고 무엇에 대한 그림인지 고르십시오.") — every question_text must be unique.
-- EXACTLY 16 questions (40% of 40, spread randomly through 1-40) MUST have requiresImage true
+- EXACTLY {image_count} questions (the exam MUST stay between {image_count_min} and
+  {image_count_max}, spread randomly through 1-{question_count}) MUST have requiresImage true
   plus a detailed imagePrompt (English: people/objects/actions/environment/camera angle/key clues).
 - Reading mixes: fill-in-blank, grammar in context, vocabulary, sentence completion, conversation
   completion, honorifics, idioms, connectors, sentence ordering, reading comprehension
   (안내문/공지/이메일/광고/편지/일기), situation judgment, sign/menu/schedule/map/notice interpretation.
-- Listening (Q21-40): each needs "listening": {"audioScript": [{"voice":"V1".."V4","text":"..."}],
+- Listening (Q{listening_start}-{question_count}): each needs "listening": {"audioScript": [{"voice":"V1".."V4","text":"..."}],
   "durationSeconds", "speakers", "situation"}. Situations rotate: phone, 방송, news, weather,
   office, hospital, shopping, transportation, restaurant, school, interview, customer service.
   Spoken-style Korean: polite endings (~주세요, ~드릴게요, ~거든요), natural contractions,
@@ -239,8 +393,8 @@ def repair_exam(key, qs, stats=None, model_cfg=None):
     """Fix what the author missed: missing listening dialogues, invalid answers, low image count.
 
     stats (dict, optional) is filled with repair counters: scripts, answers, images.
-    model_cfg (optional) — repair always runs on a strong fixed model (REPAIR_MODEL)."""
-    model_cfg = REPAIR_MODEL
+    model_cfg (optional) — repair always runs on a strong fixed model (CFG repair_model)."""
+    model_cfg = repair_cfg()
     stats = stats if stats is not None else {}
     stats.setdefault("scripts", 0)
     stats.setdefault("answers", 0)
@@ -282,8 +436,9 @@ def repair_exam(key, qs, stats=None, model_cfg=None):
             except Exception as e:
                 print(f"  answer repair failed Q{q['number']}: {str(e)[:100]}")
     img = sum(1 for q in qs if q.get("requiresImage"))
-    if img < 10:
-        need = 10 - img
+    img_min = int(CFG.get("image_count_min", 18))
+    if img < img_min:
+        need = img_min - img
         candidates = [q for q in qs if q["section"] == "reading" and not q.get("requiresImage")]
         if candidates:
             print(f"[repair] converting {min(need, len(candidates))} reading questions to image questions...")
@@ -318,17 +473,23 @@ def repair_exam(key, qs, stats=None, model_cfg=None):
 
 
 def validate_exam(qs, stage="final"):
-    """stage='author' = structure only (repair pass fixes the rest); 'final' = everything."""
+    """stage='author' = structure only (repair pass fixes the rest); 'final' = everything.
+
+    Sizes (question count, reading split, image bounds) come from the active config."""
     errs = []
-    if not isinstance(qs, list) or len(qs) != 40:
-        errs.append(f"need exactly 40 questions, got {len(qs) if isinstance(qs, list) else type(qs)}")
+    q_count = int(CFG.get("question_count", 40))
+    r_count = int(CFG.get("reading_count", 20))
+    img_min = int(CFG.get("image_count_min", 18))
+    img_max = int(CFG.get("image_count_max", 26))
+    if not isinstance(qs, list) or len(qs) != q_count:
+        errs.append(f"need exactly {q_count} questions, got {len(qs) if isinstance(qs, list) else type(qs)}")
         return errs
     nums = [q.get("number") for q in qs]
-    if sorted(nums) != list(range(1, 41)):
-        errs.append("numbers must be 1..40 unique")
+    if sorted(nums) != list(range(1, q_count + 1)):
+        errs.append(f"numbers must be 1..{q_count} unique")
     secs = [q.get("section") for q in qs]
-    if secs[:20] != ["reading"] * 20 or secs[20:] != ["listening"] * 20:
-        errs.append("Q1-20 reading, Q21-40 listening required")
+    if secs[:r_count] != ["reading"] * r_count or secs[r_count:] != ["listening"] * (q_count - r_count):
+        errs.append(f"Q1-{r_count} reading, Q{r_count + 1}-{q_count} listening required")
     img = 0
     seen_texts = {}
     for q in qs:
@@ -363,18 +524,17 @@ def validate_exam(qs, stage="final"):
             if not q.get("imagePrompt"):
                 errs.append(f"Q{n}: requiresImage but no imagePrompt")
     if stage == "final":
-        lo = 6 if img < 10 else 10
-        if not (lo <= img <= 18):
-            errs.append(f"image questions must be ~40% ({lo}-18 accepted), got {img}")
+        if not (img_min <= img <= img_max):
+            errs.append(f"image questions must be {img_min}-{img_max} (config), got {img}")
     return errs
 
 
 def llm_author(key, attempt, model_cfg):
-    user = AUTHOR_USER
+    user = render_prompt(AUTHOR_USER)
     if attempt:
         user += f"\n\nPREVIOUS ATTEMPT FAILED VALIDATION:\n{attempt}"
     qs, usage = chat_json(key, model_cfg["slug"], AUTHOR_SYSTEM, user,
-                          max_tokens=32000, extra=model_cfg["extra"])
+                          max_tokens=int(CFG.get("author_max_tokens", 32000)), extra=model_cfg["extra"])
     # some models wrap the array in an object — unwrap; keep only dict entries
     if isinstance(qs, dict):
         for k in ("questions", "items", "results", "data", "exam"):
@@ -389,8 +549,10 @@ def llm_author(key, attempt, model_cfg):
 def llm_proofread(key, qs, model_cfg):
     try:
         fixed, usage = chat_json(key, model_cfg["slug"], PROOF_SYSTEM,
-                                 json.dumps(qs, ensure_ascii=False), max_tokens=32000,
-                                 temperature=0.3, extra=model_cfg["extra"])
+                                 json.dumps(qs, ensure_ascii=False),
+                                 max_tokens=int(CFG.get("proof_max_tokens", 32000)),
+                                 temperature=float(CFG.get("proof_temperature", 0.3)),
+                                 extra=model_cfg["extra"])
         if isinstance(fixed, dict):
             for k in ("questions", "items", "results", "data", "exam"):
                 if isinstance(fixed.get(k), list):
@@ -409,6 +571,8 @@ def llm_proofread(key, qs, model_cfg):
 # ---------------------------------------------------------------------------
 
 def pb_headers():
+    if not PB_PASS:
+        raise RuntimeError("pb_pass not configured — set it in the job config file or MOCK_CONFIG")
     r = httpx.post(PB_BASE + "/api/collections/_superusers/auth-with-password",
                    json={"identity": PB_EMAIL, "password": PB_PASS}, timeout=30)
     r.raise_for_status()
@@ -419,9 +583,11 @@ DIFF_MAP = {"medium": "medium", "hard": "hard", "very hard": "hard"}
 
 
 def create_records(qs, headers):
-    """Batch-create all 40 questions; return list of created record ids (same order)."""
+    """Batch-create questions missing a pbId (resume-safe). Returns newly created ids."""
     ops = []
     for q in qs:
+        if q.get("pbId"):
+            continue
         body = {
             "section": q["section"],
             "subject": SUBJECT_ID,
@@ -429,13 +595,15 @@ def create_records(qs, headers):
             "question_type": "single_choice",
             "options": q["options"],
             "correct_answer": q["correct_answer"],
-            "marks": q.get("marks", 1),
-            "negative_marks": 0,
+            "marks": int(q.get("marks") or CFG.get("marks_per_question", 1)),
+            "negative_marks": int(CFG.get("negative_marks", 0)),
             "explanation": q.get("explanation", ""),
             "difficulty": DIFF_MAP.get(str(q.get("difficulty", "hard")).lower(), "hard"),
-            "is_active": True,
+            "is_active": bool(CFG.get("is_active", True)),
         }
         ops.append({"method": "POST", "url": "/api/collections/questions/records", "body": body})
+    if not ops:
+        return []
     r = httpx.post(PB_BASE + "/api/batch", headers=headers, json={"requests": ops}, timeout=120)
     if r.status_code != 200:
         raise RuntimeError(f"batch create failed HTTP {r.status_code}: {r.text[:400]}")
@@ -499,9 +667,14 @@ def create_exam(mock, qs, headers):
                 break
         r = httpx.post(PB_BASE + "/api/collections/exams/records", headers=headers, json={
             "id": exam_id, "title": title, "code": code, "exam_type": "ubt",
-            "subject": SUBJECT_ID, "duration_minutes": 50, "total_questions": 40,
-            "total_marks": 40, "pass_marks": 24, "shuffle_questions": True,
-            "shuffle_options": False, "status": "published", "is_active": True,
+            "subject": SUBJECT_ID,
+            "duration_minutes": int(CFG.get("duration_minutes", 50)),
+            "total_questions": len(qs),
+            "total_marks": len(qs) * int(CFG.get("marks_per_question", 1)),
+            "pass_marks": int(CFG.get("pass_marks", 24)),
+            "shuffle_questions": bool(CFG.get("shuffle_questions", True)),
+            "shuffle_options": bool(CFG.get("shuffle_options", False)),
+            "status": "published", "is_active": bool(CFG.get("is_active", True)),
             "plans": plans,
         }, timeout=30)
         if r.status_code not in (200, 201):
@@ -523,7 +696,8 @@ def create_exam(mock, qs, headers):
         if pid and pid not in have:
             ops.append({"method": "POST", "url": "/api/collections/exam_questions/records",
                         "body": {"exam": exam_id, "question": pid,
-                                 "order": q.get("number", 0), "marks": 1}})
+                                 "order": q.get("number", 0),
+                                 "marks": int(CFG.get("marks_per_question", 1))}})
     if ops:
         r = httpx.post(PB_BASE + "/api/batch", headers=headers, json={"requests": ops}, timeout=120)
         if r.status_code != 200:
@@ -535,6 +709,8 @@ def create_exam(mock, qs, headers):
 def upload_file(headers, record_id, field, filename, content, ctype):
     r = httpx.patch(PB_BASE + f"/api/collections/questions/records/{record_id}",
                     headers=headers, files={field: (filename, content, ctype)}, timeout=120)
+    if r.status_code not in (200, 201):
+        print(f"[upload] {field} -> {record_id} HTTP {r.status_code}: {r.text[:200]}")
     return r.status_code in (200, 201)
 
 
@@ -542,9 +718,10 @@ def upload_file(headers, record_id, field, filename, content, ctype):
 # Images
 # ---------------------------------------------------------------------------
 
-def gen_image_or(key, prompt):
-    """z-image via Magnific MCP (default, 5 credits) — no OpenRouter call needed."""
-    return magnific_mcp.generate_image(prompt)
+def gen_image_or(key, prompt, model="z-image"):
+    """Magnific (preferred): configured model via REST; unknown models auto-degrade
+    to z-image inside magnific_mcp (ModelNotFoundError path)."""
+    return magnific_mcp.generate_image(prompt, model=model)
 
 
 def gen_image_nano(key, prompt):
@@ -567,8 +744,25 @@ def to_webp(data, max_size=1024, quality=80):
     return buf.getvalue()
 
 
-def run_images(key, qs, record_ids, headers, work_dir, img_model="z-image"):
+def run_images(key, qs, record_ids, headers, work_dir, img_model=None):
+    """Generate TOPIK images for requiresImage questions.
+
+    Model chain (first working wins): primary (CFG img_model) ->
+    CFG img_fallback_model -> z-image (final safe). Each step retried per
+    CFG img_retries / img_fallback_retries, with size + server-side verify,
+    then ONE backfill pass for anything still missing.
+    Returns (ok, cost, credits, missing_numbers)."""
     from PIL import Image  # noqa: F401 — ensure importable early
+    primary = img_model or CFG.get("img_model") or "z-image"
+    chain = []
+    for m in (primary, CFG.get("img_fallback_model"), "z-image"):
+        if m and m not in chain:
+            chain.append(m)
+    img_retries = int(CFG.get("img_retries", 2))
+    fb_retries = int(CFG.get("img_fallback_retries", 2))
+    verify = bool(CFG.get("image_verify_after", True))
+    max_size = int(CFG.get("img_max_size", 1024))
+    quality = int(CFG.get("img_quality", 80))
     jobs = []
     for q, rid in zip(qs, record_ids):
         if not q.get("requiresImage"):
@@ -581,8 +775,8 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model="z-image"):
         jobs.append((q["number"], rid, prompt))
     if not jobs:
         print("[images] no image questions")
-        return 0, 0.0, 0
-    if img_model == "z-image":
+        return 0, 0.0, 0, []
+    if primary == "z-image":
         bal = magnific_mcp.check_balance()
         if bal:
             avail = (bal.get("credits") or {}).get("available", 0)
@@ -594,43 +788,75 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model="z-image"):
         else:
             print(f"[images] z-image (API mode): {len(jobs)} images x {magnific_mcp.ZIMAGE_COST} credits "
                   "(live balance check not available via API)")
+    else:
+        print(f"[images] model chain: {chain}")
     ok, cost, credits = 0, 0.0, 0
+    missing = []
     out_dir = work_dir / "images" / "generated"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     def one(job):
         num, rid, prompt = job
-        for attempt in range(2):
-            try:
-                if img_model == "z-image":
-                    url = gen_image_or(key, prompt)
-                    data = httpx.get(url, timeout=120).content
-                    used = magnific_mcp.ZIMAGE_COST
-                else:
-                    data, usage = gen_image_nano(key, prompt)
-                    used = usage.get("cost", 0)
-                webp = to_webp(data)
-                path = out_dir / f"q{num}.webp"
-                path.write_bytes(webp)
-                up = upload_file(headers, rid, "image", f"q{num}.webp", webp, "image/webp")
-                return (num, True, up, used)
-            except Exception as e:
-                print(f"    q{num} attempt {attempt + 1}: {str(e)[:120]}")
-                time.sleep(2)
-        return (num, False, False, 0)
+        for mi, model in enumerate(chain):
+            tries = img_retries if mi == 0 else fb_retries
+            for attempt in range(tries):
+                try:
+                    if model == "nano-banana":
+                        data, usage = gen_image_nano(key, prompt)
+                        used = usage.get("cost", 0)
+                    else:
+                        url = gen_image_or(key, prompt, model)
+                        data = httpx.get(url, timeout=120).content
+                        used = magnific_mcp.ZIMAGE_COST if model == "z-image" else 0
+                    if not data or len(data) < 500:
+                        raise RuntimeError(f"image too small ({len(data) if data else 0} bytes)")
+                    webp = to_webp(data, max_size=max_size, quality=quality)
+                    up = upload_file(headers, rid, "image", f"q{num}.webp", webp, "image/webp")
+                    if up and verify:
+                        chk = httpx.get(PB_BASE + f"/api/collections/questions/records/{rid}",
+                                        headers=headers, params={"fields": "image"}, timeout=30)
+                        up = bool(chk.status_code == 200 and chk.json().get("image"))
+                    if up:
+                        path = out_dir / f"q{num}.webp"
+                        path.write_bytes(webp)
+                        return (num, up, used, model)
+                    raise RuntimeError("upload failed or not verified on server")
+                except Exception as e:
+                    print(f"    q{num} {model} attempt {attempt + 1}: {str(e)[:140]}")
+                    time.sleep(2)
+        return (num, False, 0, None)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=IMG_WORKERS) as ex:
-        for num, ok_gen, up, used in ex.map(one, jobs):
-            if img_model == "z-image":
+        for num, up, used, model in ex.map(one, jobs):
+            if model == "z-image":
                 credits += used
             else:
                 cost += used
-            if ok_gen and up:
+            if up:
                 ok += 1
-                print(f"[images] q{num} OK")
+                print(f"[images] q{num} OK ({model})")
             else:
-                print(f"[images] q{num} FAILED (upload={up})")
-    return ok, cost, credits
+                missing.append(num)
+                print(f"[images] q{num} FAILED")
+
+    if missing:
+        print(f"[images] backfill pass for {len(missing)} missing...")
+        for num, rid, prompt in jobs:
+            if num not in missing:
+                continue
+            try:
+                url = gen_image_or(key, prompt, "z-image")
+                data = httpx.get(url, timeout=120).content
+                webp = to_webp(data, max_size=max_size, quality=quality)
+                if upload_file(headers, rid, "image", f"q{num}.webp", webp, "image/webp"):
+                    ok += 1
+                    credits += magnific_mcp.ZIMAGE_COST
+                    (out_dir / f"q{num}.webp").write_bytes(webp)
+                    missing.remove(num)
+                    print(f"[images] backfill q{num} OK")
+            except Exception as e:
+                print(f"[images] backfill q{num} failed: {str(e)[:120]}")
+    return ok, cost, credits, missing
 
 
 # ---------------------------------------------------------------------------
@@ -644,7 +870,11 @@ def run_audio(mock, qs, record_ids, headers):
     else:
         cmd = ["uv", "run", "--with", "httpx",
                str(SRC / "mock_audio_builder.py"), "--mock", str(mock)]
-    r = subprocess.run(cmd, capture_output=True, text=True, cwd=BASE, timeout=1800)
+    env = dict(os.environ)
+    if CFG_PATH:
+        env["MOCK_CONFIG"] = CFG_PATH
+    env["MOCK_TMP"] = str(BASE / f"mock{mock}" / "_tmp")  # per-job tmp dir -> no cross-job cleanup races
+    r = subprocess.run(cmd, capture_output=True, text=True, cwd=BASE, timeout=1800, env=env)
     out = (r.stdout or "") + (r.stderr or "")
     print(out[-1500:])
     map_file = BASE / f"mock{mock}" / "audio" / f"mock{mock}_audio_map.json"
@@ -720,12 +950,15 @@ def final_summary(stats):
     line("exam + question links",
          "created" if stats.get("exam_created") else "reused (resume)")
     line(f"{stats['audio_ok']}/20 listening mp3s", "fish-audio, uploaded")
-    if stats["img_model"] == "z-image":
-        line(f"{stats['img_ok']}/{stats['img_total']} TOPIK images",
-             f"z-image via Magnific MCP, {stats['img_credits']} credits, uploaded")
-    else:
+    if stats["img_model"] == "nano-banana":
         line(f"{stats['img_ok']}/{stats['img_total']} TOPIK images",
              f"nano-banana (OpenRouter), ${stats['img_cost']:.2f}, uploaded")
+    else:
+        line(f"{stats['img_ok']}/{stats['img_total']} TOPIK images",
+             f"{stats['img_model']} (Magnific), {stats['img_credits']} credits, uploaded")
+    if stats.get("img_missing"):
+        line(f"IMAGES MISSING ({len(stats['img_missing'])})",
+             "Q" + ", Q".join(map(str, stats["img_missing"])) + " — see run_report.json")
     line("questions file", str(stats["qfile"]))
     line("total LLM cost", f"${stats['llm_cost']:.4f}")
     print("=" * 66)
@@ -735,11 +968,15 @@ def main():
     ap = argparse.ArgumentParser(description="One-click full mock creator (author->audio->images->PB)")
     ap.add_argument("--mock", type=int, default=None, help="Force mock number (default: next)")
     ap.add_argument("--dry-run", action="store_true", help="Author + validate + save only (no PB/audio/images)")
-    ap.add_argument("--img-model", choices=["z-image", "nano-banana"], default="z-image",
-                    help="Image model: z-image (Magnific, 5 credits) or nano-banana (OpenRouter $)")
+    ap.add_argument("--config", default="", help="Config JSON file (see mock-config.example.json)")
+    ap.add_argument("--img-model", choices=["z-image", "nano-banana"], default=None,
+                    help="Image model override (default: config img_model, normally z-image)")
     ap.add_argument("--author-slug", default="", help="Author model slug (skips the interactive menu)")
     ap.add_argument("--proof-slug", default="", help="Proofread model slug (skips the interactive menu)")
     args = ap.parse_args()
+    if args.config:
+        load_config(args.config)
+    img_primary = args.img_model or CFG.get("img_model") or "z-image"
 
     key = api_key()
     mock = args.mock or next_mock_number()
@@ -754,7 +991,7 @@ def main():
         "author_attempt": 0, "author_cost": 0.0, "proof_model": "?",
         "proof_cost": 0.0, "repair": {"answers": 0, "scripts": 0, "images": 0},
         "pb_count": 0, "pb_created": False, "exam_created": False, "audio_ok": 0,
-        "img_ok": 0, "img_total": 0, "img_model": args.img_model,
+        "img_ok": 0, "img_total": 0, "img_model": img_primary, "img_missing": [],
         "img_cost": 0.0, "img_credits": 0, "qfile": qfile, "llm_cost": 0.0,
     }
 
@@ -765,14 +1002,16 @@ def main():
             sys.exit("FAILED: existing questions file is invalid — delete it and re-run")
         stats["authored"] = False
     else:
-        # 0. Choose authoring model (interactive unless --author-slug given)
+        # 0. Choose authoring model (config-driven when --config/$MOCK_CONFIG, else interactive)
         author_cfg = slug_cfg(args.author_slug, AUTHOR_MODELS) if args.author_slug \
-            else pick_model(AUTHOR_MODELS, "Questions generation model")
+            else (slug_cfg(CFG["author_model"], AUTHOR_MODELS)
+                  if (CONFIG_LOADED or CFG["author_model"] != DEFAULTS["author_model"])
+                  else pick_model(AUTHOR_MODELS, "Questions generation model"))
         stats["author_model"] = author_cfg["name"]
 
-        # 1. Author (up to 3 attempts; structure-only check — repair pass fixes the rest)
+        # 1. Author (config-driven attempts; structure-only check — repair pass fixes the rest)
         qs, last_err = None, None
-        for attempt in range(3):
+        for attempt in range(int(CFG.get("author_retries", 3))):
             print(f"[author] {author_cfg['name']} attempt {attempt + 1}...")
             try:
                 qs, usage = llm_author(key, last_err, author_cfg)
@@ -792,9 +1031,11 @@ def main():
         if not qs or validate_exam(qs, stage="author"):
             sys.exit("FAILED: could not author a valid exam after 3 attempts")
 
-        # 1b. Choose proofreading model (interactive unless --proof-slug given)
+        # 1b. Choose proofreading model (config-driven when --config/$MOCK_CONFIG, else interactive)
         proof_cfg = slug_cfg(args.proof_slug, PROOF_MODELS) if args.proof_slug \
-            else pick_model(PROOF_MODELS, "Proofreading model")
+            else (slug_cfg(CFG["proof_model"], PROOF_MODELS)
+                  if (CONFIG_LOADED or CFG["proof_model"] != DEFAULTS["proof_model"])
+                  else pick_model(PROOF_MODELS, "Proofreading model"))
         stats["proof_model"] = proof_cfg["name"]
 
         # 2. Proofread + repair (fill missing dialogues/answers, then Korean quality pass)
@@ -826,16 +1067,19 @@ def main():
 
     # 3. PocketBase records
     headers = pb_headers()
-    if all(q.get("pbId") for q in qs):
-        print("[pb] records already exist (resume) — reusing pbIds")
-        ids = [q["pbId"] for q in qs]
-    else:
-        print("[pb] creating 40 question records...")
+    missing = [q for q in qs if not q.get("pbId")]
+    if missing:
+        print(f"[pb] creating {len(missing)} missing question records...")
         ids = create_records(qs, headers)
-        for q, rid in zip(qs, ids):
-            q["pbId"] = rid
+        it = iter(ids)
+        for q in qs:
+            if not q.get("pbId"):
+                q["pbId"] = next(it)
         qfile.write_text(json.dumps(qs, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"[pb] created {len(ids)} records")
+    else:
+        print("[pb] records already exist (resume) — reusing pbIds")
+    ids = [q["pbId"] for q in qs]
     stats["pb_count"] = len(ids)
     stats["pb_created"] = all(q.get("pbId") for q in qs)
 
@@ -849,9 +1093,10 @@ def main():
     stats["audio_ok"] = a_ok
 
     # 5. Images
-    print(f"[images] generating TOPIK images ({args.img_model})...")
-    i_ok, i_cost, i_credits = run_images(key, qs, ids, headers, base_dir, args.img_model)
+    print(f"[images] generating TOPIK images ({img_primary})...")
+    i_ok, i_cost, i_credits, img_missing = run_images(key, qs, ids, headers, base_dir, img_primary)
     stats["img_ok"], stats["img_cost"], stats["img_credits"] = i_ok, i_cost, i_credits
+    stats["img_missing"] = img_missing
     stats["img_total"] = sum(1 for q in qs if q.get("requiresImage"))
     stats["llm_cost"] = stats["author_cost"] + stats["proof_cost"]
 
@@ -863,8 +1108,11 @@ def main():
         "proofread_model": stats["proof_model"], "proofread_cost_usd": round(stats["proof_cost"], 4),
         "repair": stats["repair"], "exam_created": exam_created,
         "audio_uploaded": a_ok,
-        "images_uploaded": i_ok, "image_model": args.img_model,
+        "images_uploaded": i_ok, "image_model": img_primary,
+        "images_missing": img_missing,
         "image_cost_usd": round(i_cost, 4), "image_credits": i_credits,
+        "difficulty_profile": CFG.get("difficulty_profile", "creative+difficult"),
+        "image_count": int(CFG.get("image_count", 22)),
         "total_llm_cost_usd": round(stats["llm_cost"], 4),
     }
     (base_dir / "extra" / "run_report.json").write_text(
