@@ -35,6 +35,11 @@ import time
 import urllib.error
 import urllib.request
 
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 PB_URL = os.environ.get("PB_URL", "http://127.0.0.1:8090").rstrip("/")
 SUPERUSER_EMAIL = os.environ.get("PB_SUPERUSER_EMAIL", "")
 SUPERUSER_PASS = os.environ.get("PB_PASSWORD", "")
@@ -77,6 +82,8 @@ CONFIG_MAP = {
     "push_pb_email": "pb_email",
     "push_pb_pass": "pb_pass",
     "push_subject_id": "subject_id",
+    "push_exam_type": "exam_type",
+    "push_exam_status": "exam_status",
     "audio_gap_ms": "tts_gap_ms",
     "sample_rate": "tts_rate",
     "audio_workers": "tts_workers",
@@ -250,6 +257,7 @@ def run_job(job):
     })
 
     env = dict(os.environ)
+    env.setdefault("PYTHONUTF8", "1")
     env["MOCK_ROOT"] = str(workdir / "mocks")
     env["MOCK_CONFIG"] = str(cfgfile)
     cmd = [sys.executable, str(MOCK_NEXT), "--config", str(cfgfile)]
@@ -258,7 +266,8 @@ def run_job(job):
     rc = -1
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                text=True, bufsize=1, env=env)
+                                text=True, encoding="utf-8", errors="replace",
+                                bufsize=1, env=env)
         log_tail = stream_job(job_id, proc, log_tail)
         rc = proc.wait()
     except Exception as e:

@@ -73,6 +73,8 @@ DEFAULTS = {
     "pass_marks": 24,
     "shuffle_questions": True,
     "shuffle_options": False,
+    "exam_type": "mock",                     # exam_type of the auto-created exam record
+    "exam_status": "draft",                  # draft = review-then-publish | published = immediate
     # question creator (author) — OpenRouter
     "author_model": "google/gemini-2.5-flash",
     "author_retries": 3,
@@ -666,7 +668,7 @@ def create_exam(mock, qs, headers):
             if exam_id not in used:
                 break
         r = httpx.post(PB_BASE + "/api/collections/exams/records", headers=headers, json={
-            "id": exam_id, "title": title, "code": code, "exam_type": "ubt",
+            "id": exam_id, "title": title, "code": code, "exam_type": str(CFG.get("exam_type", "mock")),
             "subject": SUBJECT_ID,
             "duration_minutes": int(CFG.get("duration_minutes", 50)),
             "total_questions": len(qs),
@@ -674,7 +676,8 @@ def create_exam(mock, qs, headers):
             "pass_marks": int(CFG.get("pass_marks", 24)),
             "shuffle_questions": bool(CFG.get("shuffle_questions", True)),
             "shuffle_options": bool(CFG.get("shuffle_options", False)),
-            "status": "published", "is_active": bool(CFG.get("is_active", True)),
+            "status": str(CFG.get("exam_status", "draft")),
+            "is_active": str(CFG.get("exam_status", "draft")) == "published",
             "plans": plans,
         }, timeout=30)
         if r.status_code not in (200, 201):
@@ -965,6 +968,10 @@ def final_summary(stats):
 
 
 def main():
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
     ap = argparse.ArgumentParser(description="One-click full mock creator (author->audio->images->PB)")
     ap.add_argument("--mock", type=int, default=None, help="Force mock number (default: next)")
     ap.add_argument("--dry-run", action="store_true", help="Author + validate + save only (no PB/audio/images)")
@@ -1107,6 +1114,7 @@ def main():
         "author_cost_usd": round(stats["author_cost"], 4),
         "proofread_model": stats["proof_model"], "proofread_cost_usd": round(stats["proof_cost"], 4),
         "repair": stats["repair"], "exam_created": exam_created,
+        "exam_id": exam_id,
         "audio_uploaded": a_ok,
         "images_uploaded": i_ok, "image_model": img_primary,
         "images_missing": img_missing,
