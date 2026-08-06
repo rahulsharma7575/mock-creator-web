@@ -116,6 +116,13 @@ html[data-theme="light"] .logpre{color:#3a3d45}
 .dry-icon.q{background:rgba(125,211,252,.12);color:var(--blue)}
 .dry-icon.i{background:rgba(192,132,252,.12);color:var(--purple)}
 .dry-icon.a{background:rgba(34,211,238,.12);color:var(--cyan)}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:18px;padding:0 5px;border-radius:9px;font-size:10px;font-weight:700;background:var(--red);color:#fff;margin-left:auto}
+.stage-dot{width:5px;height:5px;border-radius:50%;display:inline-block;margin-right:3px;opacity:.4}
+.stage-dot.on{opacity:1;box-shadow:0 0 4px currentColor}
+.stage-bar{display:flex;gap:3px}
+.logbox{scroll-behavior:smooth}
+@keyframes kbd-flash{0%{opacity:0}50%{opacity:.4}100%{opacity:0}}
+.kbd-hint{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);font-size:11px;color:var(--mut);pointer-events:none;z-index:800;opacity:0;transition:opacity .8s}
 .deerflow{position:fixed;right:16px;bottom:14px;z-index:900;font-size:11px;letter-spacing:.12em;color:var(--mut);opacity:.65;transition:opacity .2s,color .2s;text-decoration:none}
 .deerflow:hover{opacity:1;color:var(--amber2)}
 </style>
@@ -155,6 +162,8 @@ html[data-theme="light"] .logpre{color:#3a3d45}
             <path v-if="n.id==='jobs'" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path v-if="n.id==='jobs'" d="M14 2v6h6"/><path v-if="n.id==='jobs'" d="M9 13h6"/><path v-if="n.id==='jobs'" d="M9 17h6"/>
           </svg>
           {{ n.label }}
+          <span v-if="n.id==='jobs'&&failedCount" class="badge">{{ failedCount }}</span>
+          <span v-if="n.id==='configs'&&cfgClient" class="badge" style="background:var(--green)">✓</span>
         </div>
       </nav>
       <div class="p-3 border-t" style="border-color:var(--line)">
@@ -173,10 +182,14 @@ html[data-theme="light"] .logpre{color:#3a3d45}
         <!-- ========== OVERVIEW ========== -->
         <div v-if="view==='overview'" class="space-y-6">
           <div class="rise"><h1 class="f-serif text-2xl font-bold">Overview</h1><p class="text-sm mt-1" style="color:var(--mut)">Live pulse of the mock generation platform.</p></div>
-          <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <div class="grid grid-cols-2 lg:grid-cols-6 gap-4">
             <div v-for="s in stats" :key="s.k" class="panel statcard p-5 rise" :style="{animationDelay:(0.05*s.i)+'s'}">
               <div class="text-[11px] f-mono uppercase tracking-widest" style="color:var(--mut)">{{ s.k }}</div>
               <div class="f-mono text-3xl font-bold mt-2" :style="{color:s.c}">{{ s.v }}</div>
+            </div>
+            <div class="panel statcard p-5 rise" style="animation-delay:.35s">
+              <div class="text-[11px] f-mono uppercase tracking-widest" style="color:var(--mut)">Credits spent</div>
+              <div class="f-mono text-3xl font-bold mt-2" style="color:var(--amber2)">${{ totalCost.toFixed(2) }}</div>
             </div>
           </div>
           <div class="grid lg:grid-cols-5 gap-6">
@@ -193,9 +206,10 @@ html[data-theme="light"] .logpre{color:#3a3d45}
               <div class="panel p-5 rise flex-1" style="animation-delay:.3s">
                 <div class="flex items-center justify-between mb-4"><h2 class="f-serif font-bold text-lg">Recent Jobs</h2><button class="btn btn-ghost px-3 py-1.5 text-xs" @click="view='jobs'">All jobs →</button></div>
                 <div v-if="!jobs.length" class="text-sm py-8 text-center" style="color:var(--mut)">No jobs yet.</div>
-                <table v-else class="w-full"><thead><tr><th>Created</th><th>Client</th><th>Kind</th><th>Status</th></tr></thead>
+                <table v-else class="w-full"><thead><tr><th>Created</th><th>Client</th><th>Stage</th><th>Kind</th><th>Status</th></tr></thead>
                 <tbody><tr v-for="j in jobs.slice(0,6)" :key="j.id" class="cursor-pointer" @click="openJob(j)">
                   <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td>{{ j.client_name }}</td>
+                  <td><span class="stage-bar" v-html="stageFor(j)"></span></td>
                   <td><span class="text-xs f-mono px-2 py-0.5 rounded" :style="{background:j.kind!=='full'?'rgba(125,211,252,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ j.kind }}</span></td>
                   <td><span class="status-dot" :class="{pulse:j.status==='running'}" :style="{background:sc(j.status),boxShadow:j.status==='running'?'0 0 0 3px var(--glow)':''}"></span> <span class="text-xs f-mono ml-1.5">{{ j.status }}</span></td>
                 </tr></tbody></table>
@@ -369,12 +383,14 @@ html[data-theme="light"] .logpre{color:#3a3d45}
                 </div>
 
                 <!-- Save / Revert -->
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 flex-wrap">
                   <button type="submit" class="btn btn-amber px-5 py-2.5 text-sm" :disabled="cfgSaving">
                     <span v-if="cfgSaving" class="spinner"></span>Save config
                   </button>
+                  <button type="button" class="btn btn-ghost px-3 py-2 text-xs" @click="copyConfig">Copy JSON</button>
+                  <button type="button" class="btn btn-ghost px-3 py-2 text-xs" @click="cloneConfigDialog">Clone to…</button>
                   <span v-if="cfgSavedAt" class="text-xs f-mono" style="color:var(--mut)">saved {{ fmtTime(cfgSavedAt) }}</span>
-                  <button type="button" class="btn btn-ghost px-4 py-2.5 text-sm ml-auto" @click="loadConfig">Revert</button>
+                  <button type="button" class="btn btn-ghost px-4 py-2 text-sm ml-auto" @click="loadConfig">Revert</button>
                 </div>
               </form>
             </template>
@@ -383,13 +399,14 @@ html[data-theme="light"] .logpre{color:#3a3d45}
 
         <!-- ========== JOBS ========== -->
         <div v-if="view==='jobs'" class="space-y-6">
-          <div class="rise flex items-end justify-between"><div><h1 class="f-serif text-2xl font-bold">Jobs</h1><p class="text-sm mt-1" style="color:var(--mut)">Generation runs across all clients.</p></div><button class="btn btn-ghost px-4 py-2 text-sm" @click="loadJobs"><span v-if="jobsBusy" class="spinner"></span>Refresh</button></div>
+          <div class="rise flex items-end justify-between"><div><h1 class="f-serif text-2xl font-bold">Jobs</h1><p class="text-sm mt-1" style="color:var(--mut)">Generation runs across all clients.</p></div><div class="flex gap-2"><button v-if="failedCount" class="btn btn-danger px-4 py-2 text-sm" @click="clearFailed">Clear failed ({{ failedCount }})</button><button class="btn btn-ghost px-4 py-2 text-sm" @click="loadJobs"><span v-if="jobsBusy" class="spinner"></span>Refresh</button></div></div>
           <div class="flex gap-2 flex-wrap rise" style="animation-delay:.08s"><div v-for="st in ['all','queued','running','done','failed']" :key="st" class="chip" :class="{on:jobFilter===st}" @click="jobFilter=st">{{ st }}</div></div>
           <div class="panel rise" style="animation-delay:.12s">
             <div v-if="!filteredJobs.length" class="text-sm py-10 text-center" style="color:var(--mut)">Nothing here.</div>
-            <table v-else class="w-full"><thead><tr><th>Created</th><th>Client</th><th>Kind</th><th>Q</th><th>Status</th><th>Pushed</th><th>Error</th></tr></thead>
+            <table v-else class="w-full"><thead><tr><th>Created</th><th>Client</th><th>Stage</th><th>Kind</th><th>Q</th><th>Status</th><th>Pushed</th><th>Error</th></tr></thead>
             <tbody><tr v-for="j in filteredJobs" :key="j.id" class="cursor-pointer" @click="openJob(j)">
               <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td>{{ j.client_name||j.client }}</td>
+              <td><span class="stage-bar" v-html="stageFor(j)"></span></td>
               <td><span class="text-xs f-mono px-2 py-0.5 rounded" :style="{background:j.kind!=='full'?'rgba(125,211,252,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ j.kind }}</span></td>
               <td class="f-mono">{{ j.count }}</td>
               <td><span class="status-dot" :class="{pulse:j.status==='running'}" :style="{background:sc(j.status)}"></span><span class="text-xs f-mono ml-1.5">{{ j.status }}</span></td>
@@ -417,8 +434,12 @@ html[data-theme="light"] .logpre{color:#3a3d45}
           </div>
         </div>
         <div v-if="drawerJob.error" class="text-xs mb-4 p-3 rounded" style="background:rgba(248,113,113,.08);border:1px solid var(--red);color:var(--red)">{{ drawerJob.error }}</div>
-        <div class="mb-5"><label class="lbl">Created / Updated</label><div class="kv"><dt>created</dt><dd>{{ fmtTime(drawerJob.created) }}</dd><dt>updated</dt><dd>{{ fmtTime(drawerJob.updated) }}</dd></div></div>
-        <div class="mb-5"><div class="flex items-center justify-between mb-2"><label class="lbl mb-0">Log</label><button class="btn btn-ghost px-2.5 py-1 text-[11px]" @click="refreshDrawer">Refresh</button></div><div class="panel2 p-3 max-h-72 overflow-y-auto logpre">{{ drawerJob.log||'(no log yet)' }}</div></div>
+        <div class="mb-5"><label class="lbl">Created / Updated</label><div class="kv"><dt>created</dt><dd>{{ fmtTime(drawerJob.created) }}</dd><dt>updated</dt><dd>{{ fmtTime(drawerJob.updated) }}</dd><dt>duration</dt><dd>{{ jobDuration }}</dd></div></div>
+        <div v-if="drawerJob.error" class="text-xs mb-4 p-3 rounded flex items-start justify-between" style="background:rgba(248,113,113,.08);border:1px solid var(--red);color:var(--red)">
+          <span class="flex-1 mr-2">{{ drawerJob.error }}</span>
+          <button class="btn btn-ghost px-2 py-0.5 text-[11px] shrink-0" @click="copy(drawerJob.error)">Copy</button>
+        </div>
+        <div class="mb-5"><div class="flex items-center justify-between mb-2"><label class="lbl mb-0">Log</label><div><button class="btn btn-ghost px-2.5 py-1 text-[11px] mr-1" @click="copy(drawerJob.log||'')">Copy</button><button class="btn btn-ghost px-2.5 py-1 text-[11px]" @click="refreshDrawer">Refresh</button></div></div><div class="panel2 p-3 max-h-72 overflow-y-auto logpre logbox" ref="logBox">{{ drawerJob.log||'(no log yet)' }}</div></div>
         <div><label class="lbl">Report</label><div class="panel2 p-3 max-h-72 overflow-y-auto"><pre class="logpre text-xs">{{ pretty(drawerJob.report) }}</pre></div></div>
       </div>
     </div>
@@ -522,6 +543,15 @@ createApp({
       return{text:text,images:imgCost,audio:audioCost,total:text+imgCost+audioCost};
     },
     costPct(){const t=this.costEst;const m=t.total||0.0001;return{text:(t.text/m*100).toFixed(1),images:(t.images/m*100).toFixed(1),audio:(t.audio/m*100).toFixed(1)};},
+    failedCount(){return this.jobs.filter(j=>j.status==='failed').length;},
+    totalCost(){
+      let t=0;for(const j of this.jobs){const r=j._report;if(r){t+=(r.llm_cost||0)+(r.img_cost||0);}}return t;
+    },
+    jobDuration(){
+      if(!this.drawerJob)return'—';const c=new Date(this.fixT(this.drawerJob.created)),u=new Date(this.fixT(this.drawerJob.updated));
+      if(isNaN(c)||isNaN(u))return'—';const s=(u-c)/1000;if(s<60)return s.toFixed(0)+'s';
+      if(s<3600)return Math.floor(s/60)+'m '+Math.round(s%60)+'s';return Math.floor(s/3600)+'h '+Math.round(s%3600/60)+'m';
+    },
   },
   watch:{
     view(v){if(v==='jobs')this.loadJobs();if(v==='clients')this.loadClients();},
@@ -573,7 +603,7 @@ createApp({
     metaByGroup(g){return this.meta.filter(m=>m.group===g);},
     validateRaw(){try{JSON.parse(this.cfgRawText);this.cfgRawErr='';this.toast('JSON valid','ok');}catch(e){this.cfgRawErr='Invalid JSON: '+e.message;}},
     async saveConfig(){this.cfgSaving=true;try{let body;if(this.cfgRaw){body=JSON.parse(this.cfgRawText);}else{const metaByField={};this.meta.forEach(m=>{metaByField[m.field]=m;});body={};for(const k of Object.keys(this.cfgData)){const m=metaByField[k];const v=this.cfgData[k];if(k==='prompts_json'){try{body[k]=JSON.parse(v||'{}');}catch(e){throw new Error('prompts_json is not valid JSON');}}else if(m&&m.ftype==='number')body[k]=(v===''||v===null||v===undefined)?null:Number(v);else if(m&&m.ftype==='bool')body[k]=!!v;else body[k]=v;}}await api('/api/collections/mock_config/records/'+this.cfg.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});this.toast('config saved','ok');await this.loadConfig();this.cfgSavedAt=new Date().toISOString();}catch(e){this.toast('save: '+e.message,'err');}this.cfgSaving=false;},
-    async openJob(j){try{const r=await api('/api/creator/jobs/'+j.id);this.drawerJob=r;}catch(e){this.toast('job: '+e.message,'err');}},
+    async openJob(j){try{const r=await api('/api/creator/jobs/'+j.id);this.drawerJob=r;if(r.report){j._report=r.report;}}catch(e){this.toast('job: '+e.message,'err');}},
     async refreshDrawer(){if(!this.drawerJob)return;try{const r=await api('/api/creator/jobs/'+this.drawerJob.id);Object.assign(this.drawerJob,r);const j=this.jobs.find(x=>x.id===r.id);if(j)Object.assign(j,{status:r.status,error:r.error,pushed:r.pushed});if(r.status!=='queued'&&r.status!=='running')clearInterval(this.drawerTimer);}catch(e){}},
     retryJob(){const j=this.drawerJob;this.confirmMsg='Re-queue '+j.kind+' job for "'+j.client_name+'" ('+j.count+'q)?';this.confirmFn=async()=>{try{await this.startJob({client:j.client,count:j.count,difficulty:j.difficulty||''});this.toast('re-queued','ok');this.drawerJob=null;this.loadJobs();}catch(e){this.toast('requeue: '+e.message,'err');}};},
     delJob(){const j=this.drawerJob;this.confirmMsg='Delete job '+j.id.slice(0,8)+' permanently?';this.confirmFn=async()=>{try{await api('/api/collections/mock_jobs/records/'+j.id,{method:'DELETE'});this.toast('job deleted','ok');this.drawerJob=null;this.loadJobs();}catch(e){this.toast('delete: '+e.message,'err');}};},
@@ -583,8 +613,26 @@ createApp({
     async toggleClient(c){if(this.togglingId)return;this.togglingId=c.id;try{await api('/api/collections/mock_clients/records/'+c.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:!c.active})});c.active=!c.active;}catch(e){this.toast('toggle: '+e.message,'err');}this.togglingId='';},
     delClient(c){this.confirmMsg='Delete client "'+c.name+'"? Its config and jobs stay, but the key stops working.';this.confirmFn=async()=>{try{await api('/api/collections/mock_clients/records/'+c.id,{method:'DELETE'});this.toast('client deleted','ok');this.loadClients();}catch(e){this.toast('delete: '+e.message,'err');}};},
     openConfigFor(id){this.view='configs';this.cfgClient=id;this.cfgRaw=false;this.loadConfig();},
+    stageFor(j){
+      if(!j||(j.status!=='running'&&j.status!=='failed'))return'';
+      const log=j.log||'';const stages=['author','repair','proofread','save','pb','audio','images'];
+      const active=stages.filter(s=>log.includes('['+s+']'));const last=active[active.length-1];
+      return stages.map(s=>`<span class="stage-dot ${s===last?'on':''}" style="color:${s==='author'?'var(--blue)':s==='images'?'var(--purple)':s==='audio'?'var(--cyan)':s==='push'?'var(--amber2)':'var(--mut)'}" title="${s}"></span>`).join('');
+    },
+    async copyConfig(){try{await navigator.clipboard.writeText(JSON.stringify(this.cfgData,null,2));this.toast('config copied to clipboard','ok');}catch(e){this.toast('copy failed','err');}},
+    cloneConfigDialog(){
+      const targets=this.clients.filter(c=>c.id!==this.cfgClient);if(!targets.length)return this.toast('No other clients to clone to','err');
+      const names=targets.map(c=>c.name).join(', ');this.confirmMsg='Clone config to: '+names+'? (overwrites their current config)';
+      this.confirmFn=async()=>{try{for(const c of targets){const r=await api('/api/creator/config?client='+c.id);await api('/api/collections/mock_config/records/'+r.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(this.cfgData)});}this.toast('config cloned to '+targets.length+' clients','ok');}catch(e){this.toast('clone: '+e.message,'err');}};
+    },
+    async clearFailed(){
+      const failed=this.jobs.filter(j=>j.status==='failed');if(!failed.length)return;
+      this.confirmMsg='Delete '+failed.length+' failed jobs? (cannot undo)';
+      this.confirmFn=async()=>{try{let d=0;for(const j of failed){try{await api('/api/collections/mock_jobs/records/'+j.id,{method:'DELETE'});d++;}catch(e){}}this.toast(d+' of '+failed.length+' deleted','ok');this.loadJobs();}catch(e){this.toast('clear: '+e.message,'err');}};
+    },
   },
-  mounted(){document.documentElement.setAttribute('data-theme',this.theme);if(this.authed)this.loadAll();},
+  mounted(){document.documentElement.setAttribute('data-theme',this.theme);if(this.authed)this.loadAll();document.addEventListener('keydown',e=>{if(e.key==='Escape'){this.drawerJob=null;this.clientModal=false;this.confirmMsg=null;}if(e.key==='r'&&!e.ctrlKey&&!e.metaKey&&document.activeElement===document.body)this.loadAll();});},
+  updated(){const el=this.$refs.logBox;if(el)el.scrollTop=el.scrollHeight;},
 }).mount('#app');
 </script>
 </body>
