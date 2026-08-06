@@ -1,0 +1,4 @@
+# Normalize shell scripts to LF — a CRLF entrypoint.sh would break bash in the container
+*.sh text eol=lf
+*.py text eol=lf
+Dockerfile text eol=lf
