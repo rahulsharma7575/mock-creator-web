@@ -1,15 +1,13 @@
-# Himal KB Mock Creator — Docker Compose
+# Himal KB Mock Creator — Docker Compose (v2: PocketBase + worker)
 # Paste this file into Dockge / Dokploy (or run `docker compose up -d`).
-# 1. Create a `.env` file NEXT TO this file with your real keys (see .env.example)
-# 2. Set HOST_PORT to any free port on the host (container port is always 33445)
+# 1. Copy `.env.example` to `.env` next to this file and fill in your real values
+# 2. Set HOST_PORT to any free port on the host (container port is always 8090)
 # 3. Put the app behind Nginx Proxy Manager with HTTPS for public access
 #
-# API (same login):
-#   POST /api/start   {"mock": 15, "author_model": "google/gemini-2.5-flash",
-#                      "proof_model": "qwen/qwen3.5-flash-02-23", "img_model": "z-image", "dry_run": false}
-#   GET  /api/status
-#   GET  /api/logs?offset=0
-#   GET  /api/health
+#   GUI:  http://HOST:HOST_PORT/creator    Admin: http://HOST:HOST_PORT/_/
+#
+# Data persists in the mock-state (PocketBase DB + files) and mock-work
+# (job artifacts) volumes. Pull the new image to update: docker compose pull && up -d.
 
 services:
   mock-creator:
@@ -17,12 +15,16 @@ services:
     container_name: mock-creator
     restart: unless-stopped
     ports:
-      - "${HOST_PORT:-33445}:33445"
+      - "${HOST_PORT:-8090}:8090"
     env_file: .env
     environment:
-      MOCK_ROOT: /app/data
+      PB_URL: http://127.0.0.1:8090
+      PB_PORT: 8090
+      WORK_ROOT: /app/data
     volumes:
-      - mock-state:/app/data
+      - mock-state:/app/pb_data
+      - mock-work:/app/data
 
 volumes:
   mock-state:
+  mock-work:
