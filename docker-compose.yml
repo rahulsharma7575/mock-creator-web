@@ -1,0 +1,28 @@
+# Himal KB Mock Creator — Docker Compose
+# Paste this file into Dockge / Dokploy (or run `docker compose up -d`).
+# 1. Create a `.env` file NEXT TO this file with your real keys (see .env.example)
+# 2. Set HOST_PORT to any free port on the host (container port is always 33445)
+# 3. Put the app behind Nginx Proxy Manager with HTTPS for public access
+#
+# API (same login):
+#   POST /api/start   {"mock": 15, "author_model": "google/gemini-2.5-flash",
+#                      "proof_model": "qwen/qwen3.5-flash-02-23", "img_model": "z-image", "dry_run": false}
+#   GET  /api/status
+#   GET  /api/logs?offset=0
+#   GET  /api/health
+
+services:
+  mock-creator:
+    image: shivad90/mock-creator:latest
+    container_name: mock-creator
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-33445}:33445"
+    env_file: .env
+    environment:
+      MOCK_ROOT: /app/data
+    volumes:
+      - mock-state:/app/data
+
+volumes:
+  mock-state:

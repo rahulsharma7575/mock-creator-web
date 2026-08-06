@@ -1,0 +1,8 @@
+.env
+**/.env
+.env.*
+.git
+*.md
+Dockerfile
+docker-compose.yml
+sync.cmd
