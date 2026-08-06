@@ -1,8 +1,6 @@
 # Himal KB Mock Creator — Docker Compose (v2: PocketBase + worker)
 # Paste this file into Dockge / Dokploy (or run `docker compose up -d`).
-# 1. Copy `.env.example` to `.env` next to this file and fill in your real values
-# 2. Set HOST_PORT to any free port on the host (container port is always 8090)
-# 3. Put the app behind Nginx Proxy Manager with HTTPS for public access
+# All config is inline — no separate .env file needed. Fill in your real keys.
 #
 #   GUI:  http://HOST:HOST_PORT/creator    Admin: http://HOST:HOST_PORT/_/
 #
@@ -15,11 +13,17 @@ services:
     container_name: mock-creator
     restart: unless-stopped
     ports:
-      - "${HOST_PORT:-8090}:8090"
-    env_file: .env
+      - "33445:8090"
     environment:
+      # --- your real keys ---
+      OPENROUTER_API_KEY: sk-or-YOUR_KEY_HERE
+      MAGNIFIC_API_KEY: MS_YOUR_KEY_HERE
+      # --- PocketBase superuser (login for /creator) ---
+      PB_SUPERUSER_EMAIL: admin@yourdomain.com
+      PB_PASSWORD: change-this-to-a-strong-password
+      # --- internals (do not change) ---
       PB_URL: http://127.0.0.1:8090
-      PB_PORT: 8090
+      PB_PORT: "8090"
       WORK_ROOT: /app/data
     volumes:
       - mock-state:/app/pb_data
