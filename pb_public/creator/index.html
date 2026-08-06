@@ -316,8 +316,11 @@ html[data-theme="light"] .logpre{color:#3a3d45}
                             </div>
                           </template>
                           <template v-else>
-                            <input v-if="f.ftype==='number'" type="number" v-model.number="cfgData[f.field]" class="input f-mono w-full" step="any">
-                            <input v-else :type="f.field==='push_pb_pass' ? (showPass?'text':'password') : 'text'" v-model="cfgData[f.field]" class="input" :placeholder="f.field==='push_pb_pass'?'········':''">
+                            <div class="flex gap-2" v-if="f.field==='push_pb_pass'">
+                              <input :type="showPass?'text':'password'" v-model="cfgData[f.field]" class="input" placeholder="········">
+                              <button type="button" class="btn btn-ghost px-2.5 py-1 text-xs f-mono" @click="showPass=!showPass">{{ showPass ? 'Hide' : 'Show' }}</button>
+                            </div>
+                            <input v-else :type="f.ftype==='number'?'number':'text'" v-model.number="f.ftype==='number'?cfgData[f.field]:undefined" v-model="f.ftype!=='number'?cfgData[f.field]:undefined" class="input f-mono" step="any">
                           </template>
 
                           <div v-if="hintText(f)" class="hint">{{ hintText(f) }}</div>
@@ -335,10 +338,9 @@ html[data-theme="light"] .logpre{color:#3a3d45}
                   </div>
                   <div class="card-body space-y-4">
                     <div class="costbar">
-                      <div class="segment" style="width:max(15%,{{ costPct.text }}%);background:var(--blue)"></div>
-                      <div class="segment" style="width:max(15%,{{ costPct.images }}%);background:var(--purple)"></div>
-                      <div class="segment" style="width:max(15%,{{ costPct.audio }}%);background:var(--cyan)"></div>
-                      <div class="segment" style="width:max(10%,100-math.max(15,{{costPct.text}})-math.max(15,{{costPct.images}})-math.max(10,{{costPct.audio}}))%;background:var(--line)"></div>
+                      <div class="segment" :style="{width:costPct.text+'%',background:'var(--blue)'}"></div>
+                      <div class="segment" :style="{width:costPct.images+'%',background:'var(--purple)'}"></div>
+                      <div class="segment" :style="{width:costPct.audio+'%',background:'var(--cyan)'}"></div>
                     </div>
                     <div class="grid grid-cols-3 gap-3 text-center text-xs f-mono" style="color:var(--mut)">
                       <div><span style="color:var(--blue)">Text</span><br><span class="font-bold" style="color:var(--ink)">~${{ costEst.text.toFixed(3) }}</span><br><span class="text-[10px]">author + proofread</span></div>
@@ -433,7 +435,6 @@ html[data-theme="light"] .logpre{color:#3a3d45}
             <button class="btn btn-danger px-3 py-1.5 text-xs" @click="delJob">Delete</button>
           </div>
         </div>
-        <div v-if="drawerJob.error" class="text-xs mb-4 p-3 rounded" style="background:rgba(248,113,113,.08);border:1px solid var(--red);color:var(--red)">{{ drawerJob.error }}</div>
         <div class="mb-5"><label class="lbl">Created / Updated</label><div class="kv"><dt>created</dt><dd>{{ fmtTime(drawerJob.created) }}</dd><dt>updated</dt><dd>{{ fmtTime(drawerJob.updated) }}</dd><dt>duration</dt><dd>{{ jobDuration }}</dd></div></div>
         <div v-if="drawerJob.error" class="text-xs mb-4 p-3 rounded flex items-start justify-between" style="background:rgba(248,113,113,.08);border:1px solid var(--red);color:var(--red)">
           <span class="flex-1 mr-2">{{ drawerJob.error }}</span>
@@ -469,7 +470,6 @@ html[data-theme="light"] .logpre{color:#3a3d45}
 </div>
 
 <script src="lib/vue.global.prod.js"></script>
-<script src="lib/pocketbase.umd.js"></script>
 
 <script src="app.min.js"></script>
 </body>

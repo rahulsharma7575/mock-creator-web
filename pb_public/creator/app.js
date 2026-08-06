@@ -95,6 +95,7 @@ createApp({
     sel(e){e.target.select();},
     toggleTheme(){this.theme=this.theme==='dark'?'light':'dark';localStorage.setItem(LS_TH,this.theme);document.documentElement.setAttribute('data-theme',this.theme);},
     dryIcon(k){const i=DRY_ICONS[k]||'';return i?i+' ':'';},
+    dryLabel(k){return DRY_LABELS[k]||k;},
     grpBg(g){const m={LLM:'var(--blue)',Images:'rgba(192,132,252,.12)',Exam:null,Audio:'rgba(34,211,238,.08)',Push:'rgba(245,166,35,.08)',Advanced:null,General:null};return m[g]||'transparent';},
     grpFg(g){const m={LLM:'#0c4a6e',Images:'var(--purple)',Audio:'var(--cyan)',Push:'var(--amber2)'};return m[g]||'var(--ink)';},
     grpDesc(g){const m={LLM:'Which AI models generate and review questions',Images:'Image generation settings for TOPIK-style picture questions',Exam:'Exam structure — question count, difficulty, marks, duration',Audio:'Text-to-speech for listening section audio clips',Push:'Where to send the finished exam (your teacher app)',Advanced:'LLM token limits, timeouts, retry behaviour',General:'Master on/off switch'};return m[g]||'';},
@@ -131,7 +132,7 @@ createApp({
     async saveConfig(){this.cfgSaving=true;try{let body;if(this.cfgRaw){body=JSON.parse(this.cfgRawText);}else{const metaByField={};this.meta.forEach(m=>{metaByField[m.field]=m;});body={};for(const k of Object.keys(this.cfgData)){const m=metaByField[k];const v=this.cfgData[k];if(k==='prompts_json'){try{body[k]=JSON.parse(v||'{}');}catch(e){throw new Error('prompts_json is not valid JSON');}}else if(m&&m.ftype==='number')body[k]=(v===''||v===null||v===undefined)?null:Number(v);else if(m&&m.ftype==='bool')body[k]=!!v;else body[k]=v;}}await api('/api/collections/mock_config/records/'+this.cfg.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});this.toast('config saved','ok');await this.loadConfig();this.cfgSavedAt=new Date().toISOString();}catch(e){this.toast('save: '+e.message,'err');}this.cfgSaving=false;},
     async openJob(j){try{const r=await api('/api/creator/jobs/'+j.id);this.drawerJob=r;if(r.report){j._report=r.report;}}catch(e){this.toast('job: '+e.message,'err');}},
     async refreshDrawer(){if(!this.drawerJob)return;try{const r=await api('/api/creator/jobs/'+this.drawerJob.id);Object.assign(this.drawerJob,r);const j=this.jobs.find(x=>x.id===r.id);if(j)Object.assign(j,{status:r.status,error:r.error,pushed:r.pushed});if(r.status!=='queued'&&r.status!=='running')clearInterval(this.drawerTimer);}catch(e){}},
-    retryJob(){const j=this.drawerJob;this.confirmMsg='Re-queue '+j.kind+' job for "'+j.client_name+'" ('+j.count+'q)?';this.confirmFn=async()=>{try{await this.startJob({client:j.client,count:j.count,difficulty:j.difficulty||''});this.toast('re-queued','ok');this.drawerJob=null;this.loadJobs();}catch(e){this.toast('requeue: '+e.message,'err');}};},
+    retryJob(){const j=this.drawerJob;const k=j.kind||'full';this.confirmMsg='Re-queue '+k+' job for "'+j.client_name+'" ('+j.count+'q)?';this.confirmFn=async()=>{try{await this.startJob({client:j.client,count:j.count,difficulty:j.difficulty||'',kind:k});this.toast('re-queued','ok');this.drawerJob=null;this.loadJobs();}catch(e){this.toast('requeue: '+e.message,'err');}};},
     delJob(){const j=this.drawerJob;this.confirmMsg='Delete job '+j.id.slice(0,8)+' permanently?';this.confirmFn=async()=>{try{await api('/api/collections/mock_jobs/records/'+j.id,{method:'DELETE'});this.toast('job deleted','ok');this.drawerJob=null;this.loadJobs();}catch(e){this.toast('delete: '+e.message,'err');}};},
     confirmDo(){const fn=this.confirmFn;this.confirmMsg=null;this.confirmFn=null;if(fn)fn();},
     openClientModal(){this.clientModal=true;this.newClientName='';this.newKey=genKey();this.newKeyHash='';sha256Hex(this.newKey).then(h=>{this.newKeyHash=h;});this.clientErr='';},
@@ -143,20 +144,22 @@ createApp({
       if(!j||(j.status!=='running'&&j.status!=='failed'))return'';
       const log=j.log||'';const stages=['author','repair','proofread','save','pb','audio','images'];
       const active=stages.filter(s=>log.includes('['+s+']'));const last=active[active.length-1];
-      return stages.map(s=>`<span class="stage-dot ${s===last?'on':''}" style="color:${s==='author'?'var(--blue)':s==='images'?'var(--purple)':s==='audio'?'var(--cyan)':s==='push'?'var(--amber2)':'var(--mut)'}" title="${s}"></span>`).join('');
+      return stages.map(s=>`<span class="stage-dot ${s===last?'on':''}" style="color:${s==='author'?'var(--blue)':s==='images'?'var(--purple)':s==='audio'?'var(--cyan)':s==='pb'?'var(--amber2)':'var(--mut)'}" title="${s}"></span>`).join('');
     },
-    async copyConfig(){try{await navigator.clipboard.writeText(JSON.stringify(this.cfgData,null,2));this.toast('config copied to clipboard','ok');}catch(e){this.toast('copy failed','err');}},
+    async copyConfig(){const o={...this.cfgData};if(typeof o.prompts_json==='string')try{o.prompts_json=JSON.parse(o.prompts_json)}catch(e){}try{await navigator.clipboard.writeText(JSON.stringify(o,null,2));this.toast('config copied to clipboard','ok');}catch(e){this.toast('copy failed','err');}},
     cloneConfigDialog(){
       const targets=this.clients.filter(c=>c.id!==this.cfgClient);if(!targets.length)return this.toast('No other clients to clone to','err');
       const names=targets.map(c=>c.name).join(', ');this.confirmMsg='Clone config to: '+names+'? (overwrites their current config)';
-      this.confirmFn=async()=>{try{for(const c of targets){const r=await api('/api/creator/config?client='+c.id);await api('/api/collections/mock_config/records/'+r.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(this.cfgData)});}this.toast('config cloned to '+targets.length+' clients','ok');}catch(e){this.toast('clone: '+e.message,'err');}};
+      this.confirmFn=async()=>{try{for(const c of targets){const r=await api('/api/creator/config?client='+c.id);const body={...this.cfgData};delete body.client;if(typeof body.prompts_json==='string')body.prompts_json=JSON.parse(body.prompts_json);await api('/api/collections/mock_config/records/'+r.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}this.toast('config cloned to '+targets.length+' clients','ok');}catch(e){this.toast('clone: '+e.message,'err');}};
     },
+    togglePass(){this.showPass=!this.showPass;},
     async clearFailed(){
       const failed=this.jobs.filter(j=>j.status==='failed');if(!failed.length)return;
       this.confirmMsg='Delete '+failed.length+' failed jobs? (cannot undo)';
       this.confirmFn=async()=>{try{let d=0;for(const j of failed){try{await api('/api/collections/mock_jobs/records/'+j.id,{method:'DELETE'});d++;}catch(e){}}this.toast(d+' of '+failed.length+' deleted','ok');this.loadJobs();}catch(e){this.toast('clear: '+e.message,'err');}};
     },
   },
-  mounted(){document.documentElement.setAttribute('data-theme',this.theme);if(this.authed)this.loadAll();document.addEventListener('keydown',e=>{if(e.key==='Escape'){this.drawerJob=null;this.clientModal=false;this.confirmMsg=null;}if(e.key==='r'&&!e.ctrlKey&&!e.metaKey&&document.activeElement===document.body)this.loadAll();});},
+  mounted(){document.documentElement.setAttribute('data-theme',this.theme);if(this.authed)this.loadAll();this._onKey=e=>{const t=document.activeElement.tagName;if(e.key==='Escape'&&t!=='INPUT'&&t!=='TEXTAREA'&&t!=='SELECT'){this.drawerJob=null;this.clientModal=false;this.confirmMsg=null;}if(e.key==='r'&&!e.ctrlKey&&!e.metaKey&&document.activeElement===document.body)this.loadAll();};document.addEventListener('keydown',this._onKey);},
+  unmounted(){document.removeEventListener('keydown',this._onKey);},
   updated(){const el=this.$refs.logBox;if(el)el.scrollTop=el.scrollHeight;},
 }).mount('#app');

@@ -110,6 +110,7 @@ def api(method, path, body=None):
     if path != "/api/collections/_superusers/auth-with-password":
         if not _token or time.time() - _token_at > 3500:
             _token = auth()
+            _token_at = time.time()
         headers["Authorization"] = "Bearer " + _token
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
@@ -251,7 +252,7 @@ def run_job(job):
         cfg["reading_count"] = 1
         log(f"job {job_id}: dry run mode={dry_mode}, sample_size=2")
 
-    if not cfg.get("pb_pass"):
+    if not cfg.get("pb_pass") and not os.environ.get("MOCK_PB_PASS"):
         log(f"job {job_id}: push credentials missing for client {client_name}")
         patch_job(job_id, {
             "status": "failed",

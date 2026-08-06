@@ -198,16 +198,6 @@ def render_prompt(template):
 
 CONFIG_LOADED = load_config()   # reads $MOCK_CONFIG at import time (before main)
 
-# Convenience module vars used throughout (mirror CFG at load time)
-OR_API = CFG["or_api"]
-OR_IMG = CFG["or_img"]
-PB_BASE = CFG["pb_base"]
-PB_EMAIL = CFG["pb_email"]
-PB_PASS = CFG["pb_pass"]
-SUBJECT_ID = CFG["subject_id"]
-STYLE_PROMPT = CFG["image_style_prompt"]
-IMG_WORKERS = CFG["img_workers"]
-
 # Model choices for interactive selection (Mock.cmd asks the user)
 AUTHOR_MODELS = [
     {"key": "1", "name": "gemini-2.5-flash", "slug": "google/gemini-2.5-flash",
@@ -305,7 +295,7 @@ def chat_json(key, model, system, user, max_tokens=32000, temperature=0.7, extra
     }
     if extra:
         payload.update(extra)
-    r = httpx.post(OR_API, headers={"Authorization": f"Bearer {key}"}, json=payload,
+    r = httpx.post(CFG["or_api"], headers={"Authorization": f"Bearer {key}"}, json=payload,
                    timeout=int(CFG.get("llm_timeout_s", 600)))
     j = r.json()
     if "choices" not in j:
@@ -604,10 +594,10 @@ def llm_proofread(key, qs, model_cfg):
 # ---------------------------------------------------------------------------
 
 def pb_headers():
-    if not PB_PASS:
+    if not CFG["pb_pass"]:
         raise RuntimeError("pb_pass not configured - set it in the job config file, MOCK_CONFIG, or the MOCK_PB_PASS env var")
-    r = httpx.post(PB_BASE + "/api/collections/_superusers/auth-with-password",
-                   json={"identity": PB_EMAIL, "password": PB_PASS}, timeout=30)
+    r = httpx.post(CFG["pb_base"] + "/api/collections/_superusers/auth-with-password",
+                   json={"identity": CFG["pb_email"], "password": CFG["pb_pass"]}, timeout=30)
     r.raise_for_status()
     return {"Authorization": "Bearer " + r.json()["token"]}
 
@@ -623,7 +613,7 @@ def create_records(qs, headers):
             continue
         body = {
             "section": q["section"],
-            "subject": SUBJECT_ID,
+            "subject": CFG["subject_id"],
             "question_text": q["question_text"],
             "question_type": "single_choice",
             "options": q["options"],
@@ -637,7 +627,7 @@ def create_records(qs, headers):
         ops.append({"method": "POST", "url": "/api/collections/questions/records", "body": body})
     if not ops:
         return []
-    r = httpx.post(PB_BASE + "/api/batch", headers=headers, json={"requests": ops}, timeout=120)
+    r = httpx.post(CFG["pb_base"] + "/api/batch", headers=headers, json={"requests": ops}, timeout=120)
     if r.status_code != 200:
         raise RuntimeError(f"batch create failed HTTP {r.status_code}: {r.text[:400]}")
     per = r.json()  # top-level list of {"status": 200, "body": {record}}
@@ -672,7 +662,7 @@ def create_exam(mock, qs, headers):
     Returns (exam_id, created). Title/code are SERIAL (Mock Test N, UBT-2026-0NN)
     based on existing exams, so the library always reads 1,2,3... regardless of the
     local folder number. Plans follow the tier ladder."""
-    r = httpx.get(PB_BASE + "/api/collections/exams/records", headers=headers,
+    r = httpx.get(CFG["pb_base"] + "/api/collections/exams/records", headers=headers,
                   params={"perPage": 200, "fields": "id,title,code"}, timeout=30)
     existing = r.json().get("items", [])
     serials = []
@@ -698,9 +688,9 @@ def create_exam(mock, qs, headers):
             exam_id = "ex" + "".join(random.choices(string.ascii_lowercase + string.digits, k=13))
             if exam_id not in used:
                 break
-        r = httpx.post(PB_BASE + "/api/collections/exams/records", headers=headers, json={
+        r = httpx.post(CFG["pb_base"] + "/api/collections/exams/records", headers=headers, json={
             "id": exam_id, "title": title, "code": code, "exam_type": str(CFG.get("exam_type", "mock")),
-            "subject": SUBJECT_ID,
+            "subject": CFG["subject_id"],
             "duration_minutes": int(CFG.get("duration_minutes", 50)),
             "total_questions": len(qs),
             "total_marks": len(qs) * int(CFG.get("marks_per_question", 1)),
@@ -716,11 +706,11 @@ def create_exam(mock, qs, headers):
         created = True
     else:
         # keep serial title/code/plan ladder up to date on resume
-        httpx.patch(PB_BASE + f"/api/collections/exams/records/{exam_id}",
+        httpx.patch(CFG["pb_base"] + f"/api/collections/exams/records/{exam_id}",
                     headers=headers, json={"title": title, "code": code, "plans": plans},
                     timeout=30)
     # junctions: create only missing (unique exam+question constraint)
-    linked = httpx.get(PB_BASE + "/api/collections/exam_questions/records", headers=headers,
+    linked = httpx.get(CFG["pb_base"] + "/api/collections/exam_questions/records", headers=headers,
                        params={"filter": f'exam="{exam_id}"', "perPage": 200,
                                "fields": "question"}, timeout=30).json()
     have = {i["question"] for i in linked.get("items", [])}
@@ -733,7 +723,7 @@ def create_exam(mock, qs, headers):
                                  "order": q.get("number", 0),
                                  "marks": int(CFG.get("marks_per_question", 1))}})
     if ops:
-        r = httpx.post(PB_BASE + "/api/batch", headers=headers, json={"requests": ops}, timeout=120)
+        r = httpx.post(CFG["pb_base"] + "/api/batch", headers=headers, json={"requests": ops}, timeout=120)
         if r.status_code != 200:
             raise RuntimeError(f"exam_questions batch failed HTTP {r.status_code}: {r.text[:200]}")
     print(f"[pb] exam {exam_id} ({'created' if created else 'reused'}) + {len(ops)} links")
@@ -741,7 +731,7 @@ def create_exam(mock, qs, headers):
 
 
 def upload_file(headers, record_id, field, filename, content, ctype):
-    r = httpx.patch(PB_BASE + f"/api/collections/questions/records/{record_id}",
+    r = httpx.patch(CFG["pb_base"] + f"/api/collections/questions/records/{record_id}",
                     headers=headers, files={field: (filename, content, ctype)}, timeout=120)
     if r.status_code not in (200, 201):
         print(f"[upload] {field} -> {record_id} HTTP {r.status_code}: {r.text[:200]}")
@@ -759,7 +749,7 @@ def gen_image_or(key, prompt, model="z-image"):
 
 
 def gen_image_nano(key, prompt):
-    r = httpx.post(OR_IMG, headers={"Authorization": f"Bearer {key}"},
+    r = httpx.post(CFG["or_img"], headers={"Authorization": f"Bearer {key}"},
                    json={"model": IMG_MODEL_NANO, "prompt": prompt, "n": 1}, timeout=300)
     j = r.json()
     if r.status_code != 200:
@@ -801,11 +791,11 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None):
     for q, rid in zip(qs, record_ids):
         if not q.get("requiresImage"):
             continue
-        rec = httpx.get(PB_BASE + f"/api/collections/questions/records/{rid}",
+        rec = httpx.get(CFG["pb_base"] + f"/api/collections/questions/records/{rid}",
                         headers=headers, params={"fields": "image"}, timeout=30)
         if rec.status_code == 200 and rec.json().get("image"):
             continue  # resume: image already uploaded — skip (saves credits)
-        prompt = f"{STYLE_PROMPT}. Scene: {q['imagePrompt']}."
+        prompt = f"{CFG['image_style_prompt']}. Scene: {q['imagePrompt']}."
         jobs.append((q["number"], rid, prompt))
     if not jobs:
         print("[images] no image questions")
@@ -847,7 +837,7 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None):
                     webp = to_webp(data, max_size=max_size, quality=quality)
                     up = upload_file(headers, rid, "image", f"q{num}.webp", webp, "image/webp")
                     if up and verify:
-                        chk = httpx.get(PB_BASE + f"/api/collections/questions/records/{rid}",
+                        chk = httpx.get(CFG["pb_base"] + f"/api/collections/questions/records/{rid}",
                                         headers=headers, params={"fields": "image"}, timeout=30)
                         up = bool(chk.status_code == 200 and chk.json().get("image"))
                     if up:
@@ -860,7 +850,7 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None):
                     time.sleep(2)
         return (num, False, 0, None)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=IMG_WORKERS) as ex:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=CFG["img_workers"]) as ex:
         for num, up, used, model in ex.map(one, jobs):
             if model == "z-image":
                 credits += used

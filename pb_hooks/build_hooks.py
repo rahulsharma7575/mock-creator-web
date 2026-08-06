@@ -287,7 +287,7 @@ function ensureConfig(clientId) {
 }
 """ % "".join(
     "cfg.set(\"{0}\", {1}); ".format(k, json.dumps(v))
-    for k, v in DEFAULT_CONFIG.items() if k not in ("name",)
+    for k, v in DEFAULT_CONFIG.items()
 )
 
 HANDLERS = []
@@ -427,6 +427,7 @@ try {
       kind: r.getString("kind") || "full",
       count: r.getInt("count"),
       difficulty: r.getString("difficulty"),
+      log: (r.getString("log") || "").substring(0, 300),
       pushed: r.getBool("pushed"),
       created: r.getString("created"),
       updated: r.getString("updated"),
