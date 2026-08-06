@@ -381,11 +381,8 @@ def normalize_exam(qs):
 REPAIR_SYSTEM = "You are a Korean EPS-TOPIK exam writer. Output ONLY valid JSON."
 
 
-def repair_exam(key, qs, stats=None, model_cfg=None):
-    """Fix what the author missed: missing listening dialogues, invalid answers, low image count.
-
-    stats (dict, optional) is filled with repair counters: scripts, answers, images.
-    model_cfg (optional) — repair always runs on a strong fixed model (CFG repair_model)."""
+def repair_exam(key, qs, stats=None):
+    """Fix what the author missed: missing listening dialogues, invalid answers, low image count."""
     model_cfg = repair_cfg()
     stats = stats if stats is not None else {}
     stats.setdefault("scripts", 0)
@@ -1069,17 +1066,17 @@ def main():
         # 2. Proofread + repair (fill missing dialogues/answers, then Korean quality pass)
         authored = qs
         print("[repair] fixing missing dialogues/answers...")
-        qs = normalize_exam(repair_exam(key, qs, stats["repair"], author_cfg))
+        qs = normalize_exam(repair_exam(key, qs, stats["repair"]))
         if validate_exam(qs):
             print("[repair] second pass...")
-            qs = normalize_exam(repair_exam(key, qs, stats["repair"], author_cfg))
+            qs = normalize_exam(repair_exam(key, qs, stats["repair"]))
         print(f"[proofread] {proof_cfg['name']} checking Korean quality...")
         qs, pu = llm_proofread(key, qs, proof_cfg)
         stats["proof_cost"] = pu.get("cost", 0.0)
         qs = normalize_exam(qs)
         if validate_exam(qs):
             print("[proofread] broke structure — reverting to repaired version")
-            qs = normalize_exam(repair_exam(key, authored, stats["repair"], author_cfg))
+            qs = normalize_exam(repair_exam(key, authored, stats["repair"]))
         qs.sort(key=lambda q: q["number"])
         if validate_exam(qs):
             sys.exit("FAILED: exam still invalid after repair+proofread — delete the folder and re-run")
@@ -1105,11 +1102,12 @@ def main():
                 q["pbId"] = next(it)
         qfile.write_text(json.dumps(qs, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"[pb] created {len(ids)} records")
+        stats["pb_created"] = True
     else:
         print("[pb] records already exist (resume) — reusing pbIds")
+        stats["pb_created"] = False
     ids = [q["pbId"] for q in qs]
     stats["pb_count"] = len(ids)
-    stats["pb_created"] = all(q.get("pbId") for q in qs)
 
     # 3b. Exam record + question links (admin dashboard visibility)
     exam_id, exam_created = create_exam(mock, qs, headers)

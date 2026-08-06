@@ -210,7 +210,7 @@ html[data-theme="light"] .logpre{color:#3a3d45}
                 <tbody><tr v-for="j in jobs.slice(0,6)" :key="j.id" class="cursor-pointer" @click="openJob(j)">
                   <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td>{{ j.client_name }}</td>
                   <td><span class="stage-bar" v-html="stageFor(j)"></span></td>
-                  <td><span class="text-xs f-mono px-2 py-0.5 rounded" :style="{background:j.kind!=='full'?'rgba(125,211,252,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ j.kind }}</span></td>
+                  <td><span class="text-xs f-mono px-2 py-0.5 rounded" :style="{background:j.kind!=='full'?'rgba(125,211,252,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ dryLabel(j.kind) }}</span></td>
                   <td><span class="status-dot" :class="{pulse:j.status==='running'}" :style="{background:sc(j.status),boxShadow:j.status==='running'?'0 0 0 3px var(--glow)':''}"></span> <span class="text-xs f-mono ml-1.5">{{ j.status }}</span></td>
                 </tr></tbody></table>
               </div>
@@ -409,7 +409,7 @@ html[data-theme="light"] .logpre{color:#3a3d45}
             <tbody><tr v-for="j in filteredJobs" :key="j.id" class="cursor-pointer" @click="openJob(j)">
               <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td>{{ j.client_name||j.client }}</td>
               <td><span class="stage-bar" v-html="stageFor(j)"></span></td>
-              <td><span class="text-xs f-mono px-2 py-0.5 rounded" :style="{background:j.kind!=='full'?'rgba(125,211,252,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ j.kind }}</span></td>
+              <td><span class="text-xs f-mono px-2 py-0.5 rounded" :style="{background:j.kind!=='full'?'rgba(125,211,252,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ dryLabel(j.kind) }}</span></td>
               <td class="f-mono">{{ j.count }}</td>
               <td><span class="status-dot" :class="{pulse:j.status==='running'}" :style="{background:sc(j.status)}"></span><span class="text-xs f-mono ml-1.5">{{ j.status }}</span></td>
               <td class="f-mono text-xs">{{ j.pushed ? 'yes' : '—' }}</td>
@@ -425,7 +425,7 @@ html[data-theme="light"] .logpre{color:#3a3d45}
     <!-- Job Drawer -->
     <div v-if="drawerJob" class="fixed inset-0 z-50 flex justify-end" style="background:rgba(0,0,0,.5)">
       <div class="w-full max-w-xl h-full overflow-y-auto panel rounded-none drawer p-6" style="border:none;border-left:1px solid var(--line)">
-        <div class="flex items-start justify-between mb-5"><div><h2 class="f-serif text-lg font-bold">Job {{ short(drawerJob.id) }}</h2><div class="text-xs f-mono mt-1" style="color:var(--mut)">{{ drawerJob.client_name }} · {{ drawerJob.kind }} · {{ drawerJob.count }}q · {{ drawerJob.difficulty }}</div></div><button class="btn btn-ghost px-3 py-1.5 text-xs" @click="drawerJob=null">Close</button></div>
+        <div class="flex items-start justify-between mb-5"><div><h2 class="f-serif text-lg font-bold">Job {{ short(drawerJob.id) }}</h2><div class="text-xs f-mono mt-1" style="color:var(--mut)">{{ drawerJob.client_name }} · {{ dryLabel(drawerJob.kind) }} · {{ drawerJob.count }}q · {{ drawerJob.difficulty }}</div></div><button class="btn btn-ghost px-3 py-1.5 text-xs" @click="drawerJob=null">Close</button></div>
         <div class="flex items-center gap-2 mb-5">
           <span class="status-dot" :class="{pulse:drawerJob.status==='running'}" :style="{background:sc(drawerJob.status)}"></span>
           <span class="f-mono text-xs uppercase tracking-widest">{{ drawerJob.status }}</span>
