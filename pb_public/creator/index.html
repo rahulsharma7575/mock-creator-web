@@ -320,7 +320,7 @@ html[data-theme="light"] .logpre{color:#3a3d45}
                               <input :type="showPass?'text':'password'" v-model="cfgData[f.field]" class="input" placeholder="········">
                               <button type="button" class="btn btn-ghost px-2.5 py-1 text-xs f-mono" @click="showPass=!showPass">{{ showPass ? 'Hide' : 'Show' }}</button>
                             </div>
-                            <input v-else :type="f.ftype==='number'?'number':'text'" v-model.number="f.ftype==='number'?cfgData[f.field]:undefined" v-model="f.ftype!=='number'?cfgData[f.field]:undefined" class="input f-mono" step="any">
+                            <input v-else :type="f.ftype==='number'?'number':'text'" v-model="cfgData[f.field]" class="input f-mono">
                           </template>
 
                           <div v-if="hintText(f)" class="hint">{{ hintText(f) }}</div>
