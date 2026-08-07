@@ -225,11 +225,12 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
       </div>
       <nav class="px-4 space-y-1.5 flex-1">
         <div v-for="n in nav" :key="n.id" class="nav-item" :class="{on:view===n.id}" @click="view=n.id">
-          <span v-html="ic(n.id==='overview'?'chart':n.id==='clients'?'users':n.id==='configs'?'sliders':n.id==='dryruns'?'database':'fileText',18)"></span>
+          <span v-html="ic(n.id==='overview'?'chart':n.id==='clients'?'users':n.id==='configs'?'sliders':n.id==='jobs'?'fileText':n.id==='fullruns'?'rocket':'database',18)"></span>
           {{ n.label }}
           <span v-if="n.id==='jobs'&&failedCount" class="badge">{{ failedCount }}</span>
           <span v-if="n.id==='configs'&&cfgClient" class="badge" style="background:var(--green)">✓</span>
           <span v-if="n.id==='dryruns'&&dryruns.length" class="badge" style="background:var(--blue)">{{ dryruns.length }}</span>
+          <span v-if="n.id==='fullruns'&&fullruns.length" class="badge" style="background:var(--purple)">{{ fullruns.length }}</span>
         </div>
       </nav>
       <div class="p-4 border-t" style="border-color:var(--line)">
@@ -272,9 +273,10 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
                   <div class="f-mono text-[11px] uppercase tracking-widest flex items-center gap-1.5" style="color:var(--amber2)"><span v-html="ic('sparkles',13)"></span> New practice exam</div>
                   <h2 class="f-disp text-2xl font-extrabold mt-2 leading-snug">Generate a full mock exam<br>with one click.</h2>
                   <p class="text-sm mt-3 leading-relaxed" style="color:var(--mut)">Questions, listening audio and pictures — authored, proofread and safely saved as a draft for review.</p>
-                  <button class="btn btn-amber px-7 py-3.5 mt-6 text-[15px]" :disabled="!qs.client || startBusy" @click="quickStart('full')">
+                  <button class="btn btn-amber px-7 py-3.5 mt-6 text-[15px]" :disabled="!qs.client || startBusy || !pushReadyFor(qs.client)" @click="quickStart('full')">
                     <span v-if="startBusy" class="spinner"></span><span v-html="ic('rocket',16)"></span>{{ startBusy ? 'Queuing…' : 'Create Mock Exam' }}
                   </button>
+                  <div v-if="qs.client && !pushReadyFor(qs.client)" class="text-xs mt-3 flex items-center gap-1.5" style="color:var(--red)"><span v-html="ic('alertTriangle',13)"></span>Push password not set for this client — set it in Configs → Push, or full runs are blocked.</div>
                 </div>
                 <div class="lg:col-span-3 panel p-6 space-y-5" style="background:var(--panel);border:none">
                   <div><label class="lbl"><span v-html="ic('users',13)"></span> Client</label><select v-model="qs.client" class="select"><option value="">Choose…</option><option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}<template v-if="!c.active"> (paused)</template></option></select></div>
@@ -296,13 +298,13 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
             </div>
             <div class="grid md:grid-cols-3 gap-4">
               <div class="dry-btn" :class="{faded:!!dryBusy}" @click="dryRunConfig('dry_questions')">
-                <div class="dry-icon q" v-html="ic('fileText',19)"></div><div><div class="dry-label">Questions</div><div class="dry-sub">2-question sample</div></div>
+                <div class="dry-icon q" v-html="ic('fileText',19)"></div><div><div class="dry-label">Questions</div><div class="dry-sub">3-question sample</div></div>
               </div>
               <div class="dry-btn" :class="{faded:!!dryBusy}" @click="dryRunConfig('dry_images')">
-                <div class="dry-icon i" v-html="ic('image',19)"></div><div><div class="dry-label">Images</div><div class="dry-sub">2-picture sample</div></div>
+                <div class="dry-icon i" v-html="ic('image',19)"></div><div><div class="dry-label">Images</div><div class="dry-sub">3 questions + images</div></div>
               </div>
               <div class="dry-btn" :class="{faded:!!dryBusy}" @click="dryRunConfig('dry_audio')">
-                <div class="dry-icon a" v-html="ic('headphones',19)"></div><div><div class="dry-label">Audio</div><div class="dry-sub">2-clip sample</div></div>
+                <div class="dry-icon a" v-html="ic('headphones',19)"></div><div><div class="dry-label">Audio</div><div class="dry-sub">3 listening + mp3s</div></div>
               </div>
             </div>
           </section>
@@ -414,6 +416,13 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
                       </div>
                     </div>
                     <div v-show="openGroup===g" class="acc-body">
+                      <div v-if="g==='Images'" class="mb-3 flex items-center gap-2 flex-wrap">
+                        <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1.5" :style="falStatus && falStatus.ok ? 'background:rgba(47,125,79,.1);color:var(--green)' : 'background:var(--panel2);color:var(--mut)'">
+                          <span v-html="ic(falStatus && falStatus.ok ? 'check' : 'info',12)"></span>
+                          Fal.ai: {{ falStatus && falStatus.ok ? '$'+falStatus.balance+' '+falStatus.currency+' balance' : (falStatus ? (falStatus.message || 'unavailable') : 'checking…') }}
+                        </span>
+                        <button class="btn btn-ghost btn-sm" @click="loadFalStatus"><span v-html="ic('refresh',11)"></span>Check</button>
+                      </div>
                       <div class="acc-grid">
                         <template v-for="f in metaByGroup(g)" :key="f.field">
                           <div v-if="!hiddenField(f)" class="acc-field" :class="f.field==='prompts_json'?'full':''">
@@ -480,7 +489,7 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
                     <div class="flex items-center gap-2 mb-4"><span class="stat-ico" v-html="ic('zap',15)"></span><h3 class="f-disp font-extrabold">Quick tests</h3></div>
                     <div class="space-y-2.5">
                       <div class="dry-btn" :class="{faded:!!dryBusy}" @click="dryRun('dry_questions')">
-                        <div class="dry-icon q" v-html="ic('fileText',17)"></div><div><div class="dry-label">Questions</div><div class="dry-sub">2q sample</div></div>
+                        <div class="dry-icon q" v-html="ic('fileText',17)"></div><div><div class="dry-label">Questions</div><div class="dry-sub">3q sample</div></div>
                       </div>
                       <div class="dry-btn" :class="{faded:!!dryBusy}" @click="dryRun('dry_images')">
                         <div class="dry-icon i" v-html="ic('image',17)"></div><div><div class="dry-label">Images</div><div class="dry-sub">2 img sample</div></div>
@@ -550,6 +559,33 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
           </section>
         </div>
 
+        <!-- ========== FULL RUNS ========== -->
+        <div v-if="view==='fullruns'" class="view-block">
+          <section class="ov-sec">
+            <div class="flex items-end justify-between">
+              <div><h1 class="f-disp text-3xl font-extrabold tracking-tight flex items-center gap-3"><span v-html="ic('rocket',26)" style="color:var(--amber2)"></span>Full runs</h1><p class="text-sm mt-1.5" style="color:var(--mut)">Complete 40-question runs — preview every question, image and audio clip generated.</p></div>
+              <button class="btn btn-ghost px-4 py-2 text-sm flex items-center gap-1.5" @click="loadFullruns"><span v-if="fullrunsBusy" class="spinner"></span><span v-html="ic('refresh',14)"></span>Refresh</button>
+            </div>
+          </section>
+          <section class="ov-sec">
+            <div class="panel">
+              <div v-if="!fullruns.length" class="text-sm py-12 text-center" style="color:var(--mut)">No full runs yet — generate a mock from the Home screen first.</div>
+              <table v-else class="w-full">
+                <thead><tr><th>Created</th><th>Client</th><th>Q</th><th>Time</th><th>LLM $</th><th>Img</th><th>Pushed</th><th></th></tr></thead>
+                <tbody><tr v-for="d in fullruns" :key="d.id" class="cursor-pointer" @click="openPreview(d)">
+                  <td class="f-mono text-xs">{{ fmtTime(d.created) }}</td><td class="font-semibold">{{ d.client_name || '—' }}</td>
+                  <td class="f-mono">{{ d.count || '—' }}</td>
+                  <td class="tcell-num">{{ dryTime(d) }}</td>
+                  <td class="tcell-num">{{ dryCost(d) }}</td>
+                  <td class="tcell-num" style="color:var(--amber2)">{{ dryFalCost(d) !== '—' ? 'Fal $'+dryFalCost(d).slice(1) : ((d.report&&d.report.img_credits)||0)+' cr' }}</td>
+                  <td class="f-mono text-xs">{{ d.report && d.report.exam_created ? 'yes' : '—' }}</td>
+                  <td class="text-right"><button class="btn btn-ghost btn-sm flex items-center gap-1 ml-auto" @click.stop="openPreview(d)"><span v-html="ic('eye',13)"></span>Preview</button></td>
+                </tr></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
         <!-- ========== DRY RUNS ========== -->
         <div v-if="view==='dryruns'" class="view-block">
           <section class="ov-sec">
@@ -563,13 +599,13 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
               <div v-if="!dryruns.length" class="text-sm py-12 text-center" style="color:var(--mut)">No dry runs yet — hit a Quick test button first.</div>
               <table v-else class="w-full">
                 <thead><tr><th>Created</th><th>Client</th><th>Kind</th><th>Q</th><th>Time</th><th>LLM $</th><th></th></tr></thead>
-                <tbody><tr v-for="d in dryruns" :key="d.id" class="cursor-pointer" @click="openDryPreview(d)">
+                <tbody><tr v-for="d in dryruns" :key="d.id" class="cursor-pointer" @click="openPreview(d)">
                   <td class="f-mono text-xs">{{ fmtTime(d.created) }}</td><td class="font-semibold">{{ d.client_name || '—' }}</td>
                   <td><span class="text-xs f-mono px-2.5 py-1 rounded-lg" :style="{background:'rgba(53,104,156,.1)',color:'var(--blue)'}">{{ dryKindLabel(d.kind) }}</span></td>
                   <td class="f-mono">{{ d.count || '—' }}</td>
                   <td class="tcell-num">{{ dryTime(d) }}</td>
                   <td class="tcell-num">{{ dryCost(d) }}</td>
-                  <td class="text-right"><button class="btn btn-ghost btn-sm flex items-center gap-1 ml-auto" @click.stop="openDryPreview(d)"><span v-html="ic('eye',13)"></span>Preview</button></td>
+                  <td class="text-right"><button class="btn btn-ghost btn-sm flex items-center gap-1 ml-auto" @click.stop="openPreview(d)"><span v-html="ic('eye',13)"></span>Preview</button></td>
                 </tr></tbody>
               </table>
             </div>
@@ -604,6 +640,11 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
             <button v-if="drawerJob.status==='failed'" class="btn btn-amber btn-sm flex items-center gap-1.5" @click="retryJob"><span v-html="ic('refresh',13)"></span>Re-queue</button>
             <button class="btn btn-danger btn-sm flex items-center gap-1.5" @click="delJob"><span v-html="ic('trash',13)"></span>Delete</button>
           </div>
+        </div>
+
+        <div v-if="drawerJob.summary" class="panel2 p-4 mb-4" style="border-color:var(--amber)">
+          <div class="f-mono text-[10px] uppercase tracking-widest mb-2 flex items-center gap-1.5" style="color:var(--amber2)"><span v-html="ic('sparkles',12)"></span>Summary (AI)</div>
+          <div class="text-sm leading-relaxed" style="color:var(--ink);white-space:pre-wrap">{{ drawerJob.summary }}</div>
         </div>
 
         <!-- pipeline progress -->
@@ -646,38 +687,48 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
       </div>
     </div>
 
-    <!-- Dry Run Preview -->
-    <div v-if="previewDry" class="fixed inset-0 z-50 flex justify-end" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)" @click.self="previewDry=null" :title="'Click outside to close'">
+    <!-- Run Preview (dry + full) -->
+    <div v-if="previewRun" class="fixed inset-0 z-50 flex justify-end" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)" @click.self="previewRun=null" :title="'Click outside to close'">
       <div class="w-full max-w-2xl h-full overflow-y-auto panel rounded-none drawer p-7" style="border:none;border-left:1px solid var(--line)">
         <div class="flex items-start justify-between mb-4">
           <div>
-            <h2 class="f-disp text-xl font-extrabold flex items-center gap-2"><span v-html="ic('database',19)" style="color:var(--amber2)"></span>Dry run preview</h2>
-            <div class="text-xs f-mono mt-1.5" style="color:var(--mut)">{{ dryKindLabel(previewDry.kind) }} · {{ previewDry.count || 0 }} questions · {{ fmtTime(previewDry.created) }}</div>
+            <h2 class="f-disp text-xl font-extrabold flex items-center gap-2">
+              <span v-html="ic(previewRun.kind==='full'?'rocket':'database',19)" style="color:var(--amber2)"></span>
+              {{ previewRun.kind==='full' ? 'Full run preview' : 'Dry run preview' }}
+            </h2>
+            <div class="text-xs f-mono mt-1.5" style="color:var(--mut)">{{ dryKindLabel(previewRun.kind) }} · {{ previewRun.count || 0 }} questions · {{ fmtTime(previewRun.created) }}</div>
           </div>
-          <button class="btn btn-ghost btn-sm" @click="previewDry=null"><span v-html="ic('x',13)"></span>Close</button>
+          <button class="btn btn-ghost btn-sm" @click="previewRun=null"><span v-html="ic('x',13)"></span>Close</button>
+        </div>
+        <div v-if="previewRun.summary" class="panel2 p-4 mb-4" style="border-color:var(--amber)">
+          <div class="f-mono text-[10px] uppercase tracking-widest mb-2 flex items-center gap-1.5" style="color:var(--amber2)"><span v-html="ic('sparkles',12)"></span>Summary (AI)</div>
+          <div class="text-sm leading-relaxed" style="color:var(--ink);white-space:pre-wrap">{{ previewRun.summary }}</div>
         </div>
         <div class="panel2 p-3 mb-4 flex items-center gap-3 flex-wrap">
-          <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--soft);color:var(--amber2)">LLM cost {{ dryCost(previewDry) }}</span>
-          <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--soft);color:var(--amber2)">time {{ dryTime(previewDry) }}</span>
-          <span v-if="previewDry.images && previewDry.images.length" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(138,95,181,.12);color:var(--purple)">{{ previewDry.images.length }} image(s)</span>
-          <span v-if="previewDry.audio && previewDry.audio.length" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(47,143,143,.12);color:var(--cyan)">{{ previewDry.audio.length }} audio clip(s)</span>
-          <button class="btn btn-ghost btn-sm ml-auto flex items-center gap-1" @click="copy(JSON.stringify(previewDry.questions,null,2))"><span v-html="ic('copy',12)"></span>Copy JSON</button>
+          <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--soft);color:var(--amber2)">LLM cost {{ dryCost(previewRun) }}</span>
+          <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--soft);color:var(--amber2)">time {{ dryTime(previewRun) }}</span>
+          <span v-if="dryFalCost(previewRun) !== '—'" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(226,114,63,.12);color:var(--amber2)">Fal.ai cost {{ dryFalCost(previewRun) }}</span>
+          <span v-if="previewRun.report && previewRun.report.img_credits" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(138,95,181,.12);color:var(--purple)">{{ previewRun.report.img_credits }} credits</span>
+          <span v-if="previewRun.report && previewRun.report.fal_balance != null" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(47,143,143,.12);color:var(--cyan)">Fal balance ${{ previewRun.report.fal_balance }}</span>
+          <span v-if="previewRun.images && previewRun.images.length" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(138,95,181,.12);color:var(--purple)">{{ previewRun.images.length }} image(s)</span>
+          <span v-if="previewRun.audio && previewRun.audio.length" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(47,143,143,.12);color:var(--cyan)">{{ previewRun.audio.length }} audio clip(s)</span>
+          <button class="btn btn-ghost btn-sm ml-auto flex items-center gap-1" @click="copy(JSON.stringify(previewRun.questions,null,2))"><span v-html="ic('copy',12)"></span>Copy JSON</button>
         </div>
-        <div v-if="previewDry.images && previewDry.images.length" class="panel2 p-4 mb-3">
+        <div v-if="previewRun.images && previewRun.images.length" class="panel2 p-4 mb-3">
           <div class="f-mono text-[10px] uppercase tracking-widest mb-2" style="color:var(--mut)">generated images (click to view full)</div>
           <div class="grid grid-cols-3 gap-2">
-            <a v-for="f in previewDry.images" :key="f" :href="'/api/files/dryrun/'+previewDry.id+'/'+f" target="_blank">
-              <img :src="'/api/files/dryrun/'+previewDry.id+'/'+f" class="w-full rounded-lg" style="border:1px solid var(--line);background:var(--panel)" :alt="f">
+            <a v-for="f in previewRun.images" :key="f" :href="'/api/files/'+previewRun.collectionName+'/'+previewRun.id+'/'+f" target="_blank">
+              <img :src="'/api/files/'+previewRun.collectionName+'/'+previewRun.id+'/'+f" class="w-full rounded-lg" style="border:1px solid var(--line);background:var(--panel)" :alt="f">
             </a>
           </div>
         </div>
-        <div v-if="previewDry.audio && previewDry.audio.length" class="panel2 p-4 mb-3">
+        <div v-if="previewRun.audio && previewRun.audio.length" class="panel2 p-4 mb-3">
           <div class="f-mono text-[10px] uppercase tracking-widest mb-2" style="color:var(--mut)">generated audio</div>
-          <audio v-for="a in previewDry.audio" :key="a" :src="'/api/files/dryrun/'+previewDry.id+'/'+a" controls class="w-full mb-1" :style="{height:'36px'}"></audio>
+          <audio v-for="a in previewRun.audio" :key="a" :src="'/api/files/'+previewRun.collectionName+'/'+previewRun.id+'/'+a" controls class="w-full mb-1" :style="{height:'36px'}"></audio>
         </div>
-        <div v-if="!previewDry.questions || !previewDry.questions.length" class="text-sm py-10 text-center" style="color:var(--mut)">No questions stored for this dry run.</div>
+        <div v-if="!previewRun.questions || !previewRun.questions.length" class="text-sm py-10 text-center" style="color:var(--mut)">No questions stored for this run.</div>
         <div v-else class="space-y-3">
-          <div v-for="q in previewDry.questions" :key="q.number" class="panel2 p-4">
+          <div v-for="q in previewRun.questions" :key="q.number" class="panel2 p-4">
             <div class="flex items-center gap-2 mb-2 flex-wrap">
               <span class="f-mono text-xs px-2 py-0.5 rounded-lg" style="background:var(--soft);color:var(--amber2)">Q{{ q.number }}</span>
               <span class="text-[11px] uppercase tracking-widest" style="color:var(--mut)">{{ q.section }} · {{ q.type }} · {{ q.difficulty }}</span>

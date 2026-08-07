@@ -79,7 +79,7 @@ DEFAULTS = {
     "dry_mode": "questions",                 # questions | images | audio - set by worker for dry runs (MUST stay in DEFAULTS or load_config drops it)
     # image provider - DYNAMIC: fal-ai/z-image/turbo (Fal.ai) | z-image (Magnific) | nano-banana (OpenRouter)
     "fal_api": "https://queue.fal.run/fal-ai/z-image/turbo",
-    "img_size": 512,                         # Fal.ai square image size (1:1)
+    "fal_size": 512,                         # Fal.ai square image size (1:1)
     # question creator (author) — OpenRouter
     "author_model": "google/gemini-2.5-flash",
     "author_retries": 3,
@@ -192,9 +192,17 @@ def load_config(path=None):
 def render_prompt(template):
     """Fill {placeholders} in a prompt template from the active config."""
     out = template
+    r = int(CFG.get("reading_count", 20))
+    q = int(CFG.get("question_count", 40))
+    ls = int(CFG.get("reading_count", 20)) + 1
+    if r <= 0:
+        section_order = f'ALL questions are section "listening" (Q1-{q}) - no reading section'
+    else:
+        section_order = f'Q1-{r} section "reading", Q{ls}-{q} section "listening"'
     ctx = {**CFG,
            "difficulty_note": DIFFICULTY_PROFILES.get(CFG.get("difficulty_profile"), ""),
-           "listening_start": int(CFG.get("reading_count", 20)) + 1}
+           "listening_start": ls,
+           "section_order": section_order}
     for k, v in ctx.items():
         if isinstance(v, (str, int, float)):
             out = out.replace("{" + k + "}", str(v))
@@ -315,7 +323,7 @@ AUTHOR_SYSTEM = """You are a senior EPS-TOPIK UBT exam writer and psychometric e
 AUTHOR_USER = """Write a complete Korean EPS-TOPIK UBT mock exam: EXACTLY {question_count} questions as a JSON array.
 
 HARD RULES:
-- Q1-{reading_count} section "reading", Q{listening_start}-{question_count} section "listening" (in that order, number 1..{question_count} unique).
+- {section_order} (number 1..{question_count} unique, in order).
 - {difficulty_note}
 - Each question: number, section, difficulty, type (short English label), question_text (Korean,
   starts with "Q<N>. ", NO html), options (4 REAL Korean strings — natural, believable, similar
@@ -519,7 +527,7 @@ def image_bounds():
     if q_count >= r_count * 2 and r_count >= 10:
         return lo, hi
     hi = min(hi, r_count)
-    lo = min(lo, max(0, r_count - 1))
+    lo = min(lo, r_count)
     return lo, hi
 
 
@@ -786,13 +794,69 @@ def gen_image_nano(key, prompt):
     return base64.b64decode(b64), j.get("usage", {})
 
 
+def _fal_headers():
+    key = os.environ.get("FAL_KEY") or ""
+    if not key:
+        raise RuntimeError("FAL_KEY is not set - add it to docker-compose / container env")
+    return {"Authorization": "Key " + key, "Accept": "application/json"}
+
+
+def fal_balance():
+    """Current fal.ai credit balance (USD) via the Platform API."""
+    r = httpx.get("https://api.fal.ai/v1/account/billing", params={"expand": "credits"},
+                  headers=_fal_headers(), timeout=30)
+    r.raise_for_status()
+    j = r.json()
+    c = (j.get("credits") or {})
+    return {"balance": c.get("current_balance", 0.0), "currency": c.get("currency", "USD"),
+            "username": j.get("username", "")}
+
+
+def fal_usage_total(endpoint=None, start_iso=None, end_iso=None):
+    """Total billed cost (USD) for an endpoint in a window via the usage API."""
+    params = {"expand": "summary", "limit": 100}
+    if endpoint:
+        params["endpoint_id"] = endpoint
+    if start_iso:
+        params["start"] = start_iso
+    if end_iso:
+        params["end"] = end_iso
+    r = httpx.get("https://api.fal.ai/v1/models/usage", params=params,
+                  headers=_fal_headers(), timeout=30)
+    r.raise_for_status()
+    j = r.json()
+    total = 0.0
+    for item in (j.get("summary") or []):
+        total += float(item.get("cost_total") or 0.0)
+    return total
+
+
+def fal_model_exists(slug):
+    """True when the exact fal endpoint id is in the model search results."""
+    q = slug.split("/")[-1].split(":")[0]
+    r = httpx.get("https://api.fal.ai/v1/models", params={"q": q, "limit": 50},
+                  headers=_fal_headers(), timeout=30)
+    if r.status_code != 200:
+        return None  # unknown - API unreachable
+    for m in (r.json().get("models") or []):
+        if m.get("endpoint_id") == slug:
+            return True
+    return False
+
+
 def gen_image_fal(prompt, size=None):
-    """Generate via Fal.ai (fal-ai/z-image/turbo, 1:1 square). Requires FAL_KEY env."""
+    """Generate via Fal.ai (fal-ai/z-image/turbo, 1:1 square). Requires FAL_KEY env.
+
+    Returns (image_bytes, cost_usd) - cost measured as the billed usage delta
+    for the endpoint across the generation window."""
+    endpoint = CFG.get("fal_api", "https://queue.fal.run/fal-ai/z-image/turbo").replace("https://queue.fal.run/", "")
     key = os.environ.get("FAL_KEY") or ""
     if not key:
         raise RuntimeError("FAL_KEY is not set - add it to docker-compose / container env")
     api = CFG.get("fal_api", "https://queue.fal.run/fal-ai/z-image/turbo")
-    sz = int(size or CFG.get("img_size", 512))
+    sz = int(size or CFG.get("fal_size", 512))
+    t_start = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    cost_before = fal_usage_total(endpoint, start_iso="2025-01-01", end_iso=t_start)
     r = httpx.post(api, headers={"Authorization": "Key " + key, "Content-Type": "application/json"},
                    json={"prompt": prompt, "image_size": {"width": sz, "height": sz}},
                    timeout=int(CFG.get("img_timeout_s", 240)))
@@ -813,7 +877,12 @@ def gen_image_fal(prompt, size=None):
             if not imgs or not imgs[0].get("url"):
                 raise RuntimeError("fal result has no images")
             data = httpx.get(imgs[0]["url"], timeout=120).content
-            return data
+            t_end = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            try:
+                cost = max(0.0, fal_usage_total(endpoint, start_iso="2025-01-01", end_iso=t_end) - cost_before)
+            except Exception:
+                cost = 0.0
+            return data, cost
         if st in ("FAILED", "CANCELLED", "ERROR"):
             err = ((sj.get("error") or {}).get("message")) or sj.get("detail") or st
             raise RuntimeError("fal generation failed: " + str(err)[:200])
@@ -875,7 +944,7 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None):
             print(f"[images] z-image (API mode): {len(jobs)} images x {magnific_mcp.ZIMAGE_COST} credits "
                   "(live balance check not available via API)")
     elif str(primary).startswith("fal-ai/"):
-        print(f"[images] fal.ai provider: {len(jobs)} image(s) x {CFG.get('img_size', 512)}x{CFG.get('img_size', 512)} "
+        print(f"[images] fal.ai provider: {len(jobs)} image(s) x {CFG.get('fal_size', 512)}x{CFG.get('fal_size', 512)} "
               "(FAL_KEY from env, no Magnific balance check)")
     else:
         print(f"[images] model chain: {chain}")
@@ -894,8 +963,7 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None):
                         data, usage = gen_image_nano(key, prompt)
                         used = usage.get("cost", 0)
                     elif str(model).startswith("fal-ai/"):
-                        data = gen_image_fal(prompt)
-                        used = 0.0
+                        data, used = gen_image_fal(prompt)
                     else:
                         url = gen_image_or(key, prompt, model)
                         data = httpx.get(url, timeout=120).content
@@ -1024,7 +1092,8 @@ def dry_images_pass(key, qs, base_dir):
                     data, usage = gen_image_nano(key, fprompt)
                     cost += usage.get("cost", 0)
                 elif str(model).startswith("fal-ai/"):
-                    data = gen_image_fal(fprompt)
+                    data, used = gen_image_fal(fprompt)
+                    cost += used
                 else:
                     url = gen_image_or(key, fprompt, model)
                     data = httpx.get(url, timeout=120).content
@@ -1148,7 +1217,7 @@ def final_summary(stats):
              f"nano-banana (OpenRouter), ${stats['img_cost']:.2f}, uploaded")
     elif im.startswith("fal-ai/"):
         line(f"{stats['img_ok']}/{stats['img_total']} TOPIK images",
-             f"fal.ai ({im}), {CFG.get('img_size', 512)}x{CFG.get('img_size', 512)}, uploaded")
+             f"fal.ai ({im}), {CFG.get('fal_size', 512)}x{CFG.get('fal_size', 512)}, uploaded")
     else:
         line(f"{stats['img_ok']}/{stats['img_total']} TOPIK images",
              f"{im} (Magnific), {stats['img_credits']} credits, uploaded")
@@ -1299,11 +1368,18 @@ def main():
             "repair": stats["repair"], "exam_created": False,
             "image_count": sum(1 for q in qs if q.get("requiresImage")),
             "total_llm_cost_usd": round(stats["llm_cost"], 4),
+            "img_model": stats["img_model"],
             "img_credits": stats["img_credits"],
             "img_count": sum(1 for q in qs if q.get("requiresImage")),
+            "fal_cost": round(stats["img_cost"], 4) if str(stats["img_model"]).startswith("fal-ai/") else 0.0,
+            "fal_balance": None,
             "audio_uploaded": stats.get("audio_ok", 0),
             "stage_times": stats["stage_times"],
         }
+        try:
+            report["fal_balance"] = fal_balance().get("balance")
+        except Exception:
+            pass
         (base_dir / "extra" / "run_report.json").write_text(
             json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         final_summary(stats)
@@ -1372,10 +1448,17 @@ def main():
         "difficulty_profile": CFG.get("difficulty_profile", "creative+difficult"),
         "image_count": int(CFG.get("image_count", 22)),
         "total_llm_cost_usd": round(stats["llm_cost"], 4),
+        "img_model": stats["img_model"],
         "img_credits": stats["img_credits"],
         "img_count": stats["img_total"],
+        "fal_cost": round(stats["img_cost"], 4) if str(stats["img_model"]).startswith("fal-ai/") else 0.0,
+        "fal_balance": None,
         "stage_times": stats["stage_times"],
     }
+    try:
+        report["fal_balance"] = fal_balance().get("balance")
+    except Exception:
+        pass
     (base_dir / "extra" / "run_report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     final_summary(stats)

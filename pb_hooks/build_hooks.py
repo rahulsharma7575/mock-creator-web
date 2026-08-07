@@ -30,6 +30,7 @@ COLLECTION_IDS = {
     "mock_models": "c_mock_models",
     "mock_jobs": "c_mock_jobs",
     "dryrun": "c_dryrun",
+    "fullrun": "c_fullrun",
 }
 
 
@@ -131,6 +132,7 @@ SCHEMA = [
         f("overrides", "json", maxSize=65536),
         f("log", "editor"),
         f("report", "json", maxSize=2097152),
+        f("summary", "editor"),
         f("pushed", "bool"),
         f("error", "text", max=2000),
         f("created", "autodate", onCreate=True),
@@ -154,6 +156,29 @@ SCHEMA = [
          "presentable": False, "hidden": False, "primaryKey": False,
          "options": {"maxSelect": 10, "maxSize": 20971520,
                      "mimeTypes": ["audio/mpeg", "audio/mp3", "audio/wav"]}},
+        f("summary", "editor"),
+        f("created", "autodate", onCreate=True),
+        f("updated", "autodate", onCreate=True, onUpdate=True),
+    ]),
+    collection("fullrun", [
+        f("client", "relation",
+          collectionId=COLLECTION_IDS["mock_clients"], maxSelect=1, minSelect=0),
+        f("kind", "text", max=50),
+        f("status", "select", values=["done", "failed"], maxSelect=1),
+        f("count", "number", min=1, max=200),
+        f("difficulty", "text", max=100),
+        f("questions", "json", maxSize=2097152),
+        f("report", "json", maxSize=2097152),
+        f("log", "editor"),
+        {"id": "f_images", "name": "images", "type": "file", "required": False,
+         "presentable": False, "hidden": False, "primaryKey": False,
+         "options": {"maxSelect": 20, "maxSize": 20971520,
+                     "mimeTypes": ["image/webp", "image/png", "image/jpeg"]}},
+        {"id": "f_audio", "name": "audio", "type": "file", "required": False,
+         "presentable": False, "hidden": False, "primaryKey": False,
+         "options": {"maxSelect": 20, "maxSize": 20971520,
+                     "mimeTypes": ["audio/mpeg", "audio/mp3", "audio/wav"]}},
+        f("summary", "editor"),
         f("created", "autodate", onCreate=True),
         f("updated", "autodate", onCreate=True, onUpdate=True),
     ]),
@@ -370,6 +395,16 @@ route(
 try {
   var slug = (e.request.url.query().get("slug") || "").trim()
   if (!slug) return e.json(400, { error: "slug query param required" })
+  if (slug.indexOf("fal-ai/") === 0) {
+    var fkey = $os.getenv("FAL_KEY") || ""
+    if (!fkey) return e.json(200, { exists: null, status: 0, message: "FAL_KEY is not set in the container - fal model checks unavailable" })
+    var q = slug.split("/").pop().split(":")[0]
+    var fres = $http.send({ url: "https://api.fal.ai/v1/models?q=" + encodeURIComponent(q) + "&limit=50", method: "GET", headers: { "Authorization": "Key " + fkey }, timeout: 30 })
+    var found = false
+    try { var fj = JSON.parse(fres.raw || "{}"); var list = fj.models || []; for (var i = 0; i < list.length; i++) { if (list[i].endpoint_id === slug) { found = true; break } } } catch (errF) {}
+    if (fres.statusCode === 401) return e.json(200, { exists: null, status: 401, message: "FAL_KEY rejected by fal.ai (401)" })
+    return e.json(200, { exists: found, status: fres.statusCode || 0, message: found ? "" : "model not found on fal.ai" })
+  }
   var key = $os.getenv("OPENROUTER_API_KEY") || ""
   if (!key) return e.json(200, { exists: null, status: 0, message: "OPENROUTER_API_KEY is not set in the container - model checks unavailable" })
   var res = $http.send({
@@ -389,6 +424,30 @@ try {
   else if (status === 404 || invalid) exists = false
   else exists = true
   return e.json(200, { exists: exists, status: status, message: String(msg).slice(0, 200) })
+} catch (err) {
+  return e.json(500, { error: String(err) })
+}
+""",
+)
+
+# GET /api/creator/fal-status - superuser only - fal.ai credit balance (real API call)
+route(
+    "fal-status", "GET", "/api/creator/fal-status", "$apis.requireSuperuserAuth()",
+    """
+try {
+  var key = $os.getenv("FAL_KEY") || ""
+  if (!key) return e.json(200, { ok: false, message: "FAL_KEY is not set in the container" })
+  var res = $http.send({ url: "https://api.fal.ai/v1/account/billing?expand=credits", method: "GET", headers: { "Authorization": "Key " + key }, timeout: 30 })
+  var j = {}
+  try { j = JSON.parse(res.raw || "{}") } catch (err) {}
+  var creds = j.credits || {}
+  return e.json(200, {
+    ok: res.statusCode === 200,
+    balance: creds.current_balance,
+    currency: creds.currency || "USD",
+    username: j.username || "",
+    status: res.statusCode || 0
+  })
 } catch (err) {
   return e.json(500, { error: String(err) })
 }

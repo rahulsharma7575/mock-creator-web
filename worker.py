@@ -257,7 +257,7 @@ def collect_dryrun_assets(workdir):
 
 
 def multipart_patch_dryrun(record_id, image_paths, audio_paths):
-    """Append generated files to a dryrun record via multipart PATCH (images+/audio+)."""
+    """Append generated files to a record via multipart PATCH (images+/audio+)."""
     global _token, _token_at
     boundary = "----mc" + format(time.time_ns(), "x") + os.urandom(4).hex()
     parts = []
@@ -280,6 +280,41 @@ def multipart_patch_dryrun(record_id, image_paths, audio_paths):
                  "Content-Type": "multipart/form-data; boundary=" + boundary})
     with urllib.request.urlopen(req, timeout=180) as r:
         r.read()
+
+
+def summarize_log(log_tail, kind):
+    """Plain-language summary of a job log via deepseek-v4-flash (cheap, ~1k tokens).
+
+    Returns a short string or '' on any failure (summary is a nicety, never a blocker)."""
+    key = os.environ.get("OPENROUTER_API_KEY", "")
+    if not key or not log_tail:
+        return ""
+    prompt = (
+        "Summarize this mock-exam generation job log for a non-technical admin. "
+        "Output 5-8 short plain-English bullets: what was generated (question/image/audio counts), "
+        "which model providers were used, stage timings, any costs shown, and any warnings or errors. "
+        "Do not invent numbers that are not in the log. Job kind: " + kind + ".\n\nLOG:\n" + log_tail[-6000:]
+    )
+    try:
+        body = json.dumps({
+            "model": "deepseek/deepseek-v4-flash",
+            "messages": [
+                {"role": "system", "content": "You write concise, friendly, accurate summaries for a non-technical admin."},
+                {"role": "user", "content": prompt},
+            ],
+            "max_tokens": 400,
+            "temperature": 0.3,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            "https://openrouter.ai/api/v1/chat/completions",
+            data=body, method="POST",
+            headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=90) as r:
+            j = json.loads(r.read().decode("utf-8"))
+        return (j.get("choices") or [{}])[0].get("message", {}).get("content", "").strip()[:1200]
+    except Exception as e:
+        log(f"summary generation failed: {e}")
+        return ""
 
 
 def run_job(job):
@@ -307,14 +342,26 @@ def run_job(job):
     if kind.startswith("dry_"):
         dry_mode = kind[4:]  # questions | images | audio
         cfg["dry_mode"] = dry_mode
-        cfg["question_count"] = 2
-        cfg["reading_count"] = 1
+        cfg["question_count"] = 3
         if dry_mode == "images":
-            # guarantee the sample actually contains image questions to generate
-            cfg["image_count"] = 1
-            cfg["image_count_min"] = 1
-            cfg["image_count_max"] = 1
-        log(f"job {job_id}: dry run mode={dry_mode}, sample_size=2")
+            # 3 questions, all with images
+            cfg["reading_count"] = 3
+            cfg["image_count"] = 3
+            cfg["image_count_min"] = 3
+            cfg["image_count_max"] = 3
+        elif dry_mode == "audio":
+            # 3 questions, all listening (each gets an mp3), no images
+            cfg["reading_count"] = 0
+            cfg["image_count"] = 0
+            cfg["image_count_min"] = 0
+            cfg["image_count_max"] = 0
+        else:
+            # questions: 2 reading + 1 listening, no images
+            cfg["reading_count"] = 2
+            cfg["image_count"] = 0
+            cfg["image_count_min"] = 0
+            cfg["image_count_max"] = 0
+        log(f"job {job_id}: dry run mode={dry_mode}, sample_size=3")
 
     if cfg.get("push_enabled", True) and not cfg.get("pb_pass") and not os.environ.get("MOCK_PB_PASS"):
         log(f"job {job_id}: push credentials missing for client {client_name}")
@@ -368,31 +415,32 @@ def run_job(job):
     if rc == 0:
         log(f"job {job_id}: DONE")
         pushed = (not kind.startswith("dry_")) and bool(report and report.get("exam_created"))
+        summary = summarize_log(log_tail, kind)
         patch_job(job_id, {
             "status": "done", "log": log_tail or "[worker] finished (no output)",
-            "report": report, "pushed": pushed,
+            "report": report, "pushed": pushed, "summary": summary,
         })
-        if kind.startswith("dry_"):
-            try:
-                qs_file = find_questions_file(workdir)
-                questions = None
-                if qs_file:
-                    questions = json.loads(qs_file.read_text(encoding="utf-8"))
-                dry = api("POST", "/api/collections/dryrun/records", {
-                    "client": client_id, "kind": kind, "status": "done",
-                    "count": len(questions) if questions else 0,
-                    "difficulty": str(cfg.get("difficulty_profile") or ""),
-                    "questions": questions, "report": report,
-                    "log": (log_tail or "")[-8000:],
-                })
-                dry_id = dry.get("id") if isinstance(dry, dict) else None
-                imgs, auds = collect_dryrun_assets(workdir)
-                if dry_id and (imgs or auds):
-                    multipart_patch_dryrun(dry_id, imgs, auds)
-                    log(f"job {job_id}: dryrun assets uploaded ({len(imgs)} images, {len(auds)} audio)")
-                log(f"job {job_id}: dry run saved to dryrun collection ({len(questions) if questions else 0} questions)")
-            except Exception as e:
-                log(f"job {job_id}: dryrun save failed: {e}")
+        try:
+            qs_file = find_questions_file(workdir)
+            questions = None
+            if qs_file:
+                questions = json.loads(qs_file.read_text(encoding="utf-8"))
+            imgs, auds = collect_dryrun_assets(workdir)
+            rec_collection = "dryrun" if kind.startswith("dry_") else "fullrun"
+            rec = api("POST", "/api/collections/" + rec_collection + "/records", {
+                "client": client_id, "kind": kind, "status": "done",
+                "count": len(questions) if questions else 0,
+                "difficulty": str(cfg.get("difficulty_profile") or ""),
+                "questions": questions, "report": report, "summary": summary,
+                "log": (log_tail or "")[-8000:],
+            })
+            rec_id = rec.get("id") if isinstance(rec, dict) else None
+            if rec_id and (imgs or auds):
+                multipart_patch_dryrun(rec_id, imgs, auds)
+                log(f"job {job_id}: {rec_collection} assets uploaded ({len(imgs)} images, {len(auds)} audio)")
+            log(f"job {job_id}: saved to {rec_collection} collection ({len(questions) if questions else 0} questions)")
+        except Exception as e:
+            log(f"job {job_id}: {rec_collection} save failed: {e}")
     else:
         err = log_tail.strip().splitlines()
         tail = "\n".join(err[-12:]) if err else "pipeline exited " + str(rc)

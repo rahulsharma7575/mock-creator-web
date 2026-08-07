@@ -66,9 +66,9 @@ createApp({
     authed:!!localStorage.getItem(LS_TK),who:localStorage.getItem(LS_EM)||'',
     loginEmail:'',loginPass:'',loginErr:'',loginBusy:false,clientBusy:false,newKeyHash:'',togglingId:'',
     theme:localStorage.getItem(LS_TH)||'light',view:'overview',
-    nav:[{id:'overview',label:'Overview'},{id:'clients',label:'Clients'},{id:'configs',label:'Configs'},{id:'jobs',label:'Jobs'},{id:'dryruns',label:'Dry runs'}],
+    nav:[{id:'overview',label:'Overview'},{id:'clients',label:'Clients'},{id:'configs',label:'Configs'},{id:'jobs',label:'Jobs'},{id:'fullruns',label:'Full runs'},{id:'dryruns',label:'Dry runs'}],
     clients:[],jobs:[],configs:[],meta:[],models:[],jobsBusy:false,startBusy:false,
-    dryruns:[],dryrunsBusy:false,previewDry:null,
+    dryruns:[],dryrunsBusy:false,fullruns:[],fullrunsBusy:false,previewRun:null,falStatus:null,cfgByClient:{},
     qs:{client:'',count:40,difficulty:'creative+difficult'},jobFilter:'all',
     drawerJob:null,drawerTimer:null,drawerLastUpd:'',clientModal:false,clientStep:0,newClientName:'',newKey:'',clientErr:'',
     confirmMsg:null,confirmFn:null,toasts:[],
@@ -140,7 +140,7 @@ createApp({
     },
   },
   watch:{
-    view(v){if(v==='jobs')this.loadJobs();if(v==='clients')this.loadClients();if(v==='dryruns')this.loadDryruns();this.$nextTick(()=>this.viewEnter());},
+    view(v){if(v==='jobs')this.loadJobs();if(v==='clients')this.loadClients();if(v==='dryruns')this.loadDryruns();if(v==='fullruns')this.loadFullruns();this.$nextTick(()=>this.viewEnter());},
     drawerJob(j){clearInterval(this.drawerTimer);this.drawerTimer=null;if(j&&(j.status==='queued'||j.status==='running')){this.drawerTimer=setInterval(()=>this.refreshDrawer(),4000);}},
   },
   methods:{
@@ -257,7 +257,7 @@ createApp({
     },
     cardState(g){const list=this.groupIssues[g]||[];if(list.some(i=>i.w==='err'))return'err';if(list.some(i=>i.w==='warn'))return'warn';if(this.verified[g])return'ok';return'idle';},
     groupIssueList(g){return this.groupIssues[g]||[];},
-    hiddenField(f){return['image_count_min','image_count_max','is_active','shuffle_questions','shuffle_options','negative_marks'].includes(f.field);},
+    hiddenField(f){return['image_count_min','image_count_max','is_active','shuffle_questions','shuffle_options','negative_marks','push_subject_id','push_exam_type'].includes(f.field);},
     toggleGroup(g){this.openGroup=this.openGroup===g?'':g;this.$nextTick(()=>this.deckEnter());},
     viewEnter(){
       if(!window.anime)return;
@@ -274,19 +274,33 @@ createApp({
     async login(){this.loginErr='';this.loginBusy=true;
       try{const r=await fetch('/api/collections/_superusers/auth-with-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity:this.loginEmail,password:this.loginPass})});const text=await r.text();let b;try{b=JSON.parse(text);}catch(e){throw new Error('Server returned unexpected response - is PocketBase running?');}if(!r.ok)throw new Error(b.message||'auth failed');localStorage.setItem(LS_TK,b.token);localStorage.setItem(LS_EM,b.record.email||this.loginEmail);this.who=localStorage.getItem(LS_EM);this.authed=true;try{await api('/api/creator/ensure');}catch(e){this.toast('ensure: '+e.message,'err');}this.loadAll();}catch(e){this.loginErr=e.message;}this.loginBusy=false;},
     logout(){localStorage.removeItem(LS_TK);localStorage.removeItem(LS_EM);clearInterval(this.drawerTimer);this.drawerTimer=null;this.drawerJob=null;this.authed=false;this.who='';this.view='overview';this.clients=[];this.jobs=[];this.configs=[];this.cfgClient='';this.cfg=null;},
-    loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();this.ensureOrModels();this.$nextTick(()=>this.viewEnter());},
+    loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();this.loadFalStatus();this.ensureOrModels();this.$nextTick(()=>this.viewEnter());},
     async loadClients(){try{const r=await api('/api/collections/mock_clients/records?perPage=200&sort=name');this.clients=r.items||[];}catch(e){this.toast('clients: '+e.message,'err');}},
-    async loadConfigs(){try{const r=await api('/api/collections/mock_config/records?perPage=200');this.configs=r.items||[];}catch(e){this.toast('configs: '+e.message,'err');}},
+    async loadConfigs(){try{const r=await api('/api/collections/mock_config/records?perPage=200');this.configs=r.items||[];const m={};for(const c of this.configs){m[c.client]=c;}this.cfgByClient=m;}catch(e){this.toast('configs: '+e.message,'err');}},
     async loadMeta(){try{const r=await api('/api/collections/mock_config_meta/records?perPage=200&sort=group,order');this.meta=r.items||[];}catch(e){}},
     async loadModels(){try{const r=await api('/api/collections/mock_models/records?perPage=200');this.models=r.items||[];}catch(e){}},
     async loadDryruns(){this.dryrunsBusy=true;try{const r=await api('/api/collections/dryrun/records?perPage=50&sort=-created');this.dryruns=r.items||[];}catch(e){this.toast('dry runs: '+e.message,'err');}this.dryrunsBusy=false;},
+    async loadFullruns(){this.fullrunsBusy=true;try{const r=await api('/api/collections/fullrun/records?perPage=50&sort=-created');this.fullruns=r.items||[];}catch(e){this.toast('full runs: '+e.message,'err');}this.fullrunsBusy=false;},
+    async loadFalStatus(){try{const r=await api('/api/creator/fal-status');this.falStatus=r;}catch(e){this.falStatus=null;}},
     dryKindLabel(k){return k==='dry_questions'?'Questions':k==='dry_images'?'Images':k==='dry_audio'?'Audio':(k||'—');},
     dryCost(d){const r=(d&&d.report)||{};const c=r.total_llm_cost_usd!=null?r.total_llm_cost_usd:r.llm_cost;return c?`$${Number(c).toFixed(3)}`:'—';},
+    dryFalCost(d){const r=(d&&d.report)||{};const c=r.fal_cost||0;const im=String(r.img_model||'');return c&&im.startsWith('fal-ai/')?`$${Number(c).toFixed(4)}`:'—';},
     dryTime(d){const st=((d&&d.report)||{}).stage_times||{};return st.total!=null?`${st.total}s`:'—';},
-    openDryPreview(d){this.previewDry=d;},
+    openPreview(d){this.previewRun=d;},
+    pushReadyFor(clientId){
+      const cfg=this.cfgByClient[clientId];
+      if(!cfg)return false;
+      if(cfg.push_enabled===false)return false;
+      return !!(cfg.push_pb_pass);
+    },
     async loadJobs(){this.jobsBusy=true;try{const r=await api('/api/creator/jobs');this.jobs=r.jobs||[];}catch(e){this.toast('jobs: '+e.message,'err');}this.jobsBusy=false;},
     startJob(params){const q=new URLSearchParams(params);return api('/api/creator/start?'+q.toString(),{method:'POST'});},
-    async quickStart(kind){this.startBusy=true;try{const params={client:this.qs.client,count:this.qs.count,difficulty:this.qs.difficulty};if(kind&&kind!=='full'){params.kind=kind;params.count=2;}const r=await this.startJob(params);this.toast('Job '+r.job_id.slice(0,8)+' queued ('+(r.kind||kind)+')','ok');this.loadJobs();}catch(e){this.toast('start: '+e.message,'err');}this.startBusy=false;},
+    async quickStart(kind){this.startBusy=true;try{
+      if(kind==='full'&&!this.pushReadyFor(this.qs.client)){
+        this.startBusy=false;
+        return this.toast('Cannot create a mock: no Push password set for this client. Set it in Configs > Push first.','err');
+      }
+      const params={client:this.qs.client,count:this.qs.count,difficulty:this.qs.difficulty};if(kind&&kind!=='full'){params.kind=kind;params.count=3;}const r=await this.startJob(params);this.toast('Job '+r.job_id.slice(0,8)+' queued ('+(r.kind||kind)+')','ok');this.loadJobs();}catch(e){this.toast('start: '+e.message,'err');}this.startBusy=false;},
     async dryRun(kind){await this.runDry(kind,this.cfgClient,this.cfgData&&this.cfgData.difficulty_profile);},
     async dryRunConfig(kind){await this.runDry(kind,this.qs.client,this.qs.difficulty);},
     async runDry(kind,client,difficulty){
@@ -295,7 +309,7 @@ createApp({
       this.dryBusy={kind};
       this.$nextTick(()=>{if(window.anime)window.anime({targets:'.dry-btn.faded',opacity:[0.45,0.6],duration:300,easing:'easeOutCubic'});});
       try{
-        const r=await this.startJob({client:client,kind:kind,count:2,difficulty:difficulty||'creative+difficult'});
+        const r=await this.startJob({client:client,kind:kind,count:3,difficulty:difficulty||'creative+difficult'});
         const jid=r.job_id;
         this.toast('Dry run '+kind+' queued (job '+String(jid).slice(0,8)+')','info');
         this.loadJobs();
