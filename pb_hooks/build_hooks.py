@@ -567,6 +567,8 @@ try {
   var kind = (q.get("kind") || "full").trim()
   if (kind === "dry") kind = "dry_questions"
   if (["full","dry_questions","dry_images","dry_audio"].indexOf(kind) === -1) kind = "full"
+  var focus = (q.get("focus") || "").trim()
+  if (focus.length > 500) focus = focus.substring(0, 500)
   var jobCol = $app.findCollectionByNameOrId("mock_jobs")
   var job = new Record(jobCol)
   job.set("client", client.id)
@@ -574,7 +576,7 @@ try {
   job.set("kind", kind)
   job.set("count", count)
   job.set("difficulty", difficulty)
-  job.set("overrides", {})
+  job.set("overrides", focus ? { "focus": focus } : {})
   $app.save(job)
   return e.json(200, {
     job_id: job.id,
@@ -582,7 +584,8 @@ try {
     kind: kind,
     client: client.getString("name"),
     count: count,
-    difficulty: difficulty
+    difficulty: difficulty,
+    focus: focus
   })
 } catch (err) {
   return e.json(500, { error: String(err) })

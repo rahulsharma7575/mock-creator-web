@@ -66,6 +66,7 @@ DEFAULTS = {
     "image_count_min": 18,
     "image_count_max": 26,
     "difficulty_profile": "creative+difficult",  # creative+difficult | creative+medium | hard | standard
+    "focus": "",                                  # free-text teacher guidance on which topics/types to prioritize
     "marks_per_question": 1,
     "negative_marks": 0,
     "is_active": True,
@@ -201,6 +202,8 @@ def render_prompt(template):
         section_order = f'Q1-{r} section "reading", Q{ls}-{q} section "listening"'
     ctx = {**CFG,
            "difficulty_note": DIFFICULTY_PROFILES.get(CFG.get("difficulty_profile"), ""),
+           "focus_note": ("The teacher needs to test this specific area — give questions that match: " +
+                          str(CFG.get("focus"))).strip() if str(CFG.get("focus") or "").strip() else "",
            "listening_start": ls,
            "section_order": section_order}
     for k, v in ctx.items():
@@ -337,6 +340,7 @@ AUTHOR_USER = """Write a complete Korean EPS-TOPIK UBT mock exam: EXACTLY {quest
 HARD RULES:
 - {section_order} (number 1..{question_count} unique, in order).
 - {difficulty_note}
+- {focus_note}
 - Each question: number, section, difficulty, type (short English label), question_text (Korean,
   starts with "Q<N>. ", NO html), options (4 REAL Korean strings — natural, believable, similar
   length, only ONE best; options MUST be actual Korean words/phrases, NEVER numbers, digits,
