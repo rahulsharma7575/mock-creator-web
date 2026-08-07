@@ -84,6 +84,7 @@ CONFIG_MAP = {
     "push_subject_id": "subject_id",
     "push_exam_type": "exam_type",
     "push_exam_status": "exam_status",
+    "push_enabled": "push_enabled",
     "audio_gap_ms": "tts_gap_ms",
     "sample_rate": "tts_rate",
     "audio_workers": "tts_workers",
@@ -252,15 +253,17 @@ def run_job(job):
         cfg["reading_count"] = 1
         log(f"job {job_id}: dry run mode={dry_mode}, sample_size=2")
 
-    if not cfg.get("pb_pass") and not os.environ.get("MOCK_PB_PASS"):
+    if cfg.get("push_enabled", True) and not cfg.get("pb_pass") and not os.environ.get("MOCK_PB_PASS"):
         log(f"job {job_id}: push credentials missing for client {client_name}")
         patch_job(job_id, {
             "status": "failed",
             "error": ("push_pb_pass is empty for client " + client_name +
                       " - set the Push password in the /creator config editor "
-                      "(Push group) or add MOCK_PB_PASS to the container env"),
+                      "or toggle 'Push to PocketBase' off to generate locally only")
         })
         return
+    if not cfg.get("push_enabled", True):
+        log(f"job {job_id}: push disabled for client {client_name} — local-only generation")
 
     workdir = WORK_ROOT / job_id
     workdir.mkdir(parents=True, exist_ok=True)

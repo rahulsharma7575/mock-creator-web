@@ -44,7 +44,7 @@ body::after{
 ::-webkit-scrollbar-track{background:transparent}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
 .panel2{background:var(--panel2);border:1px solid var(--line);border-radius:12px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;overflow:hidden;transition:border-color .25s,box-shadow .25s,transform .2s}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;overflow:hidden;transition:border-color .25s,box-shadow .25s}
 .card:hover{border-color:var(--amber);box-shadow:var(--shadowLg)}
 .card-header{display:flex;align-items:center;gap:10px;padding:16px 22px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px;letter-spacing:.02em}
 .card-body{padding:22px}
@@ -57,8 +57,7 @@ body::after{
 .btn-ghost:hover{border-color:var(--amber);color:var(--amber2)}
 .btn-danger{border:1px solid var(--red);color:var(--red);background:transparent}
 .btn-danger:hover{background:var(--red);color:#fff}
-.btn-done{border:1px solid var(--green);color:var(--green);background:transparent}
-.btn-done:hover{background:var(--green);color:#fff}
+.btn-sm{padding:7px 13px;font-size:12px;border-radius:10px}
 .input,.select,.textarea{
   width:100%;background:var(--panel);border:1.5px solid var(--line);border-radius:12px;
   color:var(--ink);padding:11px 14px;font-size:14.5px;outline:none;transition:border .18s,box-shadow .18s;
@@ -80,16 +79,12 @@ td{padding:13px 18px;border-bottom:1px solid var(--line);font-size:13.5px;vertic
 tr:last-child td{border-bottom:none}
 tbody tr{transition:background .12s}
 tbody tr:hover{background:var(--panel2)}
-@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-.rise{animation:rise .5s cubic-bezier(.2,.7,.3,1) both}
 @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.25}}
 .pulse{animation:pulse-dot 1.6s ease-in-out infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spinner{width:16px;height:16px;border:2.5px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes slideup{from{transform:translateY(18px);opacity:0}to{transform:none;opacity:1}}
 .drawer{animation:slideup .3s cubic-bezier(.2,.7,.3,1)}
-@keyframes toastin{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
-.toast{animation:toastin .25s ease-out}
 .toggle{width:42px;height:24px;border-radius:999px;background:var(--line);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
 .toggle::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--mut);transition:all .22s cubic-bezier(.3,.8,.3,1.2)}
 .toggle.on{background:var(--amber)}
@@ -117,7 +112,7 @@ html[data-theme="dark"] .logpre{color:#c9bfa8}
 .dry-btn:active{transform:translateY(0) scale(.98)}
 .dry-btn .dry-label{font-weight:700;font-size:14.5px;white-space:nowrap}
 .dry-btn .dry-sub{font-size:11.5px;color:var(--mut);white-space:nowrap}
-.dry-icon{width:40px;height:40px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800;flex-shrink:0;font-family:'Fraunces',serif;font-style:italic}
+.dry-icon{width:40px;height:40px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .dry-icon.q{background:rgba(58,110,165,.12);color:var(--blue)}
 .dry-icon.i{background:rgba(138,95,181,.12);color:var(--purple)}
 .dry-icon.a{background:rgba(47,143,143,.12);color:var(--cyan)}
@@ -130,8 +125,56 @@ html[data-theme="dark"] .logpre{color:#c9bfa8}
 .hero::after{content:"✎";position:absolute;right:26px;top:20px;font-size:88px;font-family:'Fraunces',serif;font-style:italic;color:var(--amber);opacity:.16;transform:rotate(8deg);pointer-events:none}
 .deerflow{position:fixed;right:18px;bottom:14px;z-index:900;font-size:11px;letter-spacing:.14em;color:var(--mut);opacity:.7;transition:opacity .2s,color .2s;text-decoration:none;font-weight:600}
 .deerflow:hover{opacity:1;color:var(--amber2)}
-.kbd-hint{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);font-size:11px;color:var(--mut);pointer-events:none;z-index:800;opacity:0;transition:opacity .8s}
 .pill-status{display:inline-flex;align-items:center;gap:7px;padding:5px 13px;border-radius:999px;font-size:11.5px;font-weight:700;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.05em}
+
+/* ---- Config card deck ---- */
+.cfg-deck{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;align-items:start}
+.cfg-deck .span2{grid-column:1/-1}
+.cfg-card{background:var(--panel);border:1.5px solid var(--line);border-radius:20px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden;transition:border-color .25s,box-shadow .25s;min-width:0}
+.cfg-card:hover{border-color:var(--amber);box-shadow:var(--shadowLg)}
+.cfg-card.state-err{border-color:var(--red)}
+.cfg-card.state-warn{border-color:var(--amber)}
+.cfg-card.state-ok{border-color:var(--green)}
+.cfg-card-head{display:flex;align-items:center;gap:12px;padding:17px 20px 15px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.cfg-card-head .cfg-ico{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--soft);color:var(--amber2)}
+.cfg-card-title{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:15.5px;letter-spacing:-.01em}
+.cfg-card-desc{font-size:11px;color:var(--mut);margin-top:1px}
+.cfg-state-badge{margin-left:auto;display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:10px;flex-shrink:0}
+.cfg-state-badge.idle{color:var(--mut);background:var(--panel)}
+.cfg-state-badge.ok{color:var(--green);background:rgba(47,125,79,.1)}
+.cfg-state-badge.warn{color:var(--amber2);background:var(--soft)}
+.cfg-state-badge.err{color:var(--red);background:rgba(198,69,58,.1)}
+.cfg-card-body{padding:20px;display:flex;flex-direction:column;gap:16px;flex:1}
+.cfg-field{display:flex;flex-direction:column;gap:6px}
+.cfg-card-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:13px 20px;border-top:1px solid var(--line);background:var(--panel2)}
+.cfg-issues{display:flex;flex-direction:column;gap:3px;font-size:11.5px;flex:1;min-width:0}
+.cfg-issues span{display:flex;align-items:center;gap:5px}
+.img-num{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:22px;color:var(--amber2);min-width:44px;text-align:center}
+.stat-ico{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:var(--panel2);color:var(--mut);flex-shrink:0}
+
+/* ---- Toasts ---- */
+.toast-stack{position:fixed;top:18px;right:18px;z-index:80;display:flex;flex-direction:column;gap:10px;width:min(360px,calc(100vw - 36px))}
+.toast-card{position:relative;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadowLg);padding:13px 14px 15px 46px;display:flex;flex-direction:column;gap:2px}
+.toast-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--tcol)}
+.toast-ico{position:absolute;left:16px;top:14px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;background:var(--tcol)}
+.toast-title{font-weight:700;font-size:13px}
+.toast-msg{font-size:12.5px;color:var(--mut);line-height:1.45;word-break:break-word}
+.toast-close{position:absolute;top:10px;right:10px;width:20px;height:20px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--mut);cursor:pointer;font-size:13px;line-height:1}
+.toast-close:hover{color:var(--ink);background:var(--panel2)}
+.toast-progress{position:absolute;left:0;bottom:0;height:3px;background:var(--tcol);opacity:.35;animation:tp 4.2s linear forwards}
+@keyframes tp{from{width:100%}to{width:0}}
+.toast-card.t-ok{--tcol:var(--green)}
+.toast-card.t-err{--tcol:var(--red)}
+.toast-card.t-warn{--tcol:var(--amber2)}
+.toast-card.t-info{--tcol:var(--blue)}
+
+/* ---- Client wizard ---- */
+.keybox{position:relative;background:var(--panel2);border:1.5px dashed var(--line);border-radius:14px;padding:16px 18px;font-family:'JetBrains Mono',monospace;font-size:12.5px;word-break:break-all;color:var(--ink)}
+.keybox .key-label{position:absolute;top:-9px;left:14px;background:var(--panel);padding:0 8px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--amber2)}
+.wizard-dot{width:9px;height:9px;border-radius:50%;background:var(--line)}
+.wizard-dot.on{background:var(--amber)}
+.success-ring{width:74px;height:74px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(47,125,79,.12);color:var(--green);margin:0 auto}
+@media (max-width:1024px){.cfg-deck{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -145,9 +188,9 @@ html[data-theme="dark"] .logpre{color:#c9bfa8}
         <div class="f-serif text-sm mt-1" style="color:var(--mut)">the quiet room where exams are born</div>
       </div>
       <form @submit.prevent="login" class="panel p-7 space-y-4">
-        <div><label class="lbl">Email</label><input v-model.trim="loginEmail" type="text" autocomplete="username" class="input f-mono" placeholder="you@example.com"></div>
-        <div><label class="lbl">Password</label><input v-model.trim="loginPass" type="password" autocomplete="current-password" class="input f-mono" placeholder="••••••••"></div>
-        <div v-if="loginErr" class="text-xs" style="color:var(--red)">{{ loginErr }}</div>
+        <div><label class="lbl"><span v-html="ic('mail',13)"></span> Email</label><input v-model.trim="loginEmail" type="text" autocomplete="username" class="input f-mono" placeholder="you@example.com"></div>
+        <div><label class="lbl"><span v-html="ic('lock',13)"></span> Password</label><input v-model.trim="loginPass" type="password" autocomplete="current-password" class="input f-mono" placeholder="••••••••"></div>
+        <div v-if="loginErr" class="text-xs flex items-center gap-1.5" style="color:var(--red)"><span v-html="ic('alertTriangle',13)"></span>{{ loginErr }}</div>
         <button type="submit" class="btn btn-amber w-full py-3 text-sm flex items-center justify-center gap-2" :disabled="loginBusy">
           <span v-if="loginBusy" class="spinner"></span>{{ loginBusy ? 'Opening the room…' : 'Enter Studio' }}
         </button>
@@ -163,16 +206,11 @@ html[data-theme="dark"] .logpre{color:#c9bfa8}
     <aside class="w-60 shrink-0 flex flex-col border-r" style="border-color:var(--line);background:var(--panel)">
       <div class="px-6 pt-8 pb-6">
         <div class="f-disp text-xl font-extrabold tracking-tight">Mock <span style="color:var(--amber)">Creator</span></div>
-        <div class="f-serif text-[11px] mt-0.5" style="color:var(--mut)">exam studio · v4</div>
+        <div class="f-serif text-[11px] mt-0.5" style="color:var(--mut)">exam studio · v5</div>
       </div>
       <nav class="px-4 space-y-1.5 flex-1">
         <div v-for="n in nav" :key="n.id" class="nav-item" :class="{on:view===n.id}" @click="view=n.id">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path v-if="n.id==='overview'" d="M3 3v18h18"/><path v-if="n.id==='overview'" d="M7 14l4-4 3 3 5-6"/>
-            <path v-if="n.id==='clients'" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle v-if="n.id==='clients'" cx="9" cy="7" r="4"/><path v-if="n.id==='clients'" d="M23 21v-2a4 4 0 0 0-3-3.87"/><path v-if="n.id==='clients'" d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            <rect v-if="n.id==='configs'" x="3" y="3" width="7" height="7" rx="1"/><rect v-if="n.id==='configs'" x="14" y="3" width="7" height="7" rx="1"/><rect v-if="n.id==='configs'" x="3" y="14" width="7" height="7" rx="1"/><rect v-if="n.id==='configs'" x="14" y="14" width="7" height="7" rx="1"/>
-            <path v-if="n.id==='jobs'" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path v-if="n.id==='jobs'" d="M14 2v6h6"/><path v-if="n.id==='jobs'" d="M9 13h6"/><path v-if="n.id==='jobs'" d="M9 17h6"/>
-          </svg>
+          <span v-html="ic(n.id==='overview'?'chart':n.id==='clients'?'users':n.id==='configs'?'sliders':'fileText',18)"></span>
           {{ n.label }}
           <span v-if="n.id==='jobs'&&failedCount" class="badge">{{ failedCount }}</span>
           <span v-if="n.id==='configs'&&cfgClient" class="badge" style="background:var(--green)">✓</span>
@@ -181,8 +219,8 @@ html[data-theme="dark"] .logpre{color:#c9bfa8}
       <div class="p-4 border-t" style="border-color:var(--line)">
         <div class="flex items-center gap-3 px-2 py-1.5">
           <div class="toggle" :class="{on:theme==='dark'}" @click="toggleTheme" title="Toggle theme"></div>
-          <span class="text-xs" style="color:var(--mut)">{{ theme==='dark' ? 'Night' : 'Day' }}</span>
-          <button class="btn btn-ghost ml-auto px-3 py-1.5 text-xs" @click="logout">Leave</button>
+          <span class="text-xs flex items-center gap-1.5" style="color:var(--mut)"><span v-html="ic(theme==='dark'?'moon':'sun',13)"></span>{{ theme==='dark' ? 'Night' : 'Day' }}</span>
+          <button class="btn btn-ghost ml-auto px-3 py-1.5 text-xs flex items-center gap-1.5" @click="logout"><span v-html="ic('logOut',13)"></span>Leave</button>
         </div>
         <div class="px-2 pt-2 text-[11px] f-mono truncate" style="color:var(--mut)">{{ who }}</div>
       </div>
@@ -192,71 +230,67 @@ html[data-theme="dark"] .logpre{color:#c9bfa8}
       <div class="p-6 lg:p-9 max-w-6xl mx-auto">
 
         <!-- ========== HOME ========== -->
-        <div v-if="view==='overview'" class="space-y-7">
-          <div class="rise">
+        <div v-if="view==='overview'" class="view-block space-y-7">
+          <div>
             <h1 class="f-disp text-3xl font-extrabold tracking-tight">Welcome back.</h1>
             <p class="text-sm mt-1.5" style="color:var(--mut)">Everything your exams need, in one calm place.</p>
           </div>
 
-          <!-- Stats -->
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <div v-for="s in stats" :key="s.k" class="panel statcard p-5 rise" :style="{animationDelay:(0.05*s.i)+'s'}">
-              <div class="text-[10.5px] f-mono uppercase tracking-widest" style="color:var(--mut)">{{ s.k }}</div>
+            <div v-for="s in stats" :key="s.k" class="panel statcard p-5" :style="{animationDelay:(0.05*s.i)+'s'}">
+              <div class="flex items-center gap-2"><span class="stat-ico" v-html="ic(s.icon,16)"></span><span class="text-[10.5px] f-mono uppercase tracking-widest" style="color:var(--mut)">{{ s.k }}</span></div>
               <div class="stat-num mt-2.5" :style="{color:s.c}">{{ s.v }}</div>
             </div>
-            <div class="panel statcard p-5 rise" style="animation-delay:.3s">
-              <div class="text-[10.5px] f-mono uppercase tracking-widest" style="color:var(--mut)">Spent</div>
+            <div class="panel statcard p-5">
+              <div class="flex items-center gap-2"><span class="stat-ico" v-html="ic('dollar',16)"></span><span class="text-[10.5px] f-mono uppercase tracking-widest" style="color:var(--mut)">Spent</span></div>
               <div class="stat-num mt-2.5" style="color:var(--amber2)">${{ totalCost.toFixed(2) }}</div>
             </div>
           </div>
 
-          <!-- Hero quick start -->
-          <div class="hero p-7 lg:p-9 rise" style="animation-delay:.15s">
+          <div class="hero p-7 lg:p-9">
             <div class="grid lg:grid-cols-5 gap-8">
               <div class="lg:col-span-2">
-                <div class="f-mono text-[11px] uppercase tracking-widest" style="color:var(--amber2)">New practice exam</div>
+                <div class="f-mono text-[11px] uppercase tracking-widest flex items-center gap-1.5" style="color:var(--amber2)"><span v-html="ic('sparkles',13)"></span> New practice exam</div>
                 <h2 class="f-disp text-2xl font-extrabold mt-2 leading-snug">Generate a full mock exam<br>with one click.</h2>
                 <p class="text-sm mt-3 leading-relaxed" style="color:var(--mut)">Questions, listening audio and pictures — authored, proofread and safely saved as a draft for review.</p>
                 <button class="btn btn-amber px-7 py-3.5 mt-6 text-[15px]" :disabled="!qs.client || startBusy" @click="quickStart('full')">
-                  <span v-if="startBusy" class="spinner"></span>{{ startBusy ? 'Queuing…' : 'Create Mock Exam' }}
+                  <span v-if="startBusy" class="spinner"></span><span v-html="ic('rocket',16)"></span>{{ startBusy ? 'Queuing…' : 'Create Mock Exam' }}
                 </button>
               </div>
               <div class="lg:col-span-3 panel p-6 space-y-5" style="background:var(--panel);border:none">
-                <div><label class="lbl">Client</label><select v-model="qs.client" class="select"><option value="">Choose…</option><option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}<template v-if="!c.active"> (paused)</template></option></select></div>
+                <div><label class="lbl"><span v-html="ic('users',13)"></span> Client</label><select v-model="qs.client" class="select"><option value="">Choose…</option><option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}<template v-if="!c.active"> (paused)</template></option></select></div>
                 <div>
-                  <div class="flex items-center justify-between"><label class="lbl mb-0">Questions — <span class="f-mono" style="color:var(--amber2)">{{ qs.count }}</span></label></div>
+                  <div class="flex items-center justify-between"><label class="lbl mb-0"><span v-html="ic('fileText',13)"></span> Questions — <span class="f-mono" style="color:var(--amber2)">{{ qs.count }}</span></label></div>
                   <input type="range" min="10" max="100" step="10" v-model.number="qs.count" class="range mt-3">
                   <div class="flex justify-between text-[10.5px] f-mono mt-1.5" style="color:var(--mut)"><span>10</span><span>100</span></div>
                 </div>
-                <div><label class="lbl">Difficulty</label><select v-model="qs.difficulty" class="select"><option value="creative+difficult">Creative + Difficult</option><option value="creative+medium">Creative + Medium</option><option value="hard">Hard (TOPIK/EPS)</option></select></div>
+                <div><label class="lbl"><span v-html="ic('zap',13)"></span> Difficulty</label><select v-model="qs.difficulty" class="select"><option value="creative+difficult">Creative + Difficult</option><option value="creative+medium">Creative + Medium</option><option value="hard">Hard (TOPIK/EPS)</option></select></div>
               </div>
             </div>
           </div>
 
-          <!-- Quick tests -->
-          <div class="rise" style="animation-delay:.25s">
+          <div>
             <div class="flex items-center justify-between mb-4">
               <h2 class="f-disp text-lg font-bold">Quick tests</h2>
               <span class="f-serif text-xs" style="color:var(--mut)">try one stage with a tiny sample</span>
             </div>
             <div class="grid md:grid-cols-3 gap-4">
               <div class="dry-btn" @click="dryRunConfig('dry_questions')">
-                <div class="dry-icon q">Q</div><div><div class="dry-label">Questions</div><div class="dry-sub">2-question sample</div></div>
+                <div class="dry-icon q" v-html="ic('fileText',19)"></div><div><div class="dry-label">Questions</div><div class="dry-sub">2-question sample</div></div>
               </div>
               <div class="dry-btn" @click="dryRunConfig('dry_images')">
-                <div class="dry-icon i">I</div><div><div class="dry-label">Images</div><div class="dry-sub">2-picture sample</div></div>
+                <div class="dry-icon i" v-html="ic('image',19)"></div><div><div class="dry-label">Images</div><div class="dry-sub">2-picture sample</div></div>
               </div>
               <div class="dry-btn" @click="dryRunConfig('dry_audio')">
-                <div class="dry-icon a">A</div><div><div class="dry-label">Audio</div><div class="dry-sub">2-clip sample</div></div>
+                <div class="dry-icon a" v-html="ic('headphones',19)"></div><div><div class="dry-label">Audio</div><div class="dry-sub">2-clip sample</div></div>
               </div>
             </div>
           </div>
 
-          <!-- Recent jobs -->
-          <div class="panel rise" style="animation-delay:.32s">
+          <div class="panel">
             <div class="flex items-center justify-between px-6 pt-5 pb-2">
               <h2 class="f-disp text-lg font-bold">Recent jobs</h2>
-              <button class="btn btn-ghost px-4 py-1.5 text-xs" @click="view='jobs'">See all →</button>
+              <button class="btn btn-ghost btn-sm" @click="view='jobs'">See all <span v-html="ic('arrowRight',13)"></span></button>
             </div>
             <div v-if="!jobs.length" class="text-sm py-10 text-center" style="color:var(--mut)">Nothing has run yet — your first exam awaits.</div>
             <table v-else class="w-full">
@@ -276,22 +310,22 @@ html[data-theme="dark"] .logpre{color:#c9bfa8}
         </div>
 
         <!-- ========== CLIENTS ========== -->
-        <div v-if="view==='clients'" class="space-y-6">
-          <div class="rise flex items-end justify-between">
+        <div v-if="view==='clients'" class="view-block space-y-6">
+          <div class="flex items-end justify-between">
             <div><h1 class="f-disp text-3xl font-extrabold tracking-tight">Clients</h1><p class="text-sm mt-1.5" style="color:var(--mut)">Each client owns an API key for remote job dispatch.</p></div>
-            <button class="btn btn-amber px-5 py-2.5 text-sm" @click="openClientModal">+ New client</button>
+            <button class="btn btn-amber px-5 py-2.5 text-sm flex items-center gap-1.5" @click="openClientModal"><span v-html="ic('plus',15)"></span> New client</button>
           </div>
-          <div class="panel rise" style="animation-delay:.1s">
+          <div class="panel">
             <div v-if="!clients.length" class="text-sm py-12 text-center" style="color:var(--mut)">No clients registered yet.</div>
             <table v-else class="w-full">
               <thead><tr><th>Name</th><th>Key fingerprint</th><th>Created</th><th>Jobs</th><th>Active</th><th></th></tr></thead>
               <tbody><tr v-for="c in clients" :key="c.id">
-                <td class="font-semibold">{{ c.name }}</td><td class="f-mono text-xs" style="color:var(--mut)">{{ short(c.api_key_hash) }}…</td>
+                <td class="font-semibold flex items-center gap-2"><span v-html="ic('users',15)" style="color:var(--mut)"></span>{{ c.name }}</td><td class="f-mono text-xs" style="color:var(--mut)">{{ short(c.api_key_hash) }}…</td>
                 <td class="f-mono text-xs" style="color:var(--mut)">{{ fmtTime(c.created) }}</td><td class="f-mono text-xs">{{ jobCount(c.id) }}</td>
                 <td><div class="toggle" :class="{on:c.active}" @click="toggleClient(c)"></div></td>
                 <td class="text-right">
-                  <button class="btn btn-ghost px-3.5 py-1.5 text-xs mr-2" @click="openConfigFor(c.id)">Config</button>
-                  <button class="btn btn-danger px-3.5 py-1.5 text-xs" @click="delClient(c)">Delete</button>
+                  <button class="btn btn-ghost btn-sm mr-2 flex items-center gap-1" @click="openConfigFor(c.id)"><span v-html="ic('settings',12)"></span>Config</button>
+                  <button class="btn btn-danger btn-sm flex items-center gap-1" @click="delClient(c)"><span v-html="ic('trash',12)"></span>Delete</button>
                 </td>
               </tr></tbody>
             </table>
@@ -299,87 +333,87 @@ html[data-theme="dark"] .logpre{color:#c9bfa8}
         </div>
 
         <!-- ========== CONFIGS ========== -->
-        <div v-if="view==='configs'" class="space-y-6">
-          <div class="rise flex items-end justify-between">
-            <div><h1 class="f-disp text-3xl font-extrabold tracking-tight">Configs</h1><p class="text-sm mt-1.5" style="color:var(--mut)">Per-client pipeline settings — hover <span class="text-[10px] px-1.5 py-0.5 rounded" style="border:1px solid var(--line)">(?)</span> icons for tips.</p></div>
-            <button class="btn btn-ghost px-4 py-2 text-sm" @click="cfgRaw=!cfgRaw">{{ cfgRaw ? 'Form view' : 'Raw JSON' }}</button>
+        <div v-if="view==='configs'" class="view-block space-y-6">
+          <div class="flex items-end justify-between">
+            <div><h1 class="f-disp text-3xl font-extrabold tracking-tight">Configs</h1><p class="text-sm mt-1.5" style="color:var(--mut)">Per-client pipeline settings — verify each card before saving.</p></div>
+            <button class="btn btn-ghost px-4 py-2 text-sm flex items-center gap-1.5" @click="cfgRaw=!cfgRaw"><span v-html="ic(cfgRaw?'sliders':'clipboard',14)"></span>{{ cfgRaw ? 'Form view' : 'Raw JSON' }}</button>
           </div>
-          <div class="panel p-6 rise" style="animation-delay:.1s">
-            <label class="lbl">Client</label>
+          <div class="panel p-6">
+            <label class="lbl"><span v-html="ic('users',13)"></span> Client</label>
             <select v-model="cfgClient" class="select max-w-md" @change="loadConfig"><option value="">Select client…</option><option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option></select>
           </div>
-          <div v-if="cfgClient" class="rise" style="animation-delay:.15s">
+          <div v-if="cfgClient">
             <div v-if="cfgLoading" class="panel p-12 text-center"><span class="spinner"></span></div>
             <template v-else-if="cfg">
               <div v-if="cfgRaw" class="panel p-6">
-                <div class="flex items-center justify-between mb-3"><span class="text-xs f-mono" style="color:var(--mut)">Edit raw record JSON</span><div><button class="btn btn-ghost px-3 py-1.5 text-xs mr-2" @click="validateRaw">Validate</button><button class="btn btn-amber px-3 py-1.5 text-xs" @click="saveConfig">Save raw</button></div></div>
-                <div v-if="cfgRawErr" class="text-xs mb-3" style="color:var(--red)">{{ cfgRawErr }}</div>
+                <div class="flex items-center justify-between mb-3"><span class="text-xs f-mono" style="color:var(--mut)">Edit raw record JSON</span><div><button class="btn btn-ghost btn-sm mr-2" @click="validateRaw">Validate</button><button class="btn btn-amber btn-sm" @click="saveConfig">Save raw</button></div></div>
+                <div v-if="cfgRawErr" class="text-xs mb-3 flex items-center gap-1.5" style="color:var(--red)"><span v-html="ic('alertTriangle',13)"></span>{{ cfgRawErr }}</div>
                 <textarea v-model="cfgRawText" rows="26" class="textarea f-mono text-xs" spellcheck="false"></textarea>
               </div>
-              <form v-else @submit.prevent="saveConfig" class="space-y-6">
-                <div v-for="g in groups" :key="g" class="card rise">
-                  <div class="card-header" :style="{background:grpBg(g),color:grpFg(g)}">
-                    <span class="text-[11px] f-mono px-2.5 py-1 rounded-lg" style="background:rgba(255,255,255,.14)">{{ g }}</span>
-                    <span style="font-size:11.5px;font-weight:400;opacity:.75">{{ grpDesc(g) }}</span>
-                  </div>
-                  <div class="card-body">
-                    <div class="grid md:grid-cols-2 gap-x-7 gap-y-5">
-                      <template v-for="f in metaByGroup(g)" :key="f.field">
-                        <div :class="f.field==='prompts_json' ? 'md:col-span-2' : ''">
-                          <label class="lbl">
-                            {{ f.label }}
-                            <span class="tip" v-if="f.help">?<span class="ttip">{{ f.help }}</span></span>
-                            <span class="tip" v-if="f.field==='llm_author_model'">?<span class="ttip">The LLM that writes the mock exam questions. Gemini 2.5 Flash is fast &amp; cheap. Higher quality = Gemini 3.5 Flash or DeepSeek V4 Pro.</span></span>
-                            <span class="tip" v-if="f.field==='image_count'">?<span class="ttip">How many questions in the exam will have an image. TOPIK-style exams use 18-26 image questions. This MUST stay between Min and Max below.</span></span>
-                            <span class="tip" v-if="f.field==='image_count_min'">?<span class="ttip">The minimum image questions allowed. If the LLM produces fewer, the repair pass adds more. Increasing this makes the exam harder.</span></span>
-                            <span class="tip" v-if="f.field==='push_pb_pass'">?<span class="ttip">The admin password for the TEACHER app PocketBase (ubt.wts.com.np). Required to push exams. NEVER commit this to git — set it here or use MOCK_PB_PASS env var.</span></span>
-                            <span class="tip" v-if="f.field==='difficulty_profile'">?<span class="ttip">Controls how hard the questions are. "creative+difficult" = trickier distractors + less predictable patterns. "hard" = TOPIK/UBT-style rigor. "creative+medium" = balanced difficulty.</span></span>
-                          </label>
-                          <template v-if="f.ftype==='select'">
-                            <select v-model="cfgData[f.field]" class="select"><option v-for="o in f.options" :key="o" :value="o">{{ o }}</option></select>
-                          </template>
-                          <template v-else-if="f.ftype==='bool'">
-                            <div class="toggle" :class="{on:!!cfgData[f.field]}" @click="cfgData[f.field]=!cfgData[f.field]"></div>
-                          </template>
-                          <template v-else-if="f.ftype==='json'">
-                            <textarea v-model="cfgData[f.field]" rows="4" class="textarea f-mono text-xs" spellcheck="false" placeholder='{ "system": "…" }'></textarea>
-                          </template>
-                          <template v-else-if="f.field==='image_count'">
-                            <div class="flex items-center gap-4">
-                              <input type="range" :min="cfgData.image_count_min||0" :max="cfgData.image_count_max||40" v-model.number="cfgData.image_count" class="range flex-1">
-                              <span class="f-mono text-sm font-bold" style="min-width:38px;text-align:center;color:var(--amber2)">{{ cfgData.image_count }}</span>
-                            </div>
-                          </template>
-                          <template v-else-if="f.field==='image_count_min'">
-                            <div class="flex items-center gap-3 text-xs f-mono" style="color:var(--mut)">
-                              <span>Min</span>
-                              <input type="number" min="0" max="40" v-model.number="cfgData.image_count_min" class="input w-20 text-center" style="padding:8px 8px">
-                              <span class="text-lg" style="color:var(--line)">—</span>
-                              <input type="range" :min="cfgData.image_count_min||0" :max="cfgData.image_count_max||40" class="range flex-1">
-                              <span class="text-lg" style="color:var(--line)">—</span>
-                              <input type="number" min="0" max="40" v-model.number="cfgData.image_count_max" class="input w-20 text-center" style="padding:8px 8px">
-                              <span>Max</span>
-                            </div>
-                          </template>
-                          <template v-else>
-                            <div class="flex gap-2" v-if="f.field==='push_pb_pass'">
-                              <input :type="showPass?'text':'password'" v-model="cfgData[f.field]" class="input" placeholder="········">
-                              <button type="button" class="btn btn-ghost px-2.5 py-1 text-xs f-mono" @click="togglePass">{{ showPass ? 'Hide' : 'Show' }}</button>
-                            </div>
-                            <input v-else :type="f.ftype==='number'?'number':'text'" v-model="cfgData[f.field]" class="input f-mono">
-                          </template>
-                          <div v-if="hintText(f)" class="hint">{{ hintText(f) }}</div>
-                        </div>
-                      </template>
+
+              <form v-else @submit.prevent="saveConfig" class="cfg-deck">
+                <!-- ===== group cards ===== -->
+                <div v-for="g in groups" :key="g" class="cfg-card" :class="'state-'+cardState(g)">
+                  <div class="cfg-card-head">
+                    <div class="cfg-ico" v-html="ic(grpIcon(g),17)"></div>
+                    <div><div class="cfg-card-title">{{ g }}</div><div class="cfg-card-desc">{{ grpDesc(g) }}</div></div>
+                    <div class="cfg-state-badge" :class="cardState(g)" :title="cardState(g)==='idle'?'Not verified yet':cardState(g)==='ok'?'All good':'Has issues'">
+                      <span v-html="ic(cardState(g)==='err'?'alertTriangle':cardState(g)==='warn'?'info':cardState(g)==='ok'?'checkCircle':'circle',16)"></span>
                     </div>
+                  </div>
+                  <div class="cfg-card-body">
+                    <template v-for="f in metaByGroup(g)" :key="f.field">
+                      <div v-if="!hiddenField(f)" class="cfg-field">
+                        <label class="lbl">
+                          {{ f.label }}
+                          <span class="tip" v-if="f.help">?<span class="ttip">{{ f.help }}</span></span>
+                          <span class="tip" v-if="f.field==='llm_author_model'">?<span class="ttip">The LLM that writes the mock exam questions. Gemini 2.5 Flash is fast &amp; cheap. Higher quality = Gemini 3.5 Flash or DeepSeek V4 Pro.</span></span>
+                          <span class="tip" v-if="f.field==='image_count'">?<span class="ttip">How many questions carry a picture. One number — pictures are spread randomly across reading AND listening. Default 18.</span></span>
+                          <span class="tip" v-if="f.field==='push_pb_pass'">?<span class="ttip">Admin password of the teacher app PocketBase (ubt.wts.com.np). Leave empty and toggle Push off to generate exams locally instead.</span></span>
+                          <span class="tip" v-if="f.field==='difficulty_profile'">?<span class="ttip">"creative+difficult" = trickier distractors. "hard" = TOPIK/UBT rigor. "creative+medium" = balanced.</span></span>
+                        </label>
+                        <template v-if="f.ftype==='select'">
+                          <select v-model="cfgData[f.field]" class="select"><option v-for="o in f.options" :key="o" :value="o">{{ o }}</option></select>
+                        </template>
+                        <template v-else-if="f.ftype==='bool'">
+                          <div class="toggle" :class="{on:!!cfgData[f.field]}" @click="cfgData[f.field]=!cfgData[f.field]"></div>
+                        </template>
+                        <template v-else-if="f.ftype==='json'">
+                          <textarea v-model="cfgData[f.field]" rows="4" class="textarea f-mono text-xs" spellcheck="false" placeholder='{ "system": "…" }'></textarea>
+                        </template>
+                        <template v-else-if="f.field==='image_count'">
+                          <div class="flex items-center gap-4">
+                            <input type="range" min="0" max="26" v-model.number="cfgData.image_count" class="range flex-1">
+                            <span class="img-num">{{ cfgData.image_count }}</span>
+                          </div>
+                        </template>
+                        <template v-else>
+                          <div class="flex gap-2" v-if="f.field==='push_pb_pass'">
+                            <input :type="showPass?'text':'password'" v-model="cfgData[f.field]" class="input" placeholder="········">
+                            <button type="button" class="btn btn-ghost btn-sm flex items-center" @click="togglePass"><span v-html="ic(showPass?'eyeOff':'eye',14)"></span></button>
+                          </div>
+                          <input v-else :type="f.ftype==='number'?'number':'text'" v-model="cfgData[f.field]" class="input f-mono">
+                        </template>
+                        <div v-if="hintText(f)" class="hint">{{ hintText(f) }}</div>
+                      </div>
+                    </template>
+                  </div>
+                  <div class="cfg-card-foot">
+                    <span v-if="groupIssueList(g).length" class="cfg-issues">
+                      <span v-for="vi in groupIssueList(g)" :key="vi.msg" :style="{color:vi.w==='err'?'var(--red)':'var(--amber2)'}">
+                        <span v-html="ic(vi.w==='err'?'alertTriangle':'info',12)"></span>{{ vi.msg }}
+                      </span>
+                    </span>
+                    <button type="button" class="btn btn-ghost btn-sm" @click="verifyGroup(g)"><span v-html="ic('checkCircle',13)"></span> Verify card</button>
                   </div>
                 </div>
 
-                <!-- Cost estimator -->
-                <div class="card rise" style="animation-delay:.35s">
+                <!-- ===== Cost estimator ===== -->
+                <div class="card span2">
                   <div class="card-header" style="background:var(--soft);color:var(--amber2)">
-                    <span class="f-mono text-xs px-2.5 py-1 rounded-lg" style="background:rgba(226,114,63,.15)">Cost Estimator</span>
-                    <span style="font-size:11.5px;font-weight:400;opacity:.75">estimated per full mock (approximate)</span>
+                    <span class="cfg-ico" style="width:30px;height:30px" v-html="ic('dollar',15)"></span>
+                    <span class="f-disp font-extrabold">Cost Estimator</span>
+                    <span style="font-size:11.5px;font-weight:400;opacity:.75">estimated per full mock — works even without a push password</span>
                   </div>
                   <div class="card-body space-y-4">
                     <div class="costbar">
@@ -388,56 +422,49 @@ html[data-theme="dark"] .logpre{color:#c9bfa8}
                       <div class="segment" :style="{width:costPct.audio+'%',background:'var(--cyan)'}"></div>
                     </div>
                     <div class="grid grid-cols-3 gap-3 text-center text-xs f-mono" style="color:var(--mut)">
-                      <div><span style="color:var(--blue)">Text</span><br><span class="font-bold" style="color:var(--ink)">~${{ costEst.text.toFixed(3) }}</span><br><span class="text-[10px]">author + proofread</span></div>
-                      <div><span style="color:var(--purple)">Images</span><br><span class="font-bold" style="color:var(--ink)">~${{ costEst.images.toFixed(3) }}</span><br><span class="text-[10px]">{{ cfgData.image_count||0 }} × image gen</span></div>
-                      <div><span style="color:var(--cyan)">Audio</span><br><span class="font-bold" style="color:var(--ink)">~${{ costEst.audio.toFixed(3) }}</span><br><span class="text-[10px]">{{ listeningCount }} TTS clips</span></div>
+                      <div><span class="flex items-center justify-center gap-1" style="color:var(--blue)"><span v-html="ic('cpu',12)"></span>Text</span><br><span class="font-bold" style="color:var(--ink)">~${{ costEst.text.toFixed(3) }}</span><br><span class="text-[10px]">author + proofread</span></div>
+                      <div><span class="flex items-center justify-center gap-1" style="color:var(--purple)"><span v-html="ic('image',12)"></span>Images</span><br><span class="font-bold" style="color:var(--ink)">~${{ costEst.images.toFixed(3) }}</span><br><span class="text-[10px]">{{ cfgData.image_count||0 }} × image gen</span></div>
+                      <div><span class="flex items-center justify-center gap-1" style="color:var(--cyan)"><span v-html="ic('mic',12)"></span>Audio</span><br><span class="font-bold" style="color:var(--ink)">~${{ costEst.audio.toFixed(3) }}</span><br><span class="text-[10px]">{{ listeningCount }} TTS clips</span></div>
                     </div>
                     <div class="flex items-center justify-between pt-3 border-t" style="border-color:var(--line)">
                       <span class="f-disp font-bold">Estimated total</span>
                       <span class="f-mono text-lg font-bold" style="color:var(--amber2)">~${{ costEst.total.toFixed(3) }}</span>
                     </div>
-                    <div class="flex gap-2">
-                      <button type="button" class="btn btn-ghost px-4 py-2 text-xs" @click="validateConfig"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg> Verify config</button>
-                    </div>
-                    <div v-if="valIssues.length" class="space-y-1.5">
-                      <div v-for="vi in valIssues" :key="vi" class="text-xs flex items-center gap-1.5" :style="{color:vi.w==='warn'?'var(--amber2)':'var(--red)'}">
-                        <span>{{ vi.w==='err'?'✕':'⚠' }}</span> {{ vi.msg }}
-                      </div>
-                    </div>
-                    <div v-if="valIssues.length===0 && valChecked" class="text-xs flex items-center gap-1.5" style="color:var(--green)"><span>✓</span> All values look good</div>
                   </div>
                 </div>
 
-                <!-- Dry runs -->
-                <div class="card rise" style="animation-delay:.4s">
+                <!-- ===== Dry runs ===== -->
+                <div class="card span2">
                   <div class="card-header" style="background:linear-gradient(135deg,rgba(58,110,165,.07),rgba(138,95,181,.07));color:var(--blue)">
-                    <span class="f-mono text-xs px-2.5 py-1 rounded-lg" style="background:rgba(58,110,165,.12)">Dry Runs</span>
-                    <span style="font-size:11.5px;font-weight:400;opacity:.75">test individual stages with 2-question samples (no client PB push)</span>
+                    <span class="cfg-ico" style="width:30px;height:30px" v-html="ic('zap',15)"></span>
+                    <span class="f-disp font-extrabold">Dry Runs</span>
+                    <span style="font-size:11.5px;font-weight:400;opacity:.75">test individual stages with 2-question samples (nothing is pushed)</span>
                   </div>
                   <div class="card-body">
                     <div class="grid md:grid-cols-3 gap-4">
                       <div class="dry-btn" @click="dryRun('dry_questions')">
-                        <div class="dry-icon q">Q</div><div><div class="dry-label">Test Questions</div><div class="dry-sub">2-question sample via LLM</div></div>
+                        <div class="dry-icon q" v-html="ic('fileText',19)"></div><div><div class="dry-label">Test Questions</div><div class="dry-sub">2-question sample via LLM</div></div>
                       </div>
                       <div class="dry-btn" @click="dryRun('dry_images')">
-                        <div class="dry-icon i">I</div><div><div class="dry-label">Test Images</div><div class="dry-sub">2-image prompts via LLM</div></div>
+                        <div class="dry-icon i" v-html="ic('image',19)"></div><div><div class="dry-label">Test Images</div><div class="dry-sub">2-image prompts via LLM</div></div>
                       </div>
                       <div class="dry-btn" @click="dryRun('dry_audio')">
-                        <div class="dry-icon a">A</div><div><div class="dry-label">Test Audio</div><div class="dry-sub">2-listening scripts via LLM</div></div>
+                        <div class="dry-icon a" v-html="ic('headphones',19)"></div><div><div class="dry-label">Test Audio</div><div class="dry-sub">2-listening scripts via LLM</div></div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- Save row -->
-                <div class="flex items-center gap-3 flex-wrap">
-                  <button type="submit" class="btn btn-amber px-6 py-3 text-sm" :disabled="cfgSaving">
-                    <span v-if="cfgSaving" class="spinner"></span>Save config
+                <!-- ===== Save row ===== -->
+                <div class="span2 flex items-center gap-3 flex-wrap">
+                  <button type="submit" class="btn btn-amber px-6 py-3 text-sm flex items-center gap-2" :disabled="cfgSaving">
+                    <span v-if="cfgSaving" class="spinner"></span><span v-html="ic('save',15)"></span>Save config
                   </button>
-                  <button type="button" class="btn btn-ghost px-4 py-2 text-xs" @click="copyConfig">Copy JSON</button>
-                  <button type="button" class="btn btn-ghost px-4 py-2 text-xs" @click="cloneConfigDialog">Clone to…</button>
+                  <button type="button" class="btn btn-ghost px-4 py-2 text-xs flex items-center gap-1.5" @click="copyConfig"><span v-html="ic('copy',13)"></span>Copy JSON</button>
+                  <button type="button" class="btn btn-ghost px-4 py-2 text-xs flex items-center gap-1.5" @click="cloneConfigDialog"><span v-html="ic('copy',13)"></span>Clone to…</button>
+                  <button type="button" class="btn btn-ghost px-4 py-2 text-xs flex items-center gap-1.5" @click="validateConfig"><span v-html="ic('checkCircle',13)"></span>Verify all cards</button>
                   <span v-if="cfgSavedAt" class="text-xs f-mono" style="color:var(--mut)">saved {{ fmtTime(cfgSavedAt) }}</span>
-                  <button type="button" class="btn btn-ghost px-5 py-2 text-sm ml-auto" @click="loadConfig">Revert</button>
+                  <button type="button" class="btn btn-ghost px-5 py-2 text-sm ml-auto flex items-center gap-1.5" @click="loadConfig"><span v-html="ic('undo',14)"></span>Revert</button>
                 </div>
               </form>
             </template>
@@ -445,18 +472,18 @@ html[data-theme="dark"] .logpre{color:#c9bfa8}
         </div>
 
         <!-- ========== JOBS ========== -->
-        <div v-if="view==='jobs'" class="space-y-6">
-          <div class="rise flex items-end justify-between">
+        <div v-if="view==='jobs'" class="view-block space-y-6">
+          <div class="flex items-end justify-between">
             <div><h1 class="f-disp text-3xl font-extrabold tracking-tight">Jobs</h1><p class="text-sm mt-1.5" style="color:var(--mut)">Generation runs across all clients.</p></div>
             <div class="flex gap-2">
-              <button v-if="failedCount" class="btn btn-danger px-4 py-2 text-sm" @click="clearFailed">Clear failed ({{ failedCount }})</button>
-              <button class="btn btn-ghost px-4 py-2 text-sm" @click="loadJobs"><span v-if="jobsBusy" class="spinner"></span>Refresh</button>
+              <button v-if="failedCount" class="btn btn-danger px-4 py-2 text-sm flex items-center gap-1.5" @click="clearFailed"><span v-html="ic('trash',14)"></span>Clear failed ({{ failedCount }})</button>
+              <button class="btn btn-ghost px-4 py-2 text-sm flex items-center gap-1.5" @click="loadJobs"><span v-if="jobsBusy" class="spinner"></span><span v-html="ic('refresh',14)"></span>Refresh</button>
             </div>
           </div>
-          <div class="flex gap-2 flex-wrap rise" style="animation-delay:.08s">
+          <div class="flex gap-2 flex-wrap">
             <div v-for="st in ['all','queued','running','done','failed']" :key="st" class="chip" :class="{on:jobFilter===st}" @click="jobFilter=st">{{ st }}</div>
           </div>
-          <div class="panel rise" style="animation-delay:.12s">
+          <div class="panel">
             <div v-if="!filteredJobs.length" class="text-sm py-12 text-center" style="color:var(--mut)">Nothing here.</div>
             <table v-else class="w-full">
               <thead><tr><th>Created</th><th>Client</th><th>Stage</th><th>Kind</th><th>Q</th><th>Status</th><th>Pushed</th><th>Error</th></tr></thead>
@@ -473,7 +500,7 @@ html[data-theme="dark"] .logpre{color:#c9bfa8}
           </div>
         </div>
 
-        <div class="text-center text-[11px] pt-9 pb-5 f-mono" style="color:var(--mut)">PocketBase v0.39.10 · pb_hooks + worker engine · studio v4</div>
+        <div class="text-center text-[11px] pt-9 pb-5 f-mono" style="color:var(--mut)">PocketBase v0.39.10 · pb_hooks + worker engine · studio v5</div>
       </div>
     </main>
 
@@ -485,7 +512,7 @@ html[data-theme="dark"] .logpre{color:#c9bfa8}
             <h2 class="f-disp text-xl font-extrabold">Job <span class="f-mono text-base">{{ short(drawerJob.id) }}</span></h2>
             <div class="text-xs f-mono mt-1.5" style="color:var(--mut)">{{ drawerJob.client_name }} · {{ dryLabel(drawerJob.kind) }} · {{ drawerJob.count }}q · {{ drawerJob.difficulty }}</div>
           </div>
-          <button class="btn btn-ghost px-3.5 py-1.5 text-xs" @click="drawerJob=null">Close</button>
+          <button class="btn btn-ghost btn-sm" @click="drawerJob=null"><span v-html="ic('x',13)"></span>Close</button>
         </div>
         <div class="flex items-center gap-3 mb-6">
           <span class="pill-status" :style="{background:(drawerJob.status==='running'?'var(--soft)':drawerJob.status==='done'?'rgba(47,125,79,.1)':drawerJob.status==='failed'?'rgba(198,69,58,.1)':'transparent'),color:sc(drawerJob.status)}">
@@ -493,8 +520,8 @@ html[data-theme="dark"] .logpre{color:#c9bfa8}
           </span>
           <span v-if="drawerJob.pushed" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(47,125,79,.12);color:var(--green)">pushed</span>
           <div class="ml-auto flex gap-2">
-            <button v-if="drawerJob.status==='failed'" class="btn btn-amber px-3.5 py-1.5 text-xs" @click="retryJob">Re-queue</button>
-            <button class="btn btn-danger px-3.5 py-1.5 text-xs" @click="delJob">Delete</button>
+            <button v-if="drawerJob.status==='failed'" class="btn btn-amber btn-sm flex items-center gap-1.5" @click="retryJob"><span v-html="ic('refresh',13)"></span>Re-queue</button>
+            <button class="btn btn-danger btn-sm flex items-center gap-1.5" @click="delJob"><span v-html="ic('trash',13)"></span>Delete</button>
           </div>
         </div>
         <div class="mb-6"><label class="lbl">Created / Updated</label><div class="kv"><dt>created</dt><dd>{{ fmtTime(drawerJob.created) }}</dd><dt>updated</dt><dd>{{ fmtTime(drawerJob.updated) }}</dd><dt>duration</dt><dd>{{ jobDuration }}</dd></div></div>
@@ -510,28 +537,64 @@ html[data-theme="dark"] .logpre{color:#c9bfa8}
       </div>
     </div>
 
-    <!-- Client Modal -->
+    <!-- Client Wizard -->
     <div v-if="clientModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)">
-      <div class="panel p-7 w-full max-w-md rise"><h2 class="f-disp text-xl font-extrabold mb-5">New client</h2>
-        <div class="space-y-4">
+      <div class="panel p-7 w-full max-w-lg rise">
+        <div class="flex items-center gap-2 mb-1">
+          <div class="wizard-dot" :class="{on:clientStep===0}"></div><div class="wizard-dot" :class="{on:clientStep===1}"></div><div class="wizard-dot" :class="{on:clientStep===2}"></div>
+          <span class="f-mono text-[10px] ml-2 uppercase tracking-widest" style="color:var(--mut)">step {{ clientStep+1 }} of 3</span>
+        </div>
+
+        <!-- Step 0: key first -->
+        <div v-if="clientStep===0">
+          <h2 class="f-disp text-xl font-extrabold mb-1 flex items-center gap-2"><span v-html="ic('key',18)"></span>Your API key</h2>
+          <p class="text-sm mb-4" style="color:var(--mut)">We made a key for you. <b style="color:var(--amber2)">Copy it now — it is shown only once</b>, before the client exists.</p>
+          <div class="keybox">
+            <span class="key-label">API key</span>
+            {{ newKey }}
+          </div>
+          <div class="flex gap-2 mt-4">
+            <button class="btn btn-amber px-5 py-2.5 text-sm flex items-center gap-1.5" @click="copy(newKey)"><span v-html="ic('copy',14)"></span>Copy key</button>
+            <button class="btn btn-ghost px-5 py-2.5 text-sm flex items-center gap-1.5" @click="clientStep=1"><span v-html="ic('chevronRight',14)"></span>Continue</button>
+          </div>
+          <div class="hint mt-3">Fingerprint (sha256): <span class="f-mono">{{ short(newKeyHash) }}…</span> — this is what the server stores.</div>
+        </div>
+
+        <!-- Step 1: name -->
+        <div v-else-if="clientStep===1">
+          <h2 class="f-disp text-xl font-extrabold mb-1">Name your client</h2>
+          <p class="text-sm mb-4" style="color:var(--mut)">A name you will recognise in the list, e.g. "UBT".</p>
           <div><label class="lbl">Name</label><input v-model.trim="newClientName" class="input" placeholder="e.g. UBT"></div>
-          <div v-if="newKey"><label class="lbl">API key — copy it now, shown once</label><div class="flex gap-2"><input :value="newKey" readonly class="input f-mono text-xs flex-1" @click="sel($event)"><button class="btn btn-amber px-3 text-xs" @click="copy(newKey)">Copy</button></div><div class="hint">Fingerprint (sha256): <span class="f-mono">{{ short(newKeyHash) }}…</span></div></div>
-          <div v-if="clientErr" class="text-xs" style="color:var(--red)">{{ clientErr }}</div>
-          <div class="flex gap-2 justify-end pt-1"><button class="btn btn-ghost px-4 py-2 text-sm" @click="clientModal=false">Cancel</button><button class="btn btn-amber px-4 py-2 text-sm" :disabled="!newClientName||clientBusy" @click="createClient">Create</button></div>
+          <div v-if="clientErr" class="text-xs mt-2 flex items-center gap-1.5" style="color:var(--red)"><span v-html="ic('alertTriangle',13)"></span>{{ clientErr }}</div>
+          <div class="flex gap-2 justify-end pt-4">
+            <button class="btn btn-ghost px-4 py-2 text-sm" @click="clientStep=0"><span v-html="ic('undo',14)"></span>Back</button>
+            <button class="btn btn-amber px-5 py-2.5 text-sm flex items-center gap-1.5" :disabled="!newClientName||clientBusy" @click="createClient"><span v-if="clientBusy" class="spinner"></span><span v-html="ic('check',14)"></span>Create client</button>
+          </div>
+        </div>
+
+        <!-- Step 2: done -->
+        <div v-else class="text-center py-4">
+          <div class="success-ring" v-html="ic('checkCircle',36)"></div>
+          <h2 class="f-disp text-xl font-extrabold mt-4">Client created</h2>
+          <p class="text-sm mt-1 mb-5" style="color:var(--mut)">"{{ newClientName }}" is live. The API key shown in step 1 is now active — if you lost it, delete and recreate.</p>
+          <button class="btn btn-amber px-6 py-2.5 text-sm" @click="clientModal=false;clientStep=0">Done</button>
         </div>
       </div>
     </div>
 
     <!-- Confirm Modal -->
     <div v-if="confirmMsg" class="fixed inset-0 z-[60] flex items-center justify-center p-4" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)">
-      <div class="panel p-7 w-full max-w-sm rise"><h2 class="f-disp font-extrabold mb-2">Confirm</h2><p class="text-sm" style="color:var(--mut)">{{ confirmMsg }}</p><div class="flex gap-2 justify-end pt-4"><button class="btn btn-ghost px-4 py-2 text-sm" @click="confirmMsg=null">Cancel</button><button class="btn btn-danger px-4 py-2 text-sm" @click="confirmDo()">Confirm</button></div></div>
+      <div class="panel p-7 w-full max-w-sm rise"><h2 class="f-disp font-extrabold mb-2 flex items-center gap-2"><span v-html="ic('alertTriangle',17)" style="color:var(--amber2)"></span>Confirm</h2><p class="text-sm" style="color:var(--mut)">{{ confirmMsg }}</p><div class="flex gap-2 justify-end pt-4"><button class="btn btn-ghost px-4 py-2 text-sm" @click="confirmMsg=null">Cancel</button><button class="btn btn-danger px-4 py-2 text-sm" @click="confirmDo()">Confirm</button></div></div>
     </div>
 
     <!-- Toasts -->
-    <div class="fixed top-5 right-5 z-[70] space-y-2.5">
-      <div v-for="t in toasts" :key="t.id" class="toast panel px-4 py-3 text-sm shadow-lg flex items-center gap-2.5">
-        <span class="status-dot" :style="{background:t.type==='err'?'var(--red)':t.type==='ok'?'var(--green)':'var(--amber)'}"></span>
-        <span class="f-mono text-xs">{{ t.msg }}</span>
+    <div class="toast-stack">
+      <div v-for="t in toasts" :key="t.id" class="toast-card" :class="'t-'+t.type">
+        <span class="toast-ico" v-html="ic(t.type==='err'?'x':t.type==='warn'?'alertTriangle':t.type==='info'?'info':'check',12)"></span>
+        <div class="toast-title">{{ t.title }}</div>
+        <div class="toast-msg">{{ t.msg }}</div>
+        <span class="toast-close" @click="dismissToast(t.id)">✕</span>
+        <span class="toast-progress"></span>
       </div>
     </div>
 
@@ -540,6 +603,7 @@ html[data-theme="dark"] .logpre{color:#c9bfa8}
 </div>
 
 <script src="lib/vue.global.prod.js"></script>
-<script src="app.min.js"></script>
+<script src="lib/anime.min.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

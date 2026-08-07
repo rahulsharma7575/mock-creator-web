@@ -38,18 +38,68 @@ function genKey(){const b=crypto.getRandomValues(new Uint8Array(16));return Arra
 const DRY_LABELS = {full:'Full Mock',dry_questions:'Dry Q',dry_images:'Dry Img',dry_audio:'Dry Aud'};
 const DRY_ICONS = {dry_questions:'Q',dry_images:'I',dry_audio:'A',full:''};
 
+const ICONS = {
+  chart: 'M3 3v18h18M7 14l4-4 3 3 5-6',
+  users: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+  sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+  fileText: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+  plus: 'M12 5v14M5 12h14',
+  key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4',
+  copy: 'M9 9h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1',
+  check: 'M20 6L9 17l-5-5',
+  x: 'M18 6L6 18M6 6l12 12',
+  alertTriangle: 'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+  info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+  refresh: 'M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M3 21v-5h5',
+  trash: 'M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6',
+  play: 'M5 3l14 9-14 9V3z',
+  zap: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
+  image: 'M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+  headphones: 'M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5zM21 14h-3a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-5zM3 14v-3a9 9 0 0 1 18 0v3',
+  save: 'M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8',
+  undo: 'M3 7v6h6M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 16',
+  sparkles: 'M12 3l1.9 5.8L19.7 10l-5.8 1.9L12 17.7l-1.9-5.8L4.3 10l5.8-1.9L12 3zM19 15l.9 2.6L22.5 18.5l-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9L19 15zM5 17l.6 1.7L7.3 19.3l-1.7.6L5 21.6l-.6-1.7-1.7-.6 1.7-.6L5 17z',
+  cpu: 'M4 4h16v16H4zM9 9h6v6H9zM9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3',
+  mic: 'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3',
+  upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
+  download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+  eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  eyeOff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24M1 1l22 22',
+  help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01',
+  settings: 'M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+  dollar: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+  server: 'M2 2h20v8H2zM2 14h20v8H2zM6 6h.01M6 18h.01',
+  send: 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z',
+  lock: 'M7 11V7a5 5 0 0 1 10 0v4M3 11h18v10H3z',
+  mail: 'M2 4h20v16H2zM22 7l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7',
+  clipboard: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9z',
+  bookOpen: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z',
+  activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+  rocket: 'M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09zM12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2zM9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5',
+  checkCircle: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3',
+  circle: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',
+  chevronRight: 'M9 18l6-6-6-6',
+  arrowRight: 'M5 12h14M12 5l7 7-7 7',
+  search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
+  logOut: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+  moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
+  sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42'
+};
+
 createApp({
   data(){return{
     authed:!!localStorage.getItem(LS_TK),who:localStorage.getItem(LS_EM)||'',
     loginEmail:'',loginPass:'',loginErr:'',loginBusy:false,clientBusy:false,newKeyHash:'',togglingId:'',
-    theme:localStorage.getItem(LS_TH)||'dark',view:'overview',
+    theme:localStorage.getItem(LS_TH)||'light',view:'overview',
     nav:[{id:'overview',label:'Overview'},{id:'clients',label:'Clients'},{id:'configs',label:'Configs'},{id:'jobs',label:'Jobs'}],
     clients:[],jobs:[],configs:[],meta:[],models:[],jobsBusy:false,startBusy:false,
     qs:{client:'',count:40,difficulty:'creative+difficult'},jobFilter:'all',
-    drawerJob:null,drawerTimer:null,clientModal:false,newClientName:'',newKey:'',clientErr:'',
+    drawerJob:null,drawerTimer:null,clientModal:false,clientStep:0,newClientName:'',newKey:'',clientErr:'',
     confirmMsg:null,confirmFn:null,toasts:[],
     cfgClient:'',cfg:null,cfgLoading:false,cfgSaving:false,cfgSavedAt:'',cfgRaw:false,cfgRawText:'',cfgRawErr:'',
     cfgData:{},showPass:false,valIssues:[],valChecked:false,
+    groupIssues:{},verified:{},
   }},
   computed:{
     filteredJobs(){return this.jobFilter==='all'?this.jobs:this.jobs.filter(j=>j.status===this.jobFilter);},
@@ -57,8 +107,11 @@ createApp({
       const now=Date.now(),day=864e5,t=this.jobs.filter(j=>now-new Date(this.fixT(j.created)).getTime()<day).length;
       const run=this.jobs.filter(j=>j.status==='running').length,fail=this.jobs.filter(j=>j.status==='failed'&&now-new Date(this.fixT(j.created)).getTime()<day).length;
       return[
-        {k:'clients',v:this.clients.length,c:'var(--amber2)',i:0},{k:'configs',v:this.configs.length,c:'var(--ink)',i:1},
-        {k:'jobs · 24h',v:t,c:'var(--ink)',i:2},{k:'running',v:run,c:'var(--amber)',i:3},{k:'failed · 24h',v:fail,c:'var(--red)',i:4},
+        {k:'clients',v:this.clients.length,c:'var(--amber2)',i:0,icon:'users'},
+        {k:'configs',v:this.configs.length,c:'var(--ink)',i:1,icon:'sliders'},
+        {k:'jobs · 24h',v:t,c:'var(--ink)',i:2,icon:'clock'},
+        {k:'running',v:run,c:'var(--amber)',i:3,icon:'activity'},
+        {k:'failed · 24h',v:fail,c:'var(--red)',i:4,icon:'alertTriangle'},
       ];
     },
     groups(){const g=[...new Set(this.meta.map(m=>m.group))];return ['LLM','Exam','Images','Audio','Push','Advanced','General'].filter(x=>g.includes(x));},
@@ -81,7 +134,7 @@ createApp({
     },
   },
   watch:{
-    view(v){if(v==='jobs')this.loadJobs();if(v==='clients')this.loadClients();},
+    view(v){if(v==='jobs')this.loadJobs();if(v==='clients')this.loadClients();this.$nextTick(()=>this.viewEnter());},
     drawerJob(j){clearInterval(this.drawerTimer);this.drawerTimer=null;if(j&&(j.status==='queued'||j.status==='running')){this.drawerTimer=setInterval(()=>this.refreshDrawer(),4000);}},
   },
   methods:{
@@ -91,55 +144,94 @@ createApp({
     sc(st){return st==='running'?'var(--amber)':st==='done'?'var(--green)':st==='failed'?'var(--red)':'var(--mut)';},
     jobCount(id){return this.jobs.filter(j=>j.client===id).length;},
     pretty(o){return o?JSON.stringify(o,null,2):'(no report yet)';},
-    toast(msg,type){const id=Date.now()+Math.random();this.toasts.push({id,msg,type:type||'ok'});setTimeout(()=>{this.toasts=this.toasts.filter(t=>t.id!==id);},4200);},
-    async copy(txt){try{await navigator.clipboard.writeText(txt);this.toast('copied','ok');}catch(e){this.toast('copy failed','err');}},
+    ic(name,size){return `<svg width="${size||18}" height="${size||18}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||ICONS.circle}</svg>`;},
+    toast(msg,type){const titles={ok:'Done',err:'Something went wrong',warn:'Heads up',info:'Note'};const id=Date.now()+Math.random();this.toasts.push({id,msg,type:type||'ok',title:titles[type||'ok']});setTimeout(()=>this.dismissToast(id),4200);this.$nextTick(()=>{if(window.anime){const el=document.querySelector('.toast-card:last-child');if(el)window.anime({targets:el,translateX:[46,0],opacity:[0,1],duration:420,easing:'easeOutCubic'});}});},
+    dismissToast(id){this.toasts=this.toasts.filter(t=>t.id!==id);},
+    async copy(txt){try{await navigator.clipboard.writeText(txt);this.toast('Copied to clipboard','ok');}catch(e){this.toast('Copy failed','err');}},
     sel(e){e.target.select();},
-    toggleTheme(){this.theme=this.theme==='dark'?'light':'dark';localStorage.setItem(LS_TH,this.theme);document.documentElement.setAttribute('data-theme',this.theme);},
+    toggleTheme(){this.theme=this.theme==='dark'?'light':'dark';localStorage.setItem(LS_TH,this.theme);document.documentElement.setAttribute('data-theme',this.theme);this.$nextTick(()=>this.viewEnter());},
     dryIcon(k){const i=DRY_ICONS[k]||'';return i?i+' ':'';},
     dryLabel(k){return DRY_LABELS[k]||k;},
-    grpBg(g){const m={LLM:'var(--blue)',Images:'rgba(192,132,252,.12)',Exam:null,Audio:'rgba(34,211,238,.08)',Push:'rgba(245,166,35,.08)',Advanced:null,General:null};return m[g]||'transparent';},
-    grpFg(g){const m={LLM:'#0c4a6e',Images:'var(--purple)',Audio:'var(--cyan)',Push:'var(--amber2)'};return m[g]||'var(--ink)';},
-    grpDesc(g){const m={LLM:'Which AI models generate and review questions',Images:'Image generation settings for TOPIK-style picture questions',Exam:'Exam structure — question count, difficulty, marks, duration',Audio:'Text-to-speech for listening section audio clips',Push:'Where to send the finished exam (your teacher app)',Advanced:'LLM token limits, timeouts, retry behaviour',General:'Master on/off switch'};return m[g]||'';},
-    hintText(f){if(!f||!this.cfgData)return'';const v=this.cfgData[f.field];
-      if(f.field==='image_count'){const mn=this.cfgData.image_count_min||18,mx=this.cfgData.image_count_max||26;return v>=mn&&v<=mx?`✓ In range (${mn}–${mx})`:v<mn?`Too low — below minimum ${mn}`:`Too high — above maximum ${mx}`;}
-      if(f.field==='reading_count'){const t=this.cfgData.question_count||0;return t?`${t-v} listening questions remaining (Q${v+1}–Q${t})`:'Set total questions first';}
+    grpBg(g){const m={LLM:'var(--blue)',Images:'rgba(138,95,181,.1)',Exam:null,Audio:'rgba(47,143,143,.08)',Push:'rgba(226,114,63,.08)',Advanced:null,General:null};return m[g]||'transparent';},
+    grpFg(g){const m={LLM:'#2f6ea5',Images:'var(--purple)',Audio:'var(--cyan)',Push:'var(--amber2)'};return m[g]||'var(--ink)';},
+    grpDesc(g){const m={LLM:'Which AI models generate and review questions',Images:'Image questions — one number, applied randomly across the exam',Exam:'Exam structure — question count, difficulty, marks, duration',Audio:'Text-to-speech for listening section audio clips',Push:'Where to send the finished exam — or toggle off to generate locally',Advanced:'LLM token limits, timeouts, retry behaviour',General:'Master on/off switch'};return m[g]||'';},
+    grpIcon(g){return{LLM:'cpu',Images:'image',Exam:'bookOpen',Audio:'headphones',Push:'send',Advanced:'settings',General:'sliders'}[g]||'sliders';},
+    hintText(f){if(!f||!this.cfgData)return'';
+      if(f.field==='image_count'){const n=this.cfgData.image_count||18;return`${n} questions will have pictures, spread randomly across reading & listening`;}
+      if(f.field==='reading_count'){const t=this.cfgData.question_count||0;const v=this.cfgData[f.field]||0;return t?`${t-v} listening questions remaining (Q${v+1}–Q${t})`:'Set total questions first';}
       return'';},
-    validateConfig(){this.valIssues=[];const c=this.cfgData;if(!c)return;
-      if((c.question_count||0)<(c.reading_count||0))this.valIssues.push({w:'err',msg:`Reading count (${c.reading_count}) cannot exceed total questions (${c.question_count})`});
-      if((c.image_count||0)<(c.image_count_min||0))this.valIssues.push({w:'warn',msg:`Image count (${c.image_count}) is below minimum (${c.image_count_min}) — repair pass will add images`});
-      if((c.image_count||0)>(c.image_count_max||0))this.valIssues.push({w:'warn',msg:`Image count (${c.image_count}) is above maximum (${c.image_count_max}) — repair pass may strip images`});
-      if(!c.push_pb_pass||!c.push_pb_pass.trim())this.valIssues.push({w:'warn',msg:'Push password is empty — the full pipeline will fail at the push step. Set it here or use MOCK_PB_PASS env var.'});
-      if(!c.push_pb_base)this.valIssues.push({w:'err',msg:'Push base URL is empty — no exam can be delivered.'});
-      if((c.marks_per_question||1)<0)this.valIssues.push({w:'err',msg:'Marks per question cannot be negative.'});
-      if((c.timeout_s||600)<20)this.valIssues.push({w:'warn',msg:`LLM timeout (${c.timeout_s}s) is very low — may cause timeouts.`});
-      this.valChecked=true;if(!this.valIssues.length)this.toast('All checks passed','ok');
+    checkIssues(){
+      this.groupIssues={};const c=this.cfgData;if(!c)return;
+      const add=(g,w,msg)=>{if(!this.groupIssues[g])this.groupIssues[g]=[];this.groupIssues[g].push({w,msg});};
+      if((c.question_count||0)<=0)add('Exam','err','Total questions must be at least 1');
+      if((c.question_count||0)<(c.reading_count||0))add('Exam','err',`Reading count (${c.reading_count}) cannot exceed total (${c.question_count})`);
+      if((c.marks_per_question||1)<0)add('Exam','err','Marks per question cannot be negative');
+      const n=Number(c.image_count)||18;
+      if(n<0||n>40)add('Images','err','Image questions must be between 0 and 40');
+      if((c.image_count_min||0)>n||n>(c.image_count_max||26))add('Images','warn','Image count is outside the allowed range — it will be auto-adjusted on save');
+      if(c.push_enabled!==false){
+        if(!c.push_pb_base)add('Push','err','Push is on but no target URL is set — add it or toggle push off');
+        if(!c.push_pb_pass)add('Push','warn','No push password — exams will be generated locally and not uploaded');
+      }
+      if((c.timeout_s||600)<20)add('Advanced','warn',`LLM timeout (${c.timeout_s}s) is very low — may cause timeouts`);
+      this.valIssues=[];for(const g in this.groupIssues){for(const i of this.groupIssues[g])this.valIssues.push({...i,group:g});}
+    },
+    validateConfig(){this.checkIssues();this.valChecked=true;Object.keys(this.groupIssues).forEach(g=>this.verified[g]=true);
+      const e=this.valIssues.filter(i=>i.w==='err').length,w=this.valIssues.filter(i=>i.w==='warn').length;
+      if(!e&&!w)this.toast('All checks passed — every card is healthy','ok');
+      else this.toast(`${e} error${e===1?'':'s'}, ${w} warning${w===1?'':'s'} — see the cards`,'warn');},
+    verifyGroup(g){this.checkIssues();this.verified[g]=true;
+      const list=this.groupIssues[g]||[];
+      if(!list.length)this.toast(`${g} card looks good`,'ok');
+      else this.toast(`${g}: ${list.map(i=>i.msg).join(' · ')}`,'warn');},
+    cardState(g){const list=this.groupIssues[g]||[];if(list.some(i=>i.w==='err'))return'err';if(list.some(i=>i.w==='warn'))return'warn';if(this.verified[g])return'ok';return'idle';},
+    groupIssueList(g){return this.groupIssues[g]||[];},
+    hiddenField(f){return f.field==='image_count_min'||f.field==='image_count_max';},
+    viewEnter(){
+      if(!window.anime)return;
+      const els=document.querySelectorAll('main .view-block > *');
+      if(!els.length)return;
+      window.anime({targets:els,opacity:[0,1],translateY:[18,0],duration:520,delay:window.anime.stagger(60),easing:'easeOutCubic'});
+    },
+    deckEnter(){
+      if(!window.anime)return;
+      const els=document.querySelectorAll('.cfg-card');
+      if(!els.length)return;
+      window.anime({targets:els,opacity:[0,1],translateY:[22,0],scale:[.97,1],duration:480,delay:window.anime.stagger(70),easing:'easeOutCubic'});
     },
     async login(){this.loginErr='';this.loginBusy=true;
       try{const r=await fetch('/api/collections/_superusers/auth-with-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity:this.loginEmail,password:this.loginPass})});const text=await r.text();let b;try{b=JSON.parse(text);}catch(e){throw new Error('Server returned unexpected response - is PocketBase running?');}if(!r.ok)throw new Error(b.message||'auth failed');localStorage.setItem(LS_TK,b.token);localStorage.setItem(LS_EM,b.record.email||this.loginEmail);this.who=localStorage.getItem(LS_EM);this.authed=true;try{await api('/api/creator/ensure');}catch(e){this.toast('ensure: '+e.message,'err');}this.loadAll();}catch(e){this.loginErr=e.message;}this.loginBusy=false;},
     logout(){localStorage.removeItem(LS_TK);localStorage.removeItem(LS_EM);clearInterval(this.drawerTimer);this.drawerTimer=null;this.drawerJob=null;this.authed=false;this.who='';this.view='overview';this.clients=[];this.jobs=[];this.configs=[];this.cfgClient='';this.cfg=null;},
-    loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();},
+    loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();this.$nextTick(()=>this.viewEnter());},
     async loadClients(){try{const r=await api('/api/collections/mock_clients/records?perPage=200&sort=name');this.clients=r.items||[];}catch(e){this.toast('clients: '+e.message,'err');}},
     async loadConfigs(){try{const r=await api('/api/collections/mock_config/records?perPage=200');this.configs=r.items||[];}catch(e){this.toast('configs: '+e.message,'err');}},
     async loadMeta(){try{const r=await api('/api/collections/mock_config_meta/records?perPage=200&sort=group,order');this.meta=r.items||[];}catch(e){}},
     async loadModels(){try{const r=await api('/api/collections/mock_models/records?perPage=200');this.models=r.items||[];}catch(e){}},
     async loadJobs(){this.jobsBusy=true;try{const r=await api('/api/creator/jobs');this.jobs=r.jobs||[];}catch(e){this.toast('jobs: '+e.message,'err');}this.jobsBusy=false;},
     startJob(params){const q=new URLSearchParams(params);return api('/api/creator/start?'+q.toString(),{method:'POST'});},
-    async quickStart(kind){this.startBusy=true;try{const params={client:this.qs.client,count:this.qs.count,difficulty:this.qs.difficulty};if(kind&&kind!=='full'){params.kind=kind;params.count=2;}const r=await this.startJob(params);this.toast('job '+r.job_id.slice(0,8)+' queued ('+(r.kind||kind)+')','ok');this.loadJobs();}catch(e){this.toast('start: '+e.message,'err');}this.startBusy=false;},
-    async dryRun(kind){if(!this.cfgClient)return this.toast('Select a client first','err');this.startBusy=true;try{const r=await this.startJob({client:this.cfgClient,kind:kind,count:2,difficulty:this.cfgData.difficulty_profile||'creative+difficult'});this.toast('dry run '+kind+' queued (job '+r.job_id.slice(0,8)+')','ok');this.loadJobs();}catch(e){this.toast('dry run: '+e.message,'err');}this.startBusy=false;},
-    async dryRunConfig(kind){if(!this.qs.client)return this.toast('Select a client in Quick Start first','err');this.startBusy=true;try{const r=await this.startJob({client:this.qs.client,kind:kind,count:2,difficulty:this.qs.difficulty});this.toast('dry run '+kind+' queued (job '+r.job_id.slice(0,8)+')','ok');this.loadJobs();}catch(e){this.toast('dry run: '+e.message,'err');}this.startBusy=false;},
-    async loadConfig(){if(!this.cfgClient){this.cfg=null;return;}this.cfgLoading=true;this.cfgSavedAt='';try{const r=await api('/api/creator/config?client='+encodeURIComponent(this.cfgClient));this.cfg=r;const rest=Object.assign({},r.record);delete rest.id;delete rest.created;delete rest.updated;this.cfgData=rest;this.cfgData.prompts_json=JSON.stringify((r.record&&r.record.prompts_json)||{},null,2);this.cfgRawText=JSON.stringify(r.record,null,2);this.cfgRawErr='';this.valChecked=false;this.valIssues=[];}catch(e){this.toast('config: '+e.message,'err');this.cfg=null;}this.cfgLoading=false;},
+    async quickStart(kind){this.startBusy=true;try{const params={client:this.qs.client,count:this.qs.count,difficulty:this.qs.difficulty};if(kind&&kind!=='full'){params.kind=kind;params.count=2;}const r=await this.startJob(params);this.toast('Job '+r.job_id.slice(0,8)+' queued ('+(r.kind||kind)+')','ok');this.loadJobs();}catch(e){this.toast('start: '+e.message,'err');}this.startBusy=false;},
+    async dryRun(kind){if(!this.cfgClient)return this.toast('Select a client first','err');this.startBusy=true;try{const r=await this.startJob({client:this.cfgClient,kind:kind,count:2,difficulty:this.cfgData.difficulty_profile||'creative+difficult'});this.toast('Dry run '+kind+' queued (job '+r.job_id.slice(0,8)+')','ok');this.loadJobs();}catch(e){this.toast('dry run: '+e.message,'err');}this.startBusy=false;},
+    async dryRunConfig(kind){if(!this.qs.client)return this.toast('Choose a client first','err');this.startBusy=true;try{const r=await this.startJob({client:this.qs.client,kind:kind,count:2,difficulty:this.qs.difficulty});this.toast('Dry run '+kind+' queued (job '+r.job_id.slice(0,8)+')','ok');this.loadJobs();}catch(e){this.toast('dry run: '+e.message,'err');}this.startBusy=false;},
+    async loadConfig(){if(!this.cfgClient){this.cfg=null;return;}this.cfgLoading=true;this.cfgSavedAt='';try{const r=await api('/api/creator/config?client='+encodeURIComponent(this.cfgClient));this.cfg=r;const rest=Object.assign({},r.record);delete rest.id;delete rest.created;delete rest.updated;this.cfgData=rest;this.cfgData.prompts_json=JSON.stringify((r.record&&r.record.prompts_json)||{},null,2);this.cfgRawText=JSON.stringify(r.record,null,2);this.cfgRawErr='';this.valChecked=false;this.valIssues=[];this.groupIssues={};this.verified={};this.$nextTick(()=>this.deckEnter());}catch(e){this.toast('config: '+e.message,'err');this.cfg=null;}this.cfgLoading=false;},
     metaByGroup(g){return this.meta.filter(m=>m.group===g);},
-    validateRaw(){try{JSON.parse(this.cfgRawText);this.cfgRawErr='';this.toast('JSON valid','ok');}catch(e){this.cfgRawErr='Invalid JSON: '+e.message;}},
-    async saveConfig(){this.cfgSaving=true;try{let body;if(this.cfgRaw){body=JSON.parse(this.cfgRawText);}else{const metaByField={};this.meta.forEach(m=>{metaByField[m.field]=m;});body={};for(const k of Object.keys(this.cfgData)){const m=metaByField[k];const v=this.cfgData[k];if(k==='prompts_json'){try{body[k]=JSON.parse(v||'{}');}catch(e){throw new Error('prompts_json is not valid JSON');}}else if(m&&m.ftype==='number')body[k]=(v===''||v===null||v===undefined)?null:Number(v);else if(m&&m.ftype==='bool')body[k]=!!v;else body[k]=v;}}await api('/api/collections/mock_config/records/'+this.cfg.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});this.toast('config saved','ok');await this.loadConfig();this.cfgSavedAt=new Date().toISOString();}catch(e){this.toast('save: '+e.message,'err');}this.cfgSaving=false;},
+    validateRaw(){try{JSON.parse(this.cfgRawText);this.cfgRawErr='';this.toast('JSON is valid','ok');}catch(e){this.cfgRawErr='Invalid JSON: '+e.message;}},
+    async saveConfig(){this.cfgSaving=true;try{let body;if(this.cfgRaw){body=JSON.parse(this.cfgRawText);}else{
+      const n=Number(this.cfgData.image_count)||18;
+      this.cfgData.image_count=n;
+      this.cfgData.image_count_min=Math.max(0,n-2);
+      this.cfgData.image_count_max=Math.min(26,n+2);
+      const metaByField={};this.meta.forEach(m=>{metaByField[m.field]=m;});body={};
+      for(const k of Object.keys(this.cfgData)){const m=metaByField[k];const v=this.cfgData[k];if(k==='prompts_json'){try{body[k]=JSON.parse(v||'{}');}catch(e){throw new Error('prompts_json is not valid JSON');}}else if(m&&m.ftype==='number')body[k]=(v===''||v===null||v===undefined)?null:Number(v);else if(m&&m.ftype==='bool')body[k]=!!v;else body[k]=v;}
+    }await api('/api/collections/mock_config/records/'+this.cfg.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});this.toast('Config saved','ok');await this.loadConfig();this.cfgSavedAt=new Date().toISOString();}catch(e){this.toast('save: '+e.message,'err');}this.cfgSaving=false;},
     async openJob(j){try{const r=await api('/api/creator/jobs/'+j.id);this.drawerJob=r;if(r.report){j._report=r.report;}}catch(e){this.toast('job: '+e.message,'err');}},
     async refreshDrawer(){if(!this.drawerJob)return;try{const r=await api('/api/creator/jobs/'+this.drawerJob.id);Object.assign(this.drawerJob,r);const j=this.jobs.find(x=>x.id===r.id);if(j)Object.assign(j,{status:r.status,error:r.error,pushed:r.pushed});if(r.status!=='queued'&&r.status!=='running')clearInterval(this.drawerTimer);}catch(e){}},
-    retryJob(){const j=this.drawerJob;const k=j.kind||'full';this.confirmMsg='Re-queue '+k+' job for "'+j.client_name+'" ('+j.count+'q)?';this.confirmFn=async()=>{try{await this.startJob({client:j.client,count:j.count,difficulty:j.difficulty||'',kind:k});this.toast('re-queued','ok');this.drawerJob=null;this.loadJobs();}catch(e){this.toast('requeue: '+e.message,'err');}};},
-    delJob(){const j=this.drawerJob;this.confirmMsg='Delete job '+j.id.slice(0,8)+' permanently?';this.confirmFn=async()=>{try{await api('/api/collections/mock_jobs/records/'+j.id,{method:'DELETE'});this.toast('job deleted','ok');this.drawerJob=null;this.loadJobs();}catch(e){this.toast('delete: '+e.message,'err');}};},
+    retryJob(){const j=this.drawerJob;const k=j.kind||'full';this.confirmMsg='Re-queue '+k+' job for "'+j.client_name+'" ('+j.count+'q)?';this.confirmFn=async()=>{try{await this.startJob({client:j.client,count:j.count,difficulty:j.difficulty||'',kind:k});this.toast('Re-queued','ok');this.drawerJob=null;this.loadJobs();}catch(e){this.toast('requeue: '+e.message,'err');}};},
+    delJob(){const j=this.drawerJob;this.confirmMsg='Delete job '+j.id.slice(0,8)+' permanently?';this.confirmFn=async()=>{try{await api('/api/collections/mock_jobs/records/'+j.id,{method:'DELETE'});this.toast('Job deleted','ok');this.drawerJob=null;this.loadJobs();}catch(e){this.toast('delete: '+e.message,'err');}};},
     confirmDo(){const fn=this.confirmFn;this.confirmMsg=null;this.confirmFn=null;if(fn)fn();},
-    openClientModal(){this.clientModal=true;this.newClientName='';this.newKey=genKey();this.newKeyHash='';sha256Hex(this.newKey).then(h=>{this.newKeyHash=h;});this.clientErr='';},
-    async createClient(){if(this.clientBusy)return;this.clientErr='';this.clientBusy=true;try{const h=await sha256Hex(this.newKey);await api('/api/collections/mock_clients/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:this.newClientName,api_key_hash:h,active:true})});this.clientModal=false;this.toast('client created','ok');this.loadClients();}catch(e){this.clientErr=e.message;}this.clientBusy=false;},
+    openClientModal(){this.clientModal=true;this.clientStep=0;this.newClientName='';this.clientErr='';this.newKey=genKey();this.newKeyHash='';sha256Hex(this.newKey).then(h=>{this.newKeyHash=h;});},
+    async createClient(){if(this.clientBusy)return;this.clientErr='';this.clientBusy=true;try{const h=await sha256Hex(this.newKey);await api('/api/collections/mock_clients/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:this.newClientName,api_key_hash:h,active:true})});this.clientStep=2;this.toast('Client created — the key above is now active','ok');this.loadClients();}catch(e){this.clientErr=e.message;}this.clientBusy=false;},
     async toggleClient(c){if(this.togglingId)return;this.togglingId=c.id;try{await api('/api/collections/mock_clients/records/'+c.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:!c.active})});c.active=!c.active;}catch(e){this.toast('toggle: '+e.message,'err');}this.togglingId='';},
-    delClient(c){this.confirmMsg='Delete client "'+c.name+'"? Its config and jobs stay, but the key stops working.';this.confirmFn=async()=>{try{await api('/api/collections/mock_clients/records/'+c.id,{method:'DELETE'});this.toast('client deleted','ok');this.loadClients();}catch(e){this.toast('delete: '+e.message,'err');}};},
+    delClient(c){this.confirmMsg='Delete client "'+c.name+'"? Its config and jobs stay, but the key stops working.';this.confirmFn=async()=>{try{await api('/api/collections/mock_clients/records/'+c.id,{method:'DELETE'});this.toast('Client deleted','ok');this.loadClients();}catch(e){this.toast('delete: '+e.message,'err');}};},
     openConfigFor(id){this.view='configs';this.cfgClient=id;this.cfgRaw=false;this.loadConfig();},
     stageFor(j){
       if(!j||(j.status!=='running'&&j.status!=='failed'))return'';
@@ -147,11 +239,11 @@ createApp({
       const active=stages.filter(s=>log.includes('['+s+']'));const last=active[active.length-1];
       return stages.map(s=>`<span class="stage-dot ${s===last?'on':''}" style="color:${s==='author'?'var(--blue)':s==='images'?'var(--purple)':s==='audio'?'var(--cyan)':s==='pb'?'var(--amber2)':'var(--mut)'}" title="${s}"></span>`).join('');
     },
-    async copyConfig(){const o={...this.cfgData};if(typeof o.prompts_json==='string')try{o.prompts_json=JSON.parse(o.prompts_json)}catch(e){}try{await navigator.clipboard.writeText(JSON.stringify(o,null,2));this.toast('config copied to clipboard','ok');}catch(e){this.toast('copy failed','err');}},
+    async copyConfig(){const o={...this.cfgData};if(typeof o.prompts_json==='string')try{o.prompts_json=JSON.parse(o.prompts_json)}catch(e){}try{await navigator.clipboard.writeText(JSON.stringify(o,null,2));this.toast('Config copied to clipboard','ok');}catch(e){this.toast('copy failed','err');}},
     cloneConfigDialog(){
       const targets=this.clients.filter(c=>c.id!==this.cfgClient);if(!targets.length)return this.toast('No other clients to clone to','err');
       const names=targets.map(c=>c.name).join(', ');this.confirmMsg='Clone config to: '+names+'? (overwrites their current config)';
-      this.confirmFn=async()=>{try{for(const c of targets){const r=await api('/api/creator/config?client='+c.id);const body={...this.cfgData};delete body.client;if(typeof body.prompts_json==='string')body.prompts_json=JSON.parse(body.prompts_json);await api('/api/collections/mock_config/records/'+r.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}this.toast('config cloned to '+targets.length+' clients','ok');}catch(e){this.toast('clone: '+e.message,'err');}};
+      this.confirmFn=async()=>{try{for(const c of targets){const r=await api('/api/creator/config?client='+c.id);const body={...this.cfgData};delete body.client;if(typeof body.prompts_json==='string')body.prompts_json=JSON.parse(body.prompts_json);await api('/api/collections/mock_config/records/'+r.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}this.toast('Config cloned to '+targets.length+' clients','ok');}catch(e){this.toast('clone: '+e.message,'err');}};
     },
     togglePass(){this.showPass=!this.showPass;},
     async clearFailed(){

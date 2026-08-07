@@ -75,6 +75,7 @@ DEFAULTS = {
     "shuffle_options": False,
     "exam_type": "mock",                     # exam_type of the auto-created exam record
     "exam_status": "draft",                  # draft = review-then-publish | published = immediate
+    "push_enabled": True,                    # False = generate locally, never upload anywhere
     # question creator (author) — OpenRouter
     "author_model": "google/gemini-2.5-flash",
     "author_retries": 3,
@@ -1116,6 +1117,13 @@ def main():
     if args.dry_run:
         print("[dry-run] stopping after author+proofread (no PB/audio/images)")
         stats["dry_run"] = True
+        stats["llm_cost"] = stats["author_cost"] + stats["proof_cost"]
+        final_summary(stats)
+        return
+
+    if not CFG.get("pb_pass") or not CFG.get("push_enabled", True):
+        print("[local] push disabled or no push password — questions saved locally only (no PB records/audio/images)")
+        stats["local_only"] = True
         stats["llm_cost"] = stats["author_cost"] + stats["proof_cost"]
         final_summary(stats)
         return
