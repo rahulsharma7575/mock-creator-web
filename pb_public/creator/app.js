@@ -38,54 +38,17 @@ function genKey(){const b=crypto.getRandomValues(new Uint8Array(16));return Arra
 const DRY_LABELS = {full:'Full Mock',dry_questions:'Dry Q',dry_images:'Dry Img',dry_audio:'Dry Aud'};
 const DRY_ICONS = {dry_questions:'Q',dry_images:'I',dry_audio:'A',full:''};
 
-const ICONS = {
-  chart: 'M3 3v18h18M7 14l4-4 3 3 5-6',
-  users: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
-  sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
-  fileText: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
-  plus: 'M12 5v14M5 12h14',
-  key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4',
-  copy: 'M9 9h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1',
-  check: 'M20 6L9 17l-5-5',
-  x: 'M18 6L6 18M6 6l12 12',
-  alertTriangle: 'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
-  info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
-  refresh: 'M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M3 21v-5h5',
-  trash: 'M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6',
-  play: 'M5 3l14 9-14 9V3z',
-  zap: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
-  image: 'M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
-  headphones: 'M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5zM21 14h-3a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-5zM3 14v-3a9 9 0 0 1 18 0v3',
-  save: 'M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8',
-  undo: 'M3 7v6h6M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 16',
-  sparkles: 'M12 3l1.9 5.8L19.7 10l-5.8 1.9L12 17.7l-1.9-5.8L4.3 10l5.8-1.9L12 3zM19 15l.9 2.6L22.5 18.5l-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9L19 15zM5 17l.6 1.7L7.3 19.3l-1.7.6L5 21.6l-.6-1.7-1.7-.6 1.7-.6L5 17z',
-  cpu: 'M4 4h16v16H4zM9 9h6v6H9zM9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3',
-  mic: 'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3',
-  upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12',
-  download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
-  eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
-  eyeOff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24M1 1l22 22',
-  settings: 'M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
-  clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
-  dollar: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
-  send: 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z',
-  lock: 'M7 11V7a5 5 0 0 1 10 0v4M3 11h18v10H3z',
-  mail: 'M2 4h20v16H2zM22 7l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7',
-  clipboard: 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6v4H9z',
-  bookOpen: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z',
-  activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
-  rocket: 'M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09zM12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2zM9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5',
-  checkCircle: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3',
-  circle: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',
-  chevronDown: 'M6 9l6 6 6-6',
-  arrowRight: 'M5 12h14M12 5l7 7-7 7',
-  logOut: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
-  moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
-  sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42',
-  database: 'M12 2a7 7 0 0 1 7 7v6a7 7 0 0 1-14 0V9a7 7 0 0 1 7-7zM19 13a7 7 0 0 1-14 0',
-  terminal: 'M4 17l6-6-6-6M12 19h8',
-  gauge: 'M12 15l3.5-3.5M20.3 18a10 10 0 1 0-16.6 0',
-  wifi: 'M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01'
+const ICON_MAP = {
+  chart: 'line-chart', users: 'users', sliders: 'sliders-horizontal', fileText: 'file-text',
+  plus: 'plus', key: 'key', copy: 'copy', check: 'check', x: 'x', alertTriangle: 'alert-triangle',
+  info: 'info', refresh: 'refresh-cw', trash: 'trash-2', play: 'play', zap: 'zap', image: 'image',
+  headphones: 'headphones', save: 'save', undo: 'undo-2', sparkles: 'sparkles', cpu: 'cpu',
+  mic: 'mic', upload: 'upload', download: 'download', eye: 'eye', eyeOff: 'eye-off',
+  settings: 'settings', clock: 'clock', dollar: 'dollar-sign', send: 'send', lock: 'lock',
+  mail: 'mail', clipboard: 'clipboard', bookOpen: 'book-open', activity: 'activity',
+  rocket: 'rocket', checkCircle: 'check-circle', circle: 'circle', chevronDown: 'chevron-down',
+  arrowRight: 'arrow-right', logOut: 'log-out', moon: 'moon', sun: 'sun', database: 'database',
+  terminal: 'terminal', gauge: 'gauge', wifi: 'wifi', help: 'help-circle'
 };
 
 const LOG_COLORS = {
@@ -107,7 +70,7 @@ createApp({
     confirmMsg:null,confirmFn:null,toasts:[],
     cfgClient:'',cfg:null,cfgLoading:false,cfgSaving:false,cfgSavedAt:'',cfgRaw:false,cfgRawText:'',cfgRawErr:'',
     cfgData:{},showPass:false,valIssues:[],valChecked:false,
-    groupIssues:{},verified:{},openGroup:'Exam',
+    groupIssues:{},verified:{},openGroup:'Exam',vmCache:{},dryBusy:null,
     orModels:{},orStatus:'loading',
   }},
   computed:{
@@ -179,7 +142,7 @@ createApp({
     sc(st){return st==='running'?'var(--amber)':st==='done'?'var(--green)':st==='failed'?'var(--red)':'var(--mut)';},
     jobCount(id){return this.jobs.filter(j=>j.client===id).length;},
     pretty(o){return o?JSON.stringify(o,null,2):'(no report yet)';},
-    ic(name,size){return `<svg width="${size||18}" height="${size||18}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||ICONS.circle}</svg>`;},
+    ic(name,size){const body=(window.MC_ICONS||{})[ICON_MAP[name]||'circle']||'';return `<svg width="${size||18}" height="${size||18}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;},
     toast(msg,type){const titles={ok:'Done',err:'Something went wrong',warn:'Heads up',info:'Note'};const id=Date.now()+Math.random();this.toasts.push({id,msg,type:type||'ok',title:titles[type||'ok']});setTimeout(()=>this.dismissToast(id),4200);this.$nextTick(()=>{if(window.anime){const el=document.querySelector('.toast-card:last-child');if(el)window.anime({targets:el,translateX:[46,0],opacity:[0,1],duration:420,easing:'easeOutCubic'});}});},
     dismissToast(id){this.toasts=this.toasts.filter(t=>t.id!==id);},
     async copy(txt){try{await navigator.clipboard.writeText(txt);this.toast('Copied to clipboard','ok');}catch(e){this.toast('Copy failed','err');}},
@@ -197,14 +160,67 @@ createApp({
       if(f.field==='llm_author_model'&&this.cfgData[f.field]){const m=this.orModels[this.cfgData[f.field]];return m?`OpenRouter: ${m.name}`:this.orStatus==='live'?`Model not found on OpenRouter`:'';
       }
       return'';},
-    modelIssue(field){
-      const v=this.cfgData[field];
-      if(!v)return null;
-      if(this.orStatus!=='live')return null;
-      if(!this.orModels[v])return`Model "${v}" is NOT on OpenRouter — fix or verification will fail`;
-      return null;
-    },
     modelFieldValue(field){return this.cfgData[field]||'';},
+    async verifyModel(slug){
+      if(!slug)return{exists:true,status:200,message:''};
+      const c=this.vmCache[slug];
+      if(c&&Date.now()-c.at<600000)return c;
+      try{
+        const r=await api('/api/creator/verify-model?slug='+encodeURIComponent(slug));
+        const out={exists:r.exists,status:r.status,message:r.message||'',at:Date.now()};
+        this.vmCache[slug]=out;return out;
+      }catch(e){
+        const out={exists:null,status:-1,message:e.status===404?'verification endpoint not deployed - Pull the latest build and redeploy':e.status===401?'session expired - please login again':'verify-model call failed: '+e.message,at:Date.now()};
+        this.vmCache[slug]=out;return out;
+      }
+    },
+    async checkIssues(groups){
+      const c=this.cfgData;if(!c)return;
+      const scope=groups?new Set(groups):null;
+      if(scope){scope.forEach(g=>delete this.groupIssues[g]);}else{this.groupIssues={};}
+      const add=(g,w,msg)=>{if(scope&&!scope.has(g))return;if(!this.groupIssues[g])this.groupIssues[g]=[];this.groupIssues[g].push({w,msg});};
+      if((c.question_count||0)<=0)add('Exam','err','Total questions must be at least 1');
+      if((c.question_count||0)<(c.reading_count||0))add('Exam','err',`Reading count (${c.reading_count}) cannot exceed total (${c.question_count})`);
+      if((c.marks_per_question||1)<0)add('Exam','err','Marks per question cannot be negative');
+      const n=Number(c.image_count)||18;
+      if(n<0||n>40)add('Images','err','Image questions must be between 0 and 40');
+      if((c.image_count_min||0)>n||n>(c.image_count_max||26))add('Images','warn','Image count is outside the allowed range - it will be auto-adjusted on save');
+      const probeGroups={LLM:['llm_author_model','llm_proofread_model','llm_repair_model'],Audio:['tts_model','tts_fallback_model']};
+      for(const g in probeGroups){
+        if(scope&&!scope.has(g))continue;
+        for(const f of probeGroups[g]){
+          const v=c[f];
+          if(!v)continue;
+          const r=await this.verifyModel(v);
+          if(r.exists===false)add(g,'err',`Model "${v}" is NOT on OpenRouter (probe said: ${r.message||'not found'})`);
+          else if(r.exists===null)add(g,'warn',`Cannot verify "${v}" right now: ${r.message}`);
+        }
+      }
+      if(!scope||scope.has('Images')){
+        if(c.img_model==='nano-banana'){
+          const r=await this.verifyModel('google/gemini-2.5-flash-image');
+          if(r.exists===false)add('Images','err','Image model gemini-2.5-flash-image not found on OpenRouter');
+          else if(r.exists===null)add('Images','warn','Cannot verify image model right now: '+(r.message||'unknown'));
+        }else if(c.img_model==='z-image'){
+          add('Images','info','z-image runs via Magnific (credits) - verified at generation time');
+        }
+      }
+      if(c.push_enabled!==false){
+        if(!c.push_pb_base)add('Push','err','Push is on but no target URL is set - add it or toggle push off');
+        if(!c.push_pb_pass)add('Push','warn','No push password - exams will be generated locally and not uploaded');
+      }
+      if((c.timeout_s||600)<20)add('Advanced','warn',`LLM timeout (${c.timeout_s}s) is very low - may cause timeouts`);
+      if(!scope){this.valIssues=[];for(const g in this.groupIssues){for(const i of this.groupIssues[g])this.valIssues.push({...i,group:g});}}
+    },
+    async validateConfig(){await this.checkIssues();this.valChecked=true;Object.keys(this.groupIssues).forEach(g=>this.verified[g]=true);
+      const e=this.valIssues.filter(i=>i.w==='err').length,w=this.valIssues.filter(i=>i.w==='warn').length;
+      if(!e&&!w)this.toast('All checks passed - every section is healthy','ok');
+      else this.toast(`${e} error${e===1?'':'s'}, ${w} warning${w===1?'':'s'} - see the sections`,'warn');},
+    async verifyGroup(g){
+      await this.checkIssues([g]);this.verified[g]=true;
+      const list=this.groupIssues[g]||[];
+      if(!list.length)this.toast(`${g} section looks good`,'ok');
+      else this.toast(`${g}: ${list.map(i=>i.msg).join(' · ')}`,'warn');},
     async ensureOrModels(force){
       if(this.orStatus==='live'&&!force)return true;
       try{const cache=JSON.parse(localStorage.getItem(LS_OR)||'null');
@@ -221,43 +237,6 @@ createApp({
       }catch(e){this.orStatus='offline';this.toast('OpenRouter unreachable — model checks skipped (offline)','warn');}
       return this.orStatus==='live';
     },
-    checkIssues(){
-      this.groupIssues={};const c=this.cfgData;if(!c)return;
-      const add=(g,w,msg)=>{if(!this.groupIssues[g])this.groupIssues[g]=[];this.groupIssues[g].push({w,msg});};
-      if((c.question_count||0)<=0)add('Exam','err','Total questions must be at least 1');
-      if((c.question_count||0)<(c.reading_count||0))add('Exam','err',`Reading count (${c.reading_count}) cannot exceed total (${c.question_count})`);
-      if((c.marks_per_question||1)<0)add('Exam','err','Marks per question cannot be negative');
-      const n=Number(c.image_count)||18;
-      if(n<0||n>40)add('Images','err','Image questions must be between 0 and 40');
-      if((c.image_count_min||0)>n||n>(c.image_count_max||26))add('Images','warn','Image count is outside the allowed range — it will be auto-adjusted on save');
-      for(const f of ['llm_author_model','llm_proofread_model','llm_repair_model']){
-        const i=this.modelIssue(f);if(i)add('LLM','err',i);
-      }
-      if(this.orStatus==='offline')add('LLM','warn','OpenRouter unreachable — model checks skipped');
-      for(const f of ['tts_model','tts_fallback_model']){
-        const i=this.modelIssue(f);if(i)add('Audio','err',i);
-      }
-      if(this.orStatus==='offline')add('Audio','warn','OpenRouter unreachable — model checks skipped');
-      if(c.img_model==='nano-banana'&&this.orStatus==='live'&&!this.orModels['google/gemini-2.5-flash-image'])
-        add('Images','err','Image model gemini-2.5-flash-image not found on OpenRouter');
-      else if(c.img_model==='z-image')add('Images','info','z-image runs via Magnific (credits) — not checked on OpenRouter');
-      if(c.push_enabled!==false){
-        if(!c.push_pb_base)add('Push','err','Push is on but no target URL is set — add it or toggle push off');
-        if(!c.push_pb_pass)add('Push','warn','No push password — exams will be generated locally and not uploaded');
-      }
-      if((c.timeout_s||600)<20)add('Advanced','warn',`LLM timeout (${c.timeout_s}s) is very low — may cause timeouts`);
-      this.valIssues=[];for(const g in this.groupIssues){for(const i of this.groupIssues[g])this.valIssues.push({...i,group:g});}
-    },
-    validateConfig(){this.checkIssues();this.valChecked=true;Object.keys(this.groupIssues).forEach(g=>this.verified[g]=true);
-      const e=this.valIssues.filter(i=>i.w==='err').length,w=this.valIssues.filter(i=>i.w==='warn').length;
-      if(!e&&!w)this.toast('All checks passed — every section is healthy','ok');
-      else this.toast(`${e} error${e===1?'':'s'}, ${w} warning${w===1?'':'s'} — see the sections`,'warn');},
-    async verifyGroup(g){
-      if(['LLM','Images','Audio'].includes(g))await this.ensureOrModels();
-      this.checkIssues();this.verified[g]=true;
-      const list=this.groupIssues[g]||[];
-      if(!list.length)this.toast(`${g} section looks good`,'ok');
-      else this.toast(`${g}: ${list.map(i=>i.msg).join(' · ')}`,'warn');},
     cardState(g){const list=this.groupIssues[g]||[];if(list.some(i=>i.w==='err'))return'err';if(list.some(i=>i.w==='warn'))return'warn';if(this.verified[g])return'ok';return'idle';},
     groupIssueList(g){return this.groupIssues[g]||[];},
     hiddenField(f){return['image_count_min','image_count_max','is_active','shuffle_questions','shuffle_options','negative_marks'].includes(f.field);},
@@ -285,8 +264,34 @@ createApp({
     async loadJobs(){this.jobsBusy=true;try{const r=await api('/api/creator/jobs');this.jobs=r.jobs||[];}catch(e){this.toast('jobs: '+e.message,'err');}this.jobsBusy=false;},
     startJob(params){const q=new URLSearchParams(params);return api('/api/creator/start?'+q.toString(),{method:'POST'});},
     async quickStart(kind){this.startBusy=true;try{const params={client:this.qs.client,count:this.qs.count,difficulty:this.qs.difficulty};if(kind&&kind!=='full'){params.kind=kind;params.count=2;}const r=await this.startJob(params);this.toast('Job '+r.job_id.slice(0,8)+' queued ('+(r.kind||kind)+')','ok');this.loadJobs();}catch(e){this.toast('start: '+e.message,'err');}this.startBusy=false;},
-    async dryRun(kind){if(!this.cfgClient)return this.toast('Choose a client first','err');this.startBusy=true;try{const r=await this.startJob({client:this.cfgClient,kind:kind,count:2,difficulty:this.cfgData.difficulty_profile||'creative+difficult'});this.toast('Dry run '+kind+' queued (job '+r.job_id.slice(0,8)+')','ok');this.loadJobs();}catch(e){this.toast('dry run: '+e.message,'err');}this.startBusy=false;},
-    async dryRunConfig(kind){if(!this.qs.client)return this.toast('Choose a client first','err');this.startBusy=true;try{const r=await this.startJob({client:this.qs.client,kind:kind,count:2,difficulty:this.qs.difficulty});this.toast('Dry run '+kind+' queued (job '+r.job_id.slice(0,8)+')','ok');this.loadJobs();}catch(e){this.toast('dry run: '+e.message,'err');}this.startBusy=false;},
+    async dryRun(kind){await this.runDry(kind,this.cfgClient,this.cfgData&&this.cfgData.difficulty_profile);},
+    async dryRunConfig(kind){await this.runDry(kind,this.qs.client,this.qs.difficulty);},
+    async runDry(kind,client,difficulty){
+      if(this.dryBusy)return;
+      if(!client)return this.toast('Choose a client first','err');
+      this.dryBusy={kind};
+      this.$nextTick(()=>{if(window.anime)window.anime({targets:'.dry-btn.faded',opacity:[0.45,0.6],duration:300,easing:'easeOutCubic'});});
+      try{
+        const r=await this.startJob({client:client,kind:kind,count:2,difficulty:difficulty||'creative+difficult'});
+        const jid=r.job_id;
+        this.toast('Dry run '+kind+' queued (job '+String(jid).slice(0,8)+')','info');
+        this.loadJobs();
+        await this.pollDry(jid);
+      }catch(e){
+        this.toast('dry run: '+e.message,'err');
+        this.dryBusy=null;
+      }
+    },
+    async pollDry(jid){
+      for(let i=0;i<150;i++){
+        await new Promise(r=>setTimeout(r,4000));
+        let j=null;
+        try{const r=await api('/api/creator/jobs/'+jid);j=r;}catch(e){continue;}
+        if(j&&j.status==='done'){this.dryBusy=null;this.toast('Dry run completed','ok');this.loadJobs();return;}
+        if(j&&j.status==='failed'){this.dryBusy=null;this.toast('Dry run failed: '+(j.error||'see the job log'),'err');this.loadJobs();return;}
+      }
+      this.dryBusy=null;this.toast('Dry run still running - check the Jobs page','info');
+    },
     async loadConfig(){if(!this.cfgClient){this.cfg=null;return;}this.cfgLoading=true;this.cfgSavedAt='';try{const r=await api('/api/creator/config?client='+encodeURIComponent(this.cfgClient));this.cfg=r;const rest=Object.assign({},r.record);delete rest.id;delete rest.created;delete rest.updated;this.cfgData=rest;this.cfgData.prompts_json=JSON.stringify((r.record&&r.record.prompts_json)||{},null,2);this.cfgRawText=JSON.stringify(r.record,null,2);this.cfgRawErr='';this.valChecked=false;this.valIssues=[];this.groupIssues={};this.verified={};this.$nextTick(()=>this.deckEnter());}catch(e){this.toast('config: '+e.message,'err');this.cfg=null;}this.cfgLoading=false;},
     metaByGroup(g){return this.meta.filter(m=>m.group===g);},
     validateRaw(){try{JSON.parse(this.cfgRawText);this.cfgRawErr='';this.toast('JSON is valid','ok');}catch(e){this.cfgRawErr='Invalid JSON: '+e.message;}},

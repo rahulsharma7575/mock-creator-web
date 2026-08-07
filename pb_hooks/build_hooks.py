@@ -322,6 +322,44 @@ try {
 """ % json.dumps(list(COLLECTION_IDS.keys())),
 )
 
+# GET /api/creator/verify-model - superuser only - REAL model existence probe
+# against the OpenRouter chat completions API (1-token ping). The public
+# /api/v1/models catalog EXCLUDES TTS/speech models (only ~400 curated chat
+# models), so catalog lookups give false negatives for fish-audio / mai-voice.
+# A probe call distinguishes: 200 = exists, 404 / "not a valid model ID" =
+# does not exist, 401 = bad key, any other 4xx/5xx = exists (server accepted
+# the ID but rejected the request shape - normal for TTS models).
+route(
+    "verify-model", "GET", "/api/creator/verify-model", "$apis.requireSuperuserAuth()",
+    """
+try {
+  var slug = (e.request.url.query().get("slug") || "").trim()
+  if (!slug) return e.json(400, { error: "slug query param required" })
+  var key = $os.getenv("OPENROUTER_API_KEY") || ""
+  if (!key) return e.json(200, { exists: null, status: 0, message: "OPENROUTER_API_KEY is not set in the container - model checks unavailable" })
+  var res = $http.send({
+    url: "https://openrouter.ai/api/v1/chat/completions",
+    method: "POST",
+    headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: slug, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
+    timeout: 60
+  })
+  var status = res.statusCode || 0
+  var msg = ""
+  try { var j = JSON.parse(res.raw || "{}"); msg = (j.error && j.error.message) || "" } catch (err) {}
+  var invalid = /not a valid model|does not exist|model not found|not found/i.test(msg)
+  var exists = null
+  if (status === 200) exists = true
+  else if (status === 401) exists = null
+  else if (status === 404 || invalid) exists = false
+  else exists = true
+  return e.json(200, { exists: exists, status: status, message: String(msg).slice(0, 200) })
+} catch (err) {
+  return e.json(500, { error: String(err) })
+}
+""",
+)
+
 # POST /api/creator/start - API-key (header) based, overrides via query params.
 # Superuser tokens also work: pass ?client=<id-or-name> instead of an API key.
 route(
