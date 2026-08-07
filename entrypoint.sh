@@ -6,6 +6,7 @@ set -e
 PB=/opt/pb/pocketbase
 PORT="${PB_PORT:-8090}"
 BOOT_LOG=/tmp/pb_boot.log
+PBPID_BOOT=/tmp/pb_boot.pid
 
 echo "[entrypoint] mock-creator v2.1 — PocketBase 0.39.10 + worker (hub image)"
 
@@ -18,11 +19,16 @@ fi
 
 "${PB}" serve --hooksDir /app/pb_hooks --http "0.0.0.0:${PORT}" > "${BOOT_LOG}" 2>&1 &
 PB_PID=$!
+echo "${PB_PID}" > "${PBPID_BOOT}"
 trap 'kill "${PB_PID}" 2>/dev/null || true' EXIT
 
 for _ in $(seq 1 60); do
     if python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:${PORT}/api/health', timeout=2)" >/dev/null 2>&1; then
         echo "[entrypoint] PocketBase is up on :${PORT}"
+# Stream PocketBase's own log (incl. hook-loader errors) to the container log
+tail -f "${BOOT_LOG}" >&2 &
+LOGGER_PID=$!
+trap 'kill "${PB_PID}" "${LOGGER_PID}" 2>/dev/null || true' EXIT
         break
     fi
     sleep 1
