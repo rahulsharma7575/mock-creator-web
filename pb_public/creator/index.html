@@ -1,23 +1,27 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mock Creator — Control Room</title>
+<title>Mock Creator — Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Fraunces:ital,opsz,wght@1,9..144,500;1,9..144,600&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="lib/tailwind.css">
 <style>
 :root{
-  --bg:#0b0d10; --panel:#12151a; --panel2:#181c23; --line:#22272f; --ink:#e9e4d8; --mut:#8d95a3;
-  --amber:#f5a623; --amber2:#ffc46b; --green:#4ade80; --red:#f87171; --blue:#7dd3fc; --cyan:#22d3ee; --purple:#c084fc;
-  --glow:rgba(245,166,35,.14); --grad1:linear-gradient(135deg,#f5a62310,#f5a62305);
+  --bg:#f6f1e7; --panel:#fffdf7; --panel2:#efe8d8; --line:#e2d8c2; --ink:#242017; --mut:#857d6c;
+  --amber:#e2723f; --amber2:#b85c2c; --green:#2f7d4f; --red:#c6453a; --blue:#3a6ea5; --cyan:#2f8f8f; --purple:#8a5fb5;
+  --glow:rgba(226,114,63,.16); --soft:rgba(226,114,63,.08);
+  --shadow:0 1px 2px rgba(36,32,23,.05),0 8px 28px rgba(36,32,23,.07);
+  --shadowLg:0 2px 6px rgba(36,32,23,.07),0 24px 64px rgba(36,32,23,.16);
 }
-html[data-theme="light"]{
-  --bg:#f6f2e8; --panel:#fffdf6; --panel2:#f1ecdf; --line:#e2dccb; --ink:#1c1f26; --mut:#6b7280;
-  --amber:#b9791a; --amber2:#8f5c0e; --green:#15803d; --red:#b91c1c; --blue:#0369a1; --cyan:#0e7490; --purple:#7c3aed;
-  --glow:rgba(185,121,26,.12); --grad1:linear-gradient(135deg,#b9791a08,#b9791a03);
+html[data-theme="dark"]{
+  --bg:#171410; --panel:#201c15; --panel2:#2a251c; --line:#3a3327; --ink:#f2ead9; --mut:#94896f;
+  --amber:#ef8f5c; --amber2:#ffb98a; --green:#6fce93; --red:#ef8d84; --blue:#8fbbe3; --cyan:#6fc6c6; --purple:#c4a0e8;
+  --glow:rgba(239,143,92,.18); --soft:rgba(239,143,92,.1);
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 28px rgba(0,0,0,.35);
+  --shadowLg:0 2px 6px rgba(0,0,0,.4),0 24px 64px rgba(0,0,0,.5);
 }
 *{box-sizing:border-box}
 [v-cloak]{display:none}
@@ -25,137 +29,145 @@ html,body{margin:0;padding:0}
 body{
   background:var(--bg); color:var(--ink);
   font-family:'Instrument Sans',system-ui,sans-serif;
-  min-height:100vh; transition:background .35s,color .35s;
+  min-height:100vh; transition:background .4s,color .4s;
+  background-image:radial-gradient(circle at 12% -8%,var(--soft),transparent 42%),radial-gradient(circle at 95% 8%,rgba(58,110,165,.06),transparent 36%);
 }
 body::after{
-  content:""; position:fixed; inset:0; pointer-events:none; z-index:999;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
-  opacity:.55;
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:999; opacity:.4;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
 }
-.f-serif{font-family:'Syne',sans-serif}
+.f-disp{font-family:'Bricolage Grotesque',sans-serif}
+.f-serif{font-family:'Fraunces',Georgia,serif;font-style:italic;font-weight:500}
 .f-mono{font-family:'JetBrains Mono',monospace}
 ::-webkit-scrollbar{width:10px;height:10px}
 ::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;border:2px solid var(--bg)}
 ::-webkit-scrollbar-track{background:transparent}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px}
-.panel2{background:var(--panel2);border:1px solid var(--line);border-radius:10px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;transition:border-color .25s,box-shadow .25s}
-.card:hover{border-color:var(--amber);box-shadow:0 4px 24px var(--glow)}
-.card-header{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px;letter-spacing:.02em}
-.card-body{padding:18px}
-.btn{border-radius:9px;font-weight:600;transition:all .15s;cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:6px}
-.btn:active{transform:translateY(1px)}
-.btn-amber{background:var(--amber);color:#1a1204;border:none}
-.btn-amber:hover{background:var(--amber2)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
+.panel2{background:var(--panel2);border:1px solid var(--line);border-radius:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;overflow:hidden;transition:border-color .25s,box-shadow .25s,transform .2s}
+.card:hover{border-color:var(--amber);box-shadow:var(--shadowLg)}
+.card-header{display:flex;align-items:center;gap:10px;padding:16px 22px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px;letter-spacing:.02em}
+.card-body{padding:22px}
+.btn{border-radius:12px;font-weight:600;transition:all .18s;cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:7px;border:none}
+.btn:active{transform:translateY(1px) scale(.99)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn-amber{background:var(--amber);color:#fffdf7;box-shadow:0 6px 18px var(--glow)}
+.btn-amber:hover:not(:disabled){background:var(--amber2);transform:translateY(-1px);box-shadow:0 10px 26px var(--glow)}
 .btn-ghost{border:1px solid var(--line);color:var(--ink);background:transparent}
 .btn-ghost:hover{border-color:var(--amber);color:var(--amber2)}
 .btn-danger{border:1px solid var(--red);color:var(--red);background:transparent}
 .btn-danger:hover{background:var(--red);color:#fff}
 .btn-done{border:1px solid var(--green);color:var(--green);background:transparent}
-.btn-done:hover{background:var(--green);color:#052e12}
-.btn-pill{background:var(--panel2);border:1px solid var(--line);border-radius:999px;color:var(--ink);font-size:13px;font-weight:500;padding:8px 18px;cursor:pointer;transition:all .18s}
-.btn-pill:hover{border-color:var(--amber);background:var(--grad1)}
-.btn-pill .label{font-weight:600}
-.btn-pill .desc{font-size:11px;color:var(--mut)}
+.btn-done:hover{background:var(--green);color:#fff}
 .input,.select,.textarea{
-  width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;
-  color:var(--ink);padding:9px 12px;font-size:14px;outline:none;transition:border .15s;
+  width:100%;background:var(--panel);border:1.5px solid var(--line);border-radius:12px;
+  color:var(--ink);padding:11px 14px;font-size:14.5px;outline:none;transition:border .18s,box-shadow .18s;
 }
-.input:focus,.select:focus,.textarea:focus{border-color:var(--amber)}
-.select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--mut) 50%),linear-gradient(135deg,var(--mut) 50%,transparent 50%);background-position:calc(100% - 18px) 55%,calc(100% - 13px) 55%;background-size:5px 5px;background-repeat:no-repeat;padding-right:34px}
-.lbl{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:6px}
-.lbl .tip{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--line);font-size:9px;font-weight:700;color:var(--mut);cursor:help;position:relative;flex-shrink:0}
+.input:focus,.select:focus,.textarea:focus{border-color:var(--amber);box-shadow:0 0 0 3px var(--glow)}
+.select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--mut) 50%),linear-gradient(135deg,var(--mut) 50%,transparent 50%);background-position:calc(100% - 20px) 55%,calc(100% - 15px) 55%;background-size:5px 5px;background-repeat:no-repeat;padding-right:38px}
+.lbl{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin-bottom:7px}
+.lbl .tip{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--line);font-size:9.5px;font-weight:700;color:var(--mut);cursor:help;position:relative;flex-shrink:0}
 .lbl .tip:hover{color:var(--amber2);border-color:var(--amber)}
-.lbl .tip .ttip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:220px;padding:8px 12px;background:var(--panel);border:1px solid var(--amber);border-radius:8px;font-size:11px;font-weight:400;letter-spacing:0;text-transform:none;line-height:1.5;color:var(--ink);pointer-events:none;opacity:0;transition:opacity .2s;z-index:10;box-shadow:0 8px 24px rgba(0,0,0,.3);text-align:left}
-.lbl .tip:hover .ttip{opacity:1}
-.hint{font-size:12px;color:var(--mut);margin-top:5px;line-height:1.45}
-.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
-.chip{border:1px solid var(--line);border-radius:999px;padding:5px 14px;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s;color:var(--mut)}
-.chip.on{background:var(--amber);border-color:var(--amber);color:#1a1204}
+.lbl .tip .ttip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(4px);width:230px;padding:10px 13px;background:var(--panel);border:1px solid var(--amber);border-radius:12px;font-size:11.5px;font-weight:400;letter-spacing:0;text-transform:none;line-height:1.55;color:var(--ink);pointer-events:none;opacity:0;transition:all .22s;z-index:10;box-shadow:var(--shadowLg);text-align:left}
+.lbl .tip:hover .ttip{opacity:1;transform:translateX(-50%) translateY(0)}
+.hint{font-size:12px;color:var(--mut);margin-top:6px;line-height:1.45}
+.status-dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
+.chip{border:1px solid var(--line);border-radius:999px;padding:7px 18px;font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;color:var(--mut);background:transparent}
 .chip:hover{border-color:var(--amber);color:var(--amber2)}
-th{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--mut);font-weight:600;text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
-td{padding:12px 14px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:middle}
+.chip.on{background:var(--amber);border-color:var(--amber);color:#fffdf7;box-shadow:0 4px 14px var(--glow)}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:700;text-align:left;padding:12px 18px;border-bottom:1px solid var(--line)}
+td{padding:13px 18px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tbody tr{transition:background .12s}
 tbody tr:hover{background:var(--panel2)}
-@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.rise{animation:rise .4s cubic-bezier(.2,.7,.3,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.rise{animation:rise .5s cubic-bezier(.2,.7,.3,1) both}
 @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.25}}
 .pulse{animation:pulse-dot 1.6s ease-in-out infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.spinner{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
-@keyframes slideup{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
-.drawer{animation:slideup .25s cubic-bezier(.2,.7,.3,1)}
-@keyframes toastin{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
-.toast{animation:toastin .22s ease-out}
-.toggle{width:38px;height:21px;border-radius:999px;background:var(--line);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
-.toggle::after{content:"";position:absolute;top:2.5px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--mut);transition:all .2s}
+.spinner{width:16px;height:16px;border:2.5px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes slideup{from{transform:translateY(18px);opacity:0}to{transform:none;opacity:1}}
+.drawer{animation:slideup .3s cubic-bezier(.2,.7,.3,1)}
+@keyframes toastin{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
+.toast{animation:toastin .25s ease-out}
+.toggle{width:42px;height:24px;border-radius:999px;background:var(--line);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.toggle::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--mut);transition:all .22s cubic-bezier(.3,.8,.3,1.2)}
 .toggle.on{background:var(--amber)}
-.toggle.on::after{left:19px;background:#1a1204}
-.nav-item{display:flex;align-items:center;gap:11px;padding:10px 13px;border-radius:10px;color:var(--mut);font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;border:1px solid transparent}
+.toggle.on::after{left:21px;background:#fffdf7;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:13px;color:var(--mut);font-size:14px;font-weight:600;cursor:pointer;transition:all .16s;border:1px solid transparent;position:relative}
 .nav-item:hover{color:var(--ink);background:var(--panel2)}
-.nav-item.on{color:var(--amber2);background:var(--panel2);border-color:var(--line)}
+.nav-item.on{color:var(--amber2);background:var(--panel);border-color:var(--line);box-shadow:var(--shadow)}
+.nav-item.on::before{content:"";position:absolute;left:-2px;top:50%;transform:translateY(-50%);width:4px;height:22px;border-radius:4px;background:var(--amber)}
 .nav-item.on svg{stroke:var(--amber)}
-.logpre{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:#c9c3b4}
-html[data-theme="light"] .logpre{color:#3a3d45}
-.statcard{transition:transform .15s,box-shadow .15s}
-.statcard:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.logpre{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.65;white-space:pre-wrap;word-break:break-word;color:#6b6250}
+html[data-theme="dark"] .logpre{color:#c9bfa8}
+.statcard{transition:transform .18s,box-shadow .18s}
+.statcard:hover{transform:translateY(-3px);box-shadow:var(--shadowLg)}
+.stat-num{font-size:30px;font-weight:800;line-height:1.1;letter-spacing:-.02em}
 .kv{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;font-size:13px}
 .kv dt{color:var(--mut)}
 .kv dd{font-family:'JetBrains Mono',monospace;font-size:12px;word-break:break-all}
-.range{width:100%;appearance:none;height:6px;background:var(--line);border-radius:3px;outline:none;cursor:pointer}
-.range::-webkit-slider-thumb{appearance:none;width:18px;height:18px;border-radius:50%;background:var(--amber);border:2px solid var(--bg);cursor:pointer;box-shadow:0 0 8px var(--glow);transition:transform .15s}
-.range::-webkit-slider-thumb:hover{transform:scale(1.15)}
-.costbar{display:flex;align-items:center;gap:8px;padding:14px 18px;background:var(--panel2);border-radius:10px;border:1px solid var(--line)}
-.costbar .segment{height:8px;border-radius:4px;transition:width .4s ease}
-.dry-btn{border:1px solid var(--line);border-radius:14px;padding:14px 18px;cursor:pointer;transition:all .2s;background:var(--panel);display:flex;align-items:center;gap:12px;min-width:0}
-.dry-btn:hover{border-color:var(--amber);box-shadow:0 4px 16px var(--glow)}
-.dry-btn .dry-label{font-weight:700;font-size:14px;white-space:nowrap}
-.dry-btn .dry-sub{font-size:11px;color:var(--mut);white-space:nowrap}
-.dry-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
-.dry-icon.q{background:rgba(125,211,252,.12);color:var(--blue)}
-.dry-icon.i{background:rgba(192,132,252,.12);color:var(--purple)}
-.dry-icon.a{background:rgba(34,211,238,.12);color:var(--cyan)}
-.badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:18px;padding:0 5px;border-radius:9px;font-size:10px;font-weight:700;background:var(--red);color:#fff;margin-left:auto}
-.stage-dot{width:5px;height:5px;border-radius:50%;display:inline-block;margin-right:3px;opacity:.4}
-.stage-dot.on{opacity:1;box-shadow:0 0 4px currentColor}
+.range{width:100%;appearance:none;height:7px;background:var(--line);border-radius:4px;outline:none;cursor:pointer}
+.range::-webkit-slider-thumb{appearance:none;width:20px;height:20px;border-radius:50%;background:var(--amber);border:3px solid var(--panel);cursor:pointer;box-shadow:0 2px 8px var(--glow);transition:transform .15s}
+.range::-webkit-slider-thumb:hover{transform:scale(1.18)}
+.costbar{display:flex;align-items:center;gap:8px;padding:15px 20px;background:var(--panel2);border-radius:13px;border:1px solid var(--line)}
+.costbar .segment{height:9px;border-radius:5px;transition:width .45s ease}
+.dry-btn{border:1px solid var(--line);border-radius:18px;padding:16px 18px;cursor:pointer;transition:all .22s;background:var(--panel);display:flex;align-items:center;gap:13px;min-width:0;box-shadow:var(--shadow)}
+.dry-btn:hover{border-color:var(--amber);transform:translateY(-2px);box-shadow:var(--shadowLg)}
+.dry-btn:active{transform:translateY(0) scale(.98)}
+.dry-btn .dry-label{font-weight:700;font-size:14.5px;white-space:nowrap}
+.dry-btn .dry-sub{font-size:11.5px;color:var(--mut);white-space:nowrap}
+.dry-icon{width:40px;height:40px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800;flex-shrink:0;font-family:'Fraunces',serif;font-style:italic}
+.dry-icon.q{background:rgba(58,110,165,.12);color:var(--blue)}
+.dry-icon.i{background:rgba(138,95,181,.12);color:var(--purple)}
+.dry-icon.a{background:rgba(47,143,143,.12);color:var(--cyan)}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:19px;padding:0 6px;border-radius:10px;font-size:10.5px;font-weight:700;background:var(--red);color:#fff;margin-left:auto}
+.stage-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:3px;opacity:.4}
+.stage-dot.on{opacity:1;box-shadow:0 0 5px currentColor}
 .stage-bar{display:flex;gap:3px}
 .logbox{scroll-behavior:smooth}
-@keyframes kbd-flash{0%{opacity:0}50%{opacity:.4}100%{opacity:0}}
-.kbd-hint{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);font-size:11px;color:var(--mut);pointer-events:none;z-index:800;opacity:0;transition:opacity .8s}
-.deerflow{position:fixed;right:16px;bottom:14px;z-index:900;font-size:11px;letter-spacing:.12em;color:var(--mut);opacity:.65;transition:opacity .2s,color .2s;text-decoration:none}
+.hero{position:relative;overflow:hidden;border-radius:24px;background:linear-gradient(135deg,var(--panel),var(--soft));border:1px solid var(--line);box-shadow:var(--shadowLg)}
+.hero::after{content:"✎";position:absolute;right:26px;top:20px;font-size:88px;font-family:'Fraunces',serif;font-style:italic;color:var(--amber);opacity:.16;transform:rotate(8deg);pointer-events:none}
+.deerflow{position:fixed;right:18px;bottom:14px;z-index:900;font-size:11px;letter-spacing:.14em;color:var(--mut);opacity:.7;transition:opacity .2s,color .2s;text-decoration:none;font-weight:600}
 .deerflow:hover{opacity:1;color:var(--amber2)}
+.kbd-hint{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);font-size:11px;color:var(--mut);pointer-events:none;z-index:800;opacity:0;transition:opacity .8s}
+.pill-status{display:inline-flex;align-items:center;gap:7px;padding:5px 13px;border-radius:999px;font-size:11.5px;font-weight:700;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.05em}
 </style>
 </head>
 <body>
 <div id="app" v-cloak>
+
+  <!-- ============ LOGIN ============ -->
   <div v-if="!authed" class="min-h-screen flex items-center justify-center px-4">
-    <div class="w-full max-w-sm rise" style="animation-delay:.05s">
-      <div class="text-center mb-8">
-        <div class="f-serif text-3xl font-bold tracking-tight mb-1">Mock <span style="color:var(--amber)">Creator</span></div>
-        <div class="text-xs f-mono" style="color:var(--mut)">CONTROL ROOM · v3</div>
+    <div class="w-full max-w-md rise" style="animation-delay:.05s">
+      <div class="text-center mb-9">
+        <div class="f-disp text-4xl font-extrabold tracking-tight">Mock <span style="color:var(--amber)">Creator</span></div>
+        <div class="f-serif text-sm mt-1" style="color:var(--mut)">the quiet room where exams are born</div>
       </div>
-      <form @submit.prevent="login" class="panel p-6 space-y-4">
-        <div><label class="lbl">Superuser email</label><input v-model.trim="loginEmail" type="text" autocomplete="username" class="input f-mono" placeholder="admin@example.com"></div>
+      <form @submit.prevent="login" class="panel p-7 space-y-4">
+        <div><label class="lbl">Email</label><input v-model.trim="loginEmail" type="text" autocomplete="username" class="input f-mono" placeholder="you@example.com"></div>
         <div><label class="lbl">Password</label><input v-model.trim="loginPass" type="password" autocomplete="current-password" class="input f-mono" placeholder="••••••••"></div>
         <div v-if="loginErr" class="text-xs" style="color:var(--red)">{{ loginErr }}</div>
-        <button type="submit" class="btn btn-amber w-full py-2.5 text-sm flex items-center justify-center gap-2" :disabled="loginBusy">
-          <span v-if="loginBusy" class="spinner"></span>{{ loginBusy ? 'Authenticating…' : 'Enter Control Room' }}
+        <button type="submit" class="btn btn-amber w-full py-3 text-sm flex items-center justify-center gap-2" :disabled="loginBusy">
+          <span v-if="loginBusy" class="spinner"></span>{{ loginBusy ? 'Opening the room…' : 'Enter Studio' }}
         </button>
       </form>
-      <p class="text-center text-xs mt-5" style="color:var(--mut)">Authorized personnel only · PocketBase superuser</p>
+      <p class="text-center text-xs mt-6" style="color:var(--mut)">Authorized personnel only</p>
     </div>
   </div>
 
+  <!-- ============ APP ============ -->
   <div v-else class="min-h-screen flex">
-    <aside class="w-56 shrink-0 flex flex-col border-r" style="border-color:var(--line);background:var(--panel)">
-      <div class="px-5 pt-6 pb-5">
-        <div class="f-serif text-xl font-bold">Mock <span style="color:var(--amber)">Creator</span></div>
-        <div class="text-[10px] f-mono mt-0.5" style="color:var(--mut)">CONTROL ROOM</div>
+
+    <!-- Sidebar -->
+    <aside class="w-60 shrink-0 flex flex-col border-r" style="border-color:var(--line);background:var(--panel)">
+      <div class="px-6 pt-8 pb-6">
+        <div class="f-disp text-xl font-extrabold tracking-tight">Mock <span style="color:var(--amber)">Creator</span></div>
+        <div class="f-serif text-[11px] mt-0.5" style="color:var(--mut)">exam studio · v4</div>
       </div>
-      <nav class="px-3 space-y-1 flex-1">
+      <nav class="px-4 space-y-1.5 flex-1">
         <div v-for="n in nav" :key="n.id" class="nav-item" :class="{on:view===n.id}" @click="view=n.id">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path v-if="n.id==='overview'" d="M3 3v18h18"/><path v-if="n.id==='overview'" d="M7 14l4-4 3 3 5-6"/>
             <path v-if="n.id==='clients'" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle v-if="n.id==='clients'" cx="9" cy="7" r="4"/><path v-if="n.id==='clients'" d="M23 21v-2a4 4 0 0 0-3-3.87"/><path v-if="n.id==='clients'" d="M16 3.13a4 4 0 0 1 0 7.75"/>
             <rect v-if="n.id==='configs'" x="3" y="3" width="7" height="7" rx="1"/><rect v-if="n.id==='configs'" x="14" y="3" width="7" height="7" rx="1"/><rect v-if="n.id==='configs'" x="3" y="14" width="7" height="7" rx="1"/><rect v-if="n.id==='configs'" x="14" y="14" width="7" height="7" rx="1"/>
@@ -166,129 +178,165 @@ html[data-theme="light"] .logpre{color:#3a3d45}
           <span v-if="n.id==='configs'&&cfgClient" class="badge" style="background:var(--green)">✓</span>
         </div>
       </nav>
-      <div class="p-3 border-t" style="border-color:var(--line)">
+      <div class="p-4 border-t" style="border-color:var(--line)">
         <div class="flex items-center gap-3 px-2 py-1.5">
           <div class="toggle" :class="{on:theme==='dark'}" @click="toggleTheme" title="Toggle theme"></div>
-          <span class="text-xs" style="color:var(--mut)">{{ theme==='dark' ? 'Dark' : 'Light' }}</span>
-          <button class="btn btn-ghost ml-auto px-3 py-1.5 text-xs" @click="logout">Logout</button>
+          <span class="text-xs" style="color:var(--mut)">{{ theme==='dark' ? 'Night' : 'Day' }}</span>
+          <button class="btn btn-ghost ml-auto px-3 py-1.5 text-xs" @click="logout">Leave</button>
         </div>
         <div class="px-2 pt-2 text-[11px] f-mono truncate" style="color:var(--mut)">{{ who }}</div>
       </div>
     </aside>
 
     <main class="flex-1 overflow-y-auto">
-      <div class="p-6 lg:p-8 max-w-6xl mx-auto">
+      <div class="p-6 lg:p-9 max-w-6xl mx-auto">
 
-        <!-- ========== OVERVIEW ========== -->
-        <div v-if="view==='overview'" class="space-y-6">
-          <div class="rise"><h1 class="f-serif text-2xl font-bold">Overview</h1><p class="text-sm mt-1" style="color:var(--mut)">Live pulse of the mock generation platform.</p></div>
-          <div class="grid grid-cols-2 lg:grid-cols-6 gap-4">
+        <!-- ========== HOME ========== -->
+        <div v-if="view==='overview'" class="space-y-7">
+          <div class="rise">
+            <h1 class="f-disp text-3xl font-extrabold tracking-tight">Welcome back.</h1>
+            <p class="text-sm mt-1.5" style="color:var(--mut)">Everything your exams need, in one calm place.</p>
+          </div>
+
+          <!-- Stats -->
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div v-for="s in stats" :key="s.k" class="panel statcard p-5 rise" :style="{animationDelay:(0.05*s.i)+'s'}">
-              <div class="text-[11px] f-mono uppercase tracking-widest" style="color:var(--mut)">{{ s.k }}</div>
-              <div class="f-mono text-3xl font-bold mt-2" :style="{color:s.c}">{{ s.v }}</div>
+              <div class="text-[10.5px] f-mono uppercase tracking-widest" style="color:var(--mut)">{{ s.k }}</div>
+              <div class="stat-num mt-2.5" :style="{color:s.c}">{{ s.v }}</div>
             </div>
-            <div class="panel statcard p-5 rise" style="animation-delay:.35s">
-              <div class="text-[11px] f-mono uppercase tracking-widest" style="color:var(--mut)">Credits spent</div>
-              <div class="f-mono text-3xl font-bold mt-2" style="color:var(--amber2)">${{ totalCost.toFixed(2) }}</div>
+            <div class="panel statcard p-5 rise" style="animation-delay:.3s">
+              <div class="text-[10.5px] f-mono uppercase tracking-widest" style="color:var(--mut)">Spent</div>
+              <div class="stat-num mt-2.5" style="color:var(--amber2)">${{ totalCost.toFixed(2) }}</div>
             </div>
           </div>
-          <div class="grid lg:grid-cols-5 gap-6">
-            <div class="lg:col-span-2 panel p-5 rise" style="animation-delay:.25s">
-              <h2 class="f-serif font-bold text-lg mb-4">Quick Start</h2>
-              <div class="space-y-4">
-                <div><label class="lbl">Client</label><select v-model="qs.client" class="select"><option value="">Select…</option><option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}<template v-if="!c.active"> (disabled)</template></option></select></div>
-                <div><label class="lbl">Questions — <span class="f-mono" style="color:var(--amber2)">{{ qs.count }}</span></label><input type="range" min="1" max="200" v-model.number="qs.count" class="range"></div>
+
+          <!-- Hero quick start -->
+          <div class="hero p-7 lg:p-9 rise" style="animation-delay:.15s">
+            <div class="grid lg:grid-cols-5 gap-8">
+              <div class="lg:col-span-2">
+                <div class="f-mono text-[11px] uppercase tracking-widest" style="color:var(--amber2)">New practice exam</div>
+                <h2 class="f-disp text-2xl font-extrabold mt-2 leading-snug">Generate a full mock exam<br>with one click.</h2>
+                <p class="text-sm mt-3 leading-relaxed" style="color:var(--mut)">Questions, listening audio and pictures — authored, proofread and safely saved as a draft for review.</p>
+                <button class="btn btn-amber px-7 py-3.5 mt-6 text-[15px]" :disabled="!qs.client || startBusy" @click="quickStart('full')">
+                  <span v-if="startBusy" class="spinner"></span>{{ startBusy ? 'Queuing…' : 'Create Mock Exam' }}
+                </button>
+              </div>
+              <div class="lg:col-span-3 panel p-6 space-y-5" style="background:var(--panel);border:none">
+                <div><label class="lbl">Client</label><select v-model="qs.client" class="select"><option value="">Choose…</option><option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}<template v-if="!c.active"> (paused)</template></option></select></div>
+                <div>
+                  <div class="flex items-center justify-between"><label class="lbl mb-0">Questions — <span class="f-mono" style="color:var(--amber2)">{{ qs.count }}</span></label></div>
+                  <input type="range" min="10" max="100" step="10" v-model.number="qs.count" class="range mt-3">
+                  <div class="flex justify-between text-[10.5px] f-mono mt-1.5" style="color:var(--mut)"><span>10</span><span>100</span></div>
+                </div>
                 <div><label class="lbl">Difficulty</label><select v-model="qs.difficulty" class="select"><option value="creative+difficult">Creative + Difficult</option><option value="creative+medium">Creative + Medium</option><option value="hard">Hard (TOPIK/EPS)</option></select></div>
-                <button class="btn btn-amber w-full py-2.5 text-sm" :disabled="!qs.client || startBusy" @click="quickStart('full')"><span v-if="startBusy" class="spinner"></span>Queue Full Mock</button>
               </div>
             </div>
-            <div class="lg:col-span-3 flex flex-col gap-4">
-              <div class="panel p-5 rise flex-1" style="animation-delay:.3s">
-                <div class="flex items-center justify-between mb-4"><h2 class="f-serif font-bold text-lg">Recent Jobs</h2><button class="btn btn-ghost px-3 py-1.5 text-xs" @click="view='jobs'">All jobs →</button></div>
-                <div v-if="!jobs.length" class="text-sm py-8 text-center" style="color:var(--mut)">No jobs yet.</div>
-                <table v-else class="w-full"><thead><tr><th>Created</th><th>Client</th><th>Stage</th><th>Kind</th><th>Status</th></tr></thead>
-                <tbody><tr v-for="j in jobs.slice(0,6)" :key="j.id" class="cursor-pointer" @click="openJob(j)">
-                  <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td>{{ j.client_name }}</td>
-                  <td><span class="stage-bar" v-html="stageFor(j)"></span></td>
-                  <td><span class="text-xs f-mono px-2 py-0.5 rounded" :style="{background:j.kind!=='full'?'rgba(125,211,252,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ dryLabel(j.kind) }}</span></td>
-                  <td><span class="status-dot" :class="{pulse:j.status==='running'}" :style="{background:sc(j.status),boxShadow:j.status==='running'?'0 0 0 3px var(--glow)':''}"></span> <span class="text-xs f-mono ml-1.5">{{ j.status }}</span></td>
-                </tr></tbody></table>
+          </div>
+
+          <!-- Quick tests -->
+          <div class="rise" style="animation-delay:.25s">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="f-disp text-lg font-bold">Quick tests</h2>
+              <span class="f-serif text-xs" style="color:var(--mut)">try one stage with a tiny sample</span>
+            </div>
+            <div class="grid md:grid-cols-3 gap-4">
+              <div class="dry-btn" @click="dryRunConfig('dry_questions')">
+                <div class="dry-icon q">Q</div><div><div class="dry-label">Questions</div><div class="dry-sub">2-question sample</div></div>
               </div>
-              <div class="flex gap-3 rise" style="animation-delay:.4s">
-                <div class="dry-btn flex-1" @click="dryRunConfig('dry_questions')">
-                  <div class="dry-icon q">Q</div><div><div class="dry-label">Test Questions</div><div class="dry-sub">2-question sample</div></div>
-                </div>
-                <div class="dry-btn flex-1" @click="dryRunConfig('dry_images')">
-                  <div class="dry-icon i">I</div><div><div class="dry-label">Test Images</div><div class="dry-sub">2-image sample</div></div>
-                </div>
-                <div class="dry-btn flex-1" @click="dryRunConfig('dry_audio')">
-                  <div class="dry-icon a">A</div><div><div class="dry-label">Test Audio</div><div class="dry-sub">2-clip sample</div></div>
-                </div>
+              <div class="dry-btn" @click="dryRunConfig('dry_images')">
+                <div class="dry-icon i">I</div><div><div class="dry-label">Images</div><div class="dry-sub">2-picture sample</div></div>
+              </div>
+              <div class="dry-btn" @click="dryRunConfig('dry_audio')">
+                <div class="dry-icon a">A</div><div><div class="dry-label">Audio</div><div class="dry-sub">2-clip sample</div></div>
               </div>
             </div>
+          </div>
+
+          <!-- Recent jobs -->
+          <div class="panel rise" style="animation-delay:.32s">
+            <div class="flex items-center justify-between px-6 pt-5 pb-2">
+              <h2 class="f-disp text-lg font-bold">Recent jobs</h2>
+              <button class="btn btn-ghost px-4 py-1.5 text-xs" @click="view='jobs'">See all →</button>
+            </div>
+            <div v-if="!jobs.length" class="text-sm py-10 text-center" style="color:var(--mut)">Nothing has run yet — your first exam awaits.</div>
+            <table v-else class="w-full">
+              <thead><tr><th>Created</th><th>Client</th><th>Stage</th><th>Kind</th><th>Status</th></tr></thead>
+              <tbody><tr v-for="j in jobs.slice(0,6)" :key="j.id" class="cursor-pointer" @click="openJob(j)">
+                <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td class="font-semibold">{{ j.client_name }}</td>
+                <td><span class="stage-bar" v-html="stageFor(j)"></span></td>
+                <td><span class="text-xs f-mono px-2.5 py-1 rounded-lg" :style="{background:j.kind!=='full'?'rgba(58,110,165,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ dryLabel(j.kind) }}</span></td>
+                <td>
+                  <span class="pill-status" :style="{background:(j.status==='running'?'var(--soft)':j.status==='done'?'rgba(47,125,79,.1)':j.status==='failed'?'rgba(198,69,58,.1)':'transparent'),color:sc(j.status)}">
+                    <span class="status-dot" :class="{pulse:j.status==='running'}" :style="{background:sc(j.status)}"></span>{{ j.status }}
+                  </span>
+                </td>
+              </tr></tbody>
+            </table>
           </div>
         </div>
 
         <!-- ========== CLIENTS ========== -->
         <div v-if="view==='clients'" class="space-y-6">
-          <div class="rise flex items-end justify-between"><div><h1 class="f-serif text-2xl font-bold">Clients</h1><p class="text-sm mt-1" style="color:var(--mut)">Each client owns an API key for remote job dispatch.</p></div><button class="btn btn-amber px-4 py-2 text-sm" @click="openClientModal">+ New client</button></div>
+          <div class="rise flex items-end justify-between">
+            <div><h1 class="f-disp text-3xl font-extrabold tracking-tight">Clients</h1><p class="text-sm mt-1.5" style="color:var(--mut)">Each client owns an API key for remote job dispatch.</p></div>
+            <button class="btn btn-amber px-5 py-2.5 text-sm" @click="openClientModal">+ New client</button>
+          </div>
           <div class="panel rise" style="animation-delay:.1s">
-            <div v-if="!clients.length" class="text-sm py-10 text-center" style="color:var(--mut)">No clients registered.</div>
-            <table v-else class="w-full"><thead><tr><th>Name</th><th>Key fingerprint</th><th>Created</th><th>Jobs</th><th>Active</th><th></th></tr></thead>
-            <tbody><tr v-for="c in clients" :key="c.id">
-              <td class="font-semibold">{{ c.name }}</td><td class="f-mono text-xs" style="color:var(--mut)">{{ short(c.api_key_hash) }}…</td>
-              <td class="f-mono text-xs" style="color:var(--mut)">{{ fmtTime(c.created) }}</td><td class="f-mono text-xs">{{ jobCount(c.id) }}</td>
-              <td><div class="toggle" :class="{on:c.active}" @click="toggleClient(c)"></div></td>
-              <td class="text-right"><button class="btn btn-ghost px-3 py-1 text-xs mr-2" @click="openConfigFor(c.id)">Config</button><button class="btn btn-danger px-3 py-1 text-xs" @click="delClient(c)">Delete</button></td>
-            </tr></tbody></table>
+            <div v-if="!clients.length" class="text-sm py-12 text-center" style="color:var(--mut)">No clients registered yet.</div>
+            <table v-else class="w-full">
+              <thead><tr><th>Name</th><th>Key fingerprint</th><th>Created</th><th>Jobs</th><th>Active</th><th></th></tr></thead>
+              <tbody><tr v-for="c in clients" :key="c.id">
+                <td class="font-semibold">{{ c.name }}</td><td class="f-mono text-xs" style="color:var(--mut)">{{ short(c.api_key_hash) }}…</td>
+                <td class="f-mono text-xs" style="color:var(--mut)">{{ fmtTime(c.created) }}</td><td class="f-mono text-xs">{{ jobCount(c.id) }}</td>
+                <td><div class="toggle" :class="{on:c.active}" @click="toggleClient(c)"></div></td>
+                <td class="text-right">
+                  <button class="btn btn-ghost px-3.5 py-1.5 text-xs mr-2" @click="openConfigFor(c.id)">Config</button>
+                  <button class="btn btn-danger px-3.5 py-1.5 text-xs" @click="delClient(c)">Delete</button>
+                </td>
+              </tr></tbody>
+            </table>
           </div>
         </div>
 
-        <!-- ========== CONFIGS (REDESIGNED) ========== -->
+        <!-- ========== CONFIGS ========== -->
         <div v-if="view==='configs'" class="space-y-6">
-          <div class="rise flex items-end justify-between"><div><h1 class="f-serif text-2xl font-bold">Configs</h1><p class="text-sm mt-1" style="color:var(--mut)">Per-client pipeline settings — hover <span class="text-[10px] px-1.5 py-0.5 rounded" style="border:1px solid var(--line)">(?)</span> icons for tips.</p></div><button class="btn btn-ghost px-4 py-2 text-sm" @click="cfgRaw=!cfgRaw">{{ cfgRaw ? 'Form view' : 'Raw JSON' }}</button></div>
-          <div class="panel p-5 rise" style="animation-delay:.1s">
+          <div class="rise flex items-end justify-between">
+            <div><h1 class="f-disp text-3xl font-extrabold tracking-tight">Configs</h1><p class="text-sm mt-1.5" style="color:var(--mut)">Per-client pipeline settings — hover <span class="text-[10px] px-1.5 py-0.5 rounded" style="border:1px solid var(--line)">(?)</span> icons for tips.</p></div>
+            <button class="btn btn-ghost px-4 py-2 text-sm" @click="cfgRaw=!cfgRaw">{{ cfgRaw ? 'Form view' : 'Raw JSON' }}</button>
+          </div>
+          <div class="panel p-6 rise" style="animation-delay:.1s">
             <label class="lbl">Client</label>
             <select v-model="cfgClient" class="select max-w-md" @change="loadConfig"><option value="">Select client…</option><option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option></select>
           </div>
           <div v-if="cfgClient" class="rise" style="animation-delay:.15s">
-            <div v-if="cfgLoading" class="panel p-10 text-center"><span class="spinner"></span></div>
+            <div v-if="cfgLoading" class="panel p-12 text-center"><span class="spinner"></span></div>
             <template v-else-if="cfg">
-              <div v-if="cfgRaw" class="panel p-5">
-                <div class="flex items-center justify-between mb-3"><span class="text-xs f-mono" style="color:var(--mut)">Edit raw record JSON</span><div><button class="btn btn-ghost px-3 py-1 text-xs mr-2" @click="validateRaw">Validate</button><button class="btn btn-amber px-3 py-1 text-xs" @click="saveConfig">Save raw</button></div></div>
+              <div v-if="cfgRaw" class="panel p-6">
+                <div class="flex items-center justify-between mb-3"><span class="text-xs f-mono" style="color:var(--mut)">Edit raw record JSON</span><div><button class="btn btn-ghost px-3 py-1.5 text-xs mr-2" @click="validateRaw">Validate</button><button class="btn btn-amber px-3 py-1.5 text-xs" @click="saveConfig">Save raw</button></div></div>
                 <div v-if="cfgRawErr" class="text-xs mb-3" style="color:var(--red)">{{ cfgRawErr }}</div>
                 <textarea v-model="cfgRawText" rows="26" class="textarea f-mono text-xs" spellcheck="false"></textarea>
               </div>
-              <form v-else @submit.prevent="saveConfig" class="space-y-5">
-
-                <!-- Group cards -->
+              <form v-else @submit.prevent="saveConfig" class="space-y-6">
                 <div v-for="g in groups" :key="g" class="card rise">
                   <div class="card-header" :style="{background:grpBg(g),color:grpFg(g)}">
-                    <span class="text-[11px] f-mono px-2 py-0.5 rounded" style="background:rgba(255,255,255,.08)">{{ g }}</span>
-                    <span style="font-size:11px;font-weight:400;opacity:.7">{{ grpDesc(g) }}</span>
+                    <span class="text-[11px] f-mono px-2.5 py-1 rounded-lg" style="background:rgba(255,255,255,.14)">{{ g }}</span>
+                    <span style="font-size:11.5px;font-weight:400;opacity:.75">{{ grpDesc(g) }}</span>
                   </div>
                   <div class="card-body">
-                    <div class="grid md:grid-cols-2 gap-x-6 gap-y-4">
+                    <div class="grid md:grid-cols-2 gap-x-7 gap-y-5">
                       <template v-for="f in metaByGroup(g)" :key="f.field">
                         <div :class="f.field==='prompts_json' ? 'md:col-span-2' : ''">
-
-                          <!-- Label with tooltip -->
                           <label class="lbl">
                             {{ f.label }}
                             <span class="tip" v-if="f.help">?<span class="ttip">{{ f.help }}</span></span>
-                            <!-- Extra micro-hints for key fields -->
                             <span class="tip" v-if="f.field==='llm_author_model'">?<span class="ttip">The LLM that writes the mock exam questions. Gemini 2.5 Flash is fast &amp; cheap. Higher quality = Gemini 3.5 Flash or DeepSeek V4 Pro.</span></span>
                             <span class="tip" v-if="f.field==='image_count'">?<span class="ttip">How many questions in the exam will have an image. TOPIK-style exams use 18-26 image questions. This MUST stay between Min and Max below.</span></span>
                             <span class="tip" v-if="f.field==='image_count_min'">?<span class="ttip">The minimum image questions allowed. If the LLM produces fewer, the repair pass adds more. Increasing this makes the exam harder.</span></span>
                             <span class="tip" v-if="f.field==='push_pb_pass'">?<span class="ttip">The admin password for the TEACHER app PocketBase (ubt.wts.com.np). Required to push exams. NEVER commit this to git — set it here or use MOCK_PB_PASS env var.</span></span>
                             <span class="tip" v-if="f.field==='difficulty_profile'">?<span class="ttip">Controls how hard the questions are. "creative+difficult" = trickier distractors + less predictable patterns. "hard" = TOPIK/UBT-style rigor. "creative+medium" = balanced difficulty.</span></span>
                           </label>
-
-                          <!-- Field rendering -->
                           <template v-if="f.ftype==='select'">
-                            <select v-model="cfgData[f.field]" class="select">
-                              <option v-for="o in f.options" :key="o" :value="o">{{ o }}</option>
-                            </select>
+                            <select v-model="cfgData[f.field]" class="select"><option v-for="o in f.options" :key="o" :value="o">{{ o }}</option></select>
                           </template>
                           <template v-else-if="f.ftype==='bool'">
                             <div class="toggle" :class="{on:!!cfgData[f.field]}" @click="cfgData[f.field]=!cfgData[f.field]"></div>
@@ -296,33 +344,30 @@ html[data-theme="light"] .logpre{color:#3a3d45}
                           <template v-else-if="f.ftype==='json'">
                             <textarea v-model="cfgData[f.field]" rows="4" class="textarea f-mono text-xs" spellcheck="false" placeholder='{ "system": "…" }'></textarea>
                           </template>
-                          <!-- Range slider + value display -->
                           <template v-else-if="f.field==='image_count'">
                             <div class="flex items-center gap-4">
                               <input type="range" :min="cfgData.image_count_min||0" :max="cfgData.image_count_max||40" v-model.number="cfgData.image_count" class="range flex-1">
-                              <span class="f-mono text-sm font-bold" style="min-width:36px;text-align:center;color:var(--amber2)">{{ cfgData.image_count }}</span>
+                              <span class="f-mono text-sm font-bold" style="min-width:38px;text-align:center;color:var(--amber2)">{{ cfgData.image_count }}</span>
                             </div>
                           </template>
-                          <!-- Min/max paired range -->
                           <template v-else-if="f.field==='image_count_min'">
                             <div class="flex items-center gap-3 text-xs f-mono" style="color:var(--mut)">
                               <span>Min</span>
-                              <input type="number" min="0" max="40" v-model.number="cfgData.image_count_min" class="input w-20 text-center" style="padding:7px 8px">
+                              <input type="number" min="0" max="40" v-model.number="cfgData.image_count_min" class="input w-20 text-center" style="padding:8px 8px">
                               <span class="text-lg" style="color:var(--line)">—</span>
                               <input type="range" :min="cfgData.image_count_min||0" :max="cfgData.image_count_max||40" class="range flex-1">
                               <span class="text-lg" style="color:var(--line)">—</span>
-                              <input type="number" min="0" max="40" v-model.number="cfgData.image_count_max" class="input w-20 text-center" style="padding:7px 8px">
+                              <input type="number" min="0" max="40" v-model.number="cfgData.image_count_max" class="input w-20 text-center" style="padding:8px 8px">
                               <span>Max</span>
                             </div>
                           </template>
                           <template v-else>
                             <div class="flex gap-2" v-if="f.field==='push_pb_pass'">
                               <input :type="showPass?'text':'password'" v-model="cfgData[f.field]" class="input" placeholder="········">
-                              <button type="button" class="btn btn-ghost px-2.5 py-1 text-xs f-mono" @click="showPass=!showPass">{{ showPass ? 'Hide' : 'Show' }}</button>
+                              <button type="button" class="btn btn-ghost px-2.5 py-1 text-xs f-mono" @click="togglePass">{{ showPass ? 'Hide' : 'Show' }}</button>
                             </div>
                             <input v-else :type="f.ftype==='number'?'number':'text'" v-model="cfgData[f.field]" class="input f-mono">
                           </template>
-
                           <div v-if="hintText(f)" class="hint">{{ hintText(f) }}</div>
                         </div>
                       </template>
@@ -330,11 +375,11 @@ html[data-theme="light"] .logpre{color:#3a3d45}
                   </div>
                 </div>
 
-                <!-- Cost Estimator + Validate -->
-                <div class="card" style="animation-delay:.35s">
-                  <div class="card-header" style="background:var(--grad1);color:var(--amber2)">
-                    <span class="f-mono text-xs px-2 py-0.5 rounded" style="background:rgba(245,166,35,.15)">Cost Estimator</span>
-                    <span style="font-size:11px;font-weight:400;opacity:.7">estimated per full mock (approximate)</span>
+                <!-- Cost estimator -->
+                <div class="card rise" style="animation-delay:.35s">
+                  <div class="card-header" style="background:var(--soft);color:var(--amber2)">
+                    <span class="f-mono text-xs px-2.5 py-1 rounded-lg" style="background:rgba(226,114,63,.15)">Cost Estimator</span>
+                    <span style="font-size:11.5px;font-weight:400;opacity:.75">estimated per full mock (approximate)</span>
                   </div>
                   <div class="card-body space-y-4">
                     <div class="costbar">
@@ -347,14 +392,14 @@ html[data-theme="light"] .logpre{color:#3a3d45}
                       <div><span style="color:var(--purple)">Images</span><br><span class="font-bold" style="color:var(--ink)">~${{ costEst.images.toFixed(3) }}</span><br><span class="text-[10px]">{{ cfgData.image_count||0 }} × image gen</span></div>
                       <div><span style="color:var(--cyan)">Audio</span><br><span class="font-bold" style="color:var(--ink)">~${{ costEst.audio.toFixed(3) }}</span><br><span class="text-[10px]">{{ listeningCount }} TTS clips</span></div>
                     </div>
-                    <div class="flex items-center justify-between pt-2 border-t" style="border-color:var(--line)">
-                      <span class="f-serif font-bold">Estimated total</span>
+                    <div class="flex items-center justify-between pt-3 border-t" style="border-color:var(--line)">
+                      <span class="f-disp font-bold">Estimated total</span>
                       <span class="f-mono text-lg font-bold" style="color:var(--amber2)">~${{ costEst.total.toFixed(3) }}</span>
                     </div>
                     <div class="flex gap-2">
                       <button type="button" class="btn btn-ghost px-4 py-2 text-xs" @click="validateConfig"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg> Verify config</button>
                     </div>
-                    <div v-if="valIssues.length" class="space-y-1">
+                    <div v-if="valIssues.length" class="space-y-1.5">
                       <div v-for="vi in valIssues" :key="vi" class="text-xs flex items-center gap-1.5" :style="{color:vi.w==='warn'?'var(--amber2)':'var(--red)'}">
                         <span>{{ vi.w==='err'?'✕':'⚠' }}</span> {{ vi.msg }}
                       </div>
@@ -363,36 +408,36 @@ html[data-theme="light"] .logpre{color:#3a3d45}
                   </div>
                 </div>
 
-                <!-- Dry Run Buttons -->
-                <div class="card" style="animation-delay:.4s">
-                  <div class="card-header" style="background:linear-gradient(135deg,rgba(125,211,252,.06),rgba(192,132,252,.06));color:var(--blue)">
-                    <span class="f-mono text-xs px-2 py-0.5 rounded" style="background:rgba(125,211,252,.12)">Dry Runs</span>
-                    <span style="font-size:11px;font-weight:400;opacity:.7">test individual stages with 2-question samples (no client PB push)</span>
+                <!-- Dry runs -->
+                <div class="card rise" style="animation-delay:.4s">
+                  <div class="card-header" style="background:linear-gradient(135deg,rgba(58,110,165,.07),rgba(138,95,181,.07));color:var(--blue)">
+                    <span class="f-mono text-xs px-2.5 py-1 rounded-lg" style="background:rgba(58,110,165,.12)">Dry Runs</span>
+                    <span style="font-size:11.5px;font-weight:400;opacity:.75">test individual stages with 2-question samples (no client PB push)</span>
                   </div>
                   <div class="card-body">
-                    <div class="flex gap-3">
-                      <div class="dry-btn flex-1" @click="dryRun('dry_questions')">
+                    <div class="grid md:grid-cols-3 gap-4">
+                      <div class="dry-btn" @click="dryRun('dry_questions')">
                         <div class="dry-icon q">Q</div><div><div class="dry-label">Test Questions</div><div class="dry-sub">2-question sample via LLM</div></div>
                       </div>
-                      <div class="dry-btn flex-1" @click="dryRun('dry_images')">
+                      <div class="dry-btn" @click="dryRun('dry_images')">
                         <div class="dry-icon i">I</div><div><div class="dry-label">Test Images</div><div class="dry-sub">2-image prompts via LLM</div></div>
                       </div>
-                      <div class="dry-btn flex-1" @click="dryRun('dry_audio')">
+                      <div class="dry-btn" @click="dryRun('dry_audio')">
                         <div class="dry-icon a">A</div><div><div class="dry-label">Test Audio</div><div class="dry-sub">2-listening scripts via LLM</div></div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- Save / Revert -->
+                <!-- Save row -->
                 <div class="flex items-center gap-3 flex-wrap">
-                  <button type="submit" class="btn btn-amber px-5 py-2.5 text-sm" :disabled="cfgSaving">
+                  <button type="submit" class="btn btn-amber px-6 py-3 text-sm" :disabled="cfgSaving">
                     <span v-if="cfgSaving" class="spinner"></span>Save config
                   </button>
-                  <button type="button" class="btn btn-ghost px-3 py-2 text-xs" @click="copyConfig">Copy JSON</button>
-                  <button type="button" class="btn btn-ghost px-3 py-2 text-xs" @click="cloneConfigDialog">Clone to…</button>
+                  <button type="button" class="btn btn-ghost px-4 py-2 text-xs" @click="copyConfig">Copy JSON</button>
+                  <button type="button" class="btn btn-ghost px-4 py-2 text-xs" @click="cloneConfigDialog">Clone to…</button>
                   <span v-if="cfgSavedAt" class="text-xs f-mono" style="color:var(--mut)">saved {{ fmtTime(cfgSavedAt) }}</span>
-                  <button type="button" class="btn btn-ghost px-4 py-2 text-sm ml-auto" @click="loadConfig">Revert</button>
+                  <button type="button" class="btn btn-ghost px-5 py-2 text-sm ml-auto" @click="loadConfig">Revert</button>
                 </div>
               </form>
             </template>
@@ -401,53 +446,73 @@ html[data-theme="light"] .logpre{color:#3a3d45}
 
         <!-- ========== JOBS ========== -->
         <div v-if="view==='jobs'" class="space-y-6">
-          <div class="rise flex items-end justify-between"><div><h1 class="f-serif text-2xl font-bold">Jobs</h1><p class="text-sm mt-1" style="color:var(--mut)">Generation runs across all clients.</p></div><div class="flex gap-2"><button v-if="failedCount" class="btn btn-danger px-4 py-2 text-sm" @click="clearFailed">Clear failed ({{ failedCount }})</button><button class="btn btn-ghost px-4 py-2 text-sm" @click="loadJobs"><span v-if="jobsBusy" class="spinner"></span>Refresh</button></div></div>
-          <div class="flex gap-2 flex-wrap rise" style="animation-delay:.08s"><div v-for="st in ['all','queued','running','done','failed']" :key="st" class="chip" :class="{on:jobFilter===st}" @click="jobFilter=st">{{ st }}</div></div>
+          <div class="rise flex items-end justify-between">
+            <div><h1 class="f-disp text-3xl font-extrabold tracking-tight">Jobs</h1><p class="text-sm mt-1.5" style="color:var(--mut)">Generation runs across all clients.</p></div>
+            <div class="flex gap-2">
+              <button v-if="failedCount" class="btn btn-danger px-4 py-2 text-sm" @click="clearFailed">Clear failed ({{ failedCount }})</button>
+              <button class="btn btn-ghost px-4 py-2 text-sm" @click="loadJobs"><span v-if="jobsBusy" class="spinner"></span>Refresh</button>
+            </div>
+          </div>
+          <div class="flex gap-2 flex-wrap rise" style="animation-delay:.08s">
+            <div v-for="st in ['all','queued','running','done','failed']" :key="st" class="chip" :class="{on:jobFilter===st}" @click="jobFilter=st">{{ st }}</div>
+          </div>
           <div class="panel rise" style="animation-delay:.12s">
-            <div v-if="!filteredJobs.length" class="text-sm py-10 text-center" style="color:var(--mut)">Nothing here.</div>
-            <table v-else class="w-full"><thead><tr><th>Created</th><th>Client</th><th>Stage</th><th>Kind</th><th>Q</th><th>Status</th><th>Pushed</th><th>Error</th></tr></thead>
-            <tbody><tr v-for="j in filteredJobs" :key="j.id" class="cursor-pointer" @click="openJob(j)">
-              <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td>{{ j.client_name||j.client }}</td>
-              <td><span class="stage-bar" v-html="stageFor(j)"></span></td>
-              <td><span class="text-xs f-mono px-2 py-0.5 rounded" :style="{background:j.kind!=='full'?'rgba(125,211,252,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ dryLabel(j.kind) }}</span></td>
-              <td class="f-mono">{{ j.count }}</td>
-              <td><span class="status-dot" :class="{pulse:j.status==='running'}" :style="{background:sc(j.status)}"></span><span class="text-xs f-mono ml-1.5">{{ j.status }}</span></td>
-              <td class="f-mono text-xs">{{ j.pushed ? 'yes' : '—' }}</td>
-              <td class="text-xs max-w-[220px] truncate" :style="{color:j.error?'var(--red)':''}">{{ j.error||'' }}</td>
-            </tr></tbody></table>
+            <div v-if="!filteredJobs.length" class="text-sm py-12 text-center" style="color:var(--mut)">Nothing here.</div>
+            <table v-else class="w-full">
+              <thead><tr><th>Created</th><th>Client</th><th>Stage</th><th>Kind</th><th>Q</th><th>Status</th><th>Pushed</th><th>Error</th></tr></thead>
+              <tbody><tr v-for="j in filteredJobs" :key="j.id" class="cursor-pointer" @click="openJob(j)">
+                <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td class="font-semibold">{{ j.client_name||j.client }}</td>
+                <td><span class="stage-bar" v-html="stageFor(j)"></span></td>
+                <td><span class="text-xs f-mono px-2.5 py-1 rounded-lg" :style="{background:j.kind!=='full'?'rgba(58,110,165,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ dryLabel(j.kind) }}</span></td>
+                <td class="f-mono">{{ j.count }}</td>
+                <td><span class="pill-status" :style="{background:(j.status==='running'?'var(--soft)':j.status==='done'?'rgba(47,125,79,.1)':j.status==='failed'?'rgba(198,69,58,.1)':'transparent'),color:sc(j.status)}"><span class="status-dot" :class="{pulse:j.status==='running'}" :style="{background:sc(j.status)}"></span>{{ j.status }}</span></td>
+                <td class="f-mono text-xs">{{ j.pushed ? 'yes' : '—' }}</td>
+                <td class="text-xs max-w-[220px] truncate" :style="{color:j.error?'var(--red)':''}">{{ j.error||'' }}</td>
+              </tr></tbody>
+            </table>
           </div>
         </div>
 
-        <div class="text-center text-[11px] pt-8 pb-4" style="color:var(--mut)">PocketBase v0.39.10 · pb_hooks + worker engine · v3</div>
+        <div class="text-center text-[11px] pt-9 pb-5 f-mono" style="color:var(--mut)">PocketBase v0.39.10 · pb_hooks + worker engine · studio v4</div>
       </div>
     </main>
 
     <!-- Job Drawer -->
-    <div v-if="drawerJob" class="fixed inset-0 z-50 flex justify-end" style="background:rgba(0,0,0,.5)">
-      <div class="w-full max-w-xl h-full overflow-y-auto panel rounded-none drawer p-6" style="border:none;border-left:1px solid var(--line)">
-        <div class="flex items-start justify-between mb-5"><div><h2 class="f-serif text-lg font-bold">Job {{ short(drawerJob.id) }}</h2><div class="text-xs f-mono mt-1" style="color:var(--mut)">{{ drawerJob.client_name }} · {{ dryLabel(drawerJob.kind) }} · {{ drawerJob.count }}q · {{ drawerJob.difficulty }}</div></div><button class="btn btn-ghost px-3 py-1.5 text-xs" @click="drawerJob=null">Close</button></div>
-        <div class="flex items-center gap-2 mb-5">
-          <span class="status-dot" :class="{pulse:drawerJob.status==='running'}" :style="{background:sc(drawerJob.status)}"></span>
-          <span class="f-mono text-xs uppercase tracking-widest">{{ drawerJob.status }}</span>
-          <span v-if="drawerJob.pushed" class="f-mono text-[11px] px-2 py-0.5 rounded" style="background:rgba(74,222,128,.12);color:var(--green)">pushed</span>
+    <div v-if="drawerJob" class="fixed inset-0 z-50 flex justify-end" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)">
+      <div class="w-full max-w-xl h-full overflow-y-auto panel rounded-none drawer p-7" style="border:none;border-left:1px solid var(--line)">
+        <div class="flex items-start justify-between mb-6">
+          <div>
+            <h2 class="f-disp text-xl font-extrabold">Job <span class="f-mono text-base">{{ short(drawerJob.id) }}</span></h2>
+            <div class="text-xs f-mono mt-1.5" style="color:var(--mut)">{{ drawerJob.client_name }} · {{ dryLabel(drawerJob.kind) }} · {{ drawerJob.count }}q · {{ drawerJob.difficulty }}</div>
+          </div>
+          <button class="btn btn-ghost px-3.5 py-1.5 text-xs" @click="drawerJob=null">Close</button>
+        </div>
+        <div class="flex items-center gap-3 mb-6">
+          <span class="pill-status" :style="{background:(drawerJob.status==='running'?'var(--soft)':drawerJob.status==='done'?'rgba(47,125,79,.1)':drawerJob.status==='failed'?'rgba(198,69,58,.1)':'transparent'),color:sc(drawerJob.status)}">
+            <span class="status-dot" :class="{pulse:drawerJob.status==='running'}" :style="{background:sc(drawerJob.status)}"></span>{{ drawerJob.status }}
+          </span>
+          <span v-if="drawerJob.pushed" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(47,125,79,.12);color:var(--green)">pushed</span>
           <div class="ml-auto flex gap-2">
-            <button v-if="drawerJob.status==='failed'" class="btn btn-amber px-3 py-1.5 text-xs" @click="retryJob">Re-queue</button>
-            <button class="btn btn-danger px-3 py-1.5 text-xs" @click="delJob">Delete</button>
+            <button v-if="drawerJob.status==='failed'" class="btn btn-amber px-3.5 py-1.5 text-xs" @click="retryJob">Re-queue</button>
+            <button class="btn btn-danger px-3.5 py-1.5 text-xs" @click="delJob">Delete</button>
           </div>
         </div>
-        <div class="mb-5"><label class="lbl">Created / Updated</label><div class="kv"><dt>created</dt><dd>{{ fmtTime(drawerJob.created) }}</dd><dt>updated</dt><dd>{{ fmtTime(drawerJob.updated) }}</dd><dt>duration</dt><dd>{{ jobDuration }}</dd></div></div>
-        <div v-if="drawerJob.error" class="text-xs mb-4 p-3 rounded flex items-start justify-between" style="background:rgba(248,113,113,.08);border:1px solid var(--red);color:var(--red)">
+        <div class="mb-6"><label class="lbl">Created / Updated</label><div class="kv"><dt>created</dt><dd>{{ fmtTime(drawerJob.created) }}</dd><dt>updated</dt><dd>{{ fmtTime(drawerJob.updated) }}</dd><dt>duration</dt><dd>{{ jobDuration }}</dd></div></div>
+        <div v-if="drawerJob.error" class="text-xs mb-5 p-4 rounded-xl flex items-start justify-between" style="background:rgba(198,69,58,.07);border:1px solid var(--red);color:var(--red)">
           <span class="flex-1 mr-2">{{ drawerJob.error }}</span>
-          <button class="btn btn-ghost px-2 py-0.5 text-[11px] shrink-0" @click="copy(drawerJob.error)">Copy</button>
+          <button class="btn btn-ghost px-2.5 py-1 text-[11px] shrink-0" @click="copy(drawerJob.error)">Copy</button>
         </div>
-        <div class="mb-5"><div class="flex items-center justify-between mb-2"><label class="lbl mb-0">Log</label><div><button class="btn btn-ghost px-2.5 py-1 text-[11px] mr-1" @click="copy(drawerJob.log||'')">Copy</button><button class="btn btn-ghost px-2.5 py-1 text-[11px]" @click="refreshDrawer">Refresh</button></div></div><div class="panel2 p-3 max-h-72 overflow-y-auto logpre logbox" ref="logBox">{{ drawerJob.log||'(no log yet)' }}</div></div>
-        <div><label class="lbl">Report</label><div class="panel2 p-3 max-h-72 overflow-y-auto"><pre class="logpre text-xs">{{ pretty(drawerJob.report) }}</pre></div></div>
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-2"><label class="lbl mb-0">Log</label><div><button class="btn btn-ghost px-2.5 py-1 text-[11px] mr-1" @click="copy(drawerJob.log||'')">Copy</button><button class="btn btn-ghost px-2.5 py-1 text-[11px]" @click="refreshDrawer">Refresh</button></div></div>
+          <div class="panel2 p-4 max-h-80 overflow-y-auto logpre logbox" ref="logBox">{{ drawerJob.log||'(no log yet)' }}</div>
+        </div>
+        <div><label class="lbl">Report</label><div class="panel2 p-4 max-h-80 overflow-y-auto"><pre class="logpre text-xs">{{ pretty(drawerJob.report) }}</pre></div></div>
       </div>
     </div>
 
     <!-- Client Modal -->
-    <div v-if="clientModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,.5)">
-      <div class="panel p-6 w-full max-w-md rise"><h2 class="f-serif text-lg font-bold mb-4">New client</h2>
+    <div v-if="clientModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)">
+      <div class="panel p-7 w-full max-w-md rise"><h2 class="f-disp text-xl font-extrabold mb-5">New client</h2>
         <div class="space-y-4">
           <div><label class="lbl">Name</label><input v-model.trim="newClientName" class="input" placeholder="e.g. UBT"></div>
           <div v-if="newKey"><label class="lbl">API key — copy it now, shown once</label><div class="flex gap-2"><input :value="newKey" readonly class="input f-mono text-xs flex-1" @click="sel($event)"><button class="btn btn-amber px-3 text-xs" @click="copy(newKey)">Copy</button></div><div class="hint">Fingerprint (sha256): <span class="f-mono">{{ short(newKeyHash) }}…</span></div></div>
@@ -458,19 +523,23 @@ html[data-theme="light"] .logpre{color:#3a3d45}
     </div>
 
     <!-- Confirm Modal -->
-    <div v-if="confirmMsg" class="fixed inset-0 z-[60] flex items-center justify-center p-4" style="background:rgba(0,0,0,.5)">
-      <div class="panel p-6 w-full max-w-sm rise"><h2 class="f-serif font-bold mb-2">Confirm</h2><p class="text-sm" style="color:var(--mut)">{{ confirmMsg }}</p><div class="flex gap-2 justify-end pt-4"><button class="btn btn-ghost px-4 py-2 text-sm" @click="confirmMsg=null">Cancel</button><button class="btn btn-danger px-4 py-2 text-sm" @click="confirmDo()">Confirm</button></div></div>
+    <div v-if="confirmMsg" class="fixed inset-0 z-[60] flex items-center justify-center p-4" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)">
+      <div class="panel p-7 w-full max-w-sm rise"><h2 class="f-disp font-extrabold mb-2">Confirm</h2><p class="text-sm" style="color:var(--mut)">{{ confirmMsg }}</p><div class="flex gap-2 justify-end pt-4"><button class="btn btn-ghost px-4 py-2 text-sm" @click="confirmMsg=null">Cancel</button><button class="btn btn-danger px-4 py-2 text-sm" @click="confirmDo()">Confirm</button></div></div>
     </div>
 
     <!-- Toasts -->
-    <div class="fixed top-4 right-4 z-[70] space-y-2"><div v-for="t in toasts" :key="t.id" class="toast panel px-4 py-2.5 text-sm shadow-lg flex items-center gap-2"><span class="status-dot" :style="{background:t.type==='err'?'var(--red)':t.type==='ok'?'var(--green)':'var(--amber)'}"></span><span class="f-mono text-xs">{{ t.msg }}</span></div></div>
+    <div class="fixed top-5 right-5 z-[70] space-y-2.5">
+      <div v-for="t in toasts" :key="t.id" class="toast panel px-4 py-3 text-sm shadow-lg flex items-center gap-2.5">
+        <span class="status-dot" :style="{background:t.type==='err'?'var(--red)':t.type==='ok'?'var(--green)':'var(--amber)'}"></span>
+        <span class="f-mono text-xs">{{ t.msg }}</span>
+      </div>
+    </div>
 
     <a href="https://deerflow.tech" target="_blank" class="deerflow">✦ created by deerflow</a>
   </div>
 </div>
 
 <script src="lib/vue.global.prod.js"></script>
-
 <script src="app.min.js"></script>
 </body>
 </html>
