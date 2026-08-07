@@ -6,3 +6,5 @@
 Dockerfile
 docker-compose.yml
 sync.cmd
+__pycache__
+*.pyc

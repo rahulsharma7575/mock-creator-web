@@ -1,4 +1,7 @@
-# Normalize shell scripts to LF — a CRLF entrypoint.sh would break bash in the container
+# Normalize all source files to LF — CRLF breaks Goja/PocketBase on Linux
 *.sh text eol=lf
 *.py text eol=lf
+*.js text eol=lf
+*.html text eol=lf
+*.yml text eol=lf
 Dockerfile text eol=lf
