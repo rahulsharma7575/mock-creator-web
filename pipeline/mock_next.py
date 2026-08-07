@@ -339,6 +339,15 @@ HARD RULES:
   회사, 식당, 학교, 우체국, 백화점, 주말농장...). No politics/religion/sensitive content.
 - VARIETY: never repeat grammar patterns, vocabulary roots, situations, names, or sentence
   structures across the exam.
+REFERENCE EXAMPLES from a real passing exam — match this exact field set and style:
+
+Reading (text): {"number": 3, "section": "reading", "difficulty": "hard", "type": "fill_in_the_blank", "question_text": "Q3. 빈칸에 들어갈 가장 알맞은 단어를 고르십시오.\n\n가: 오늘 퇴근하고 삼겹살에 소주 한잔 어때요?\n나: 미안해요. 이번 주는 건강 검진이 있어서 술을 (     ) 하고 있어요.", "options": ["금지", "자제", "중단", "방지"], "correct_answer": ["1"], "marks": 1, "explanation": "스스로 행동을 조절하여 참는 것을 뜻하는 단어는 '자제'가 가장 자연스럽습니다.", "requiresImage": false, "imagePrompt": ""}
+
+Reading (image): {"number": 1, "section": "reading", "difficulty": "medium", "type": "vocabulary_image", "question_text": "Q1. 다음 그림을 보고 알맞은 단어를 고르십시오.", "options": ["굴착기", "지게차", "사다리차", "기중기"], "correct_answer": ["1"], "marks": 1, "explanation": "무거운 흙이나 자갈을 파내거나 옮길 때 사용하는 건설 기계는 굴착기입니다.", "requiresImage": true, "imagePrompt": "A yellow hydraulic excavator parked on a construction site with loose soil. Close-up, eye-level, metal tracks, cabin, bucket on the ground, natural daylight."}
+
+Listening: {"number": 22, "section": "listening", "difficulty": "medium", "type": "listening_vocabulary_image", "question_text": "Q22. 대화를 듣고 남자가 지금 하고 있는 작업에 알맞은 그림을 고르십시오.", "options": ["사과를 상자에 담는 작업", "포도를 가위로 수확하는 작업", "밭에 비닐을 씌우는 작업", "배추에 비료를 주는 작업"], "correct_answer": ["1"], "marks": 1, "explanation": "대화에서 남자가 포도송이를 조심스럽게 가위로 잘라 바구니에 담는 수확 작업을 묘사하고 있습니다.", "requiresImage": true, "imagePrompt": "A farmer's hands with white cotton gloves using pruning shears to cut a bunch of purple grapes in an outdoor vineyard, golden hour sunlight.", "listening": {"audioScript": [{"voice": "V1", "text": "영수 씨, 지금 뭐 하고 있어요?"}, {"voice": "V2", "text": "아, 포도 수확하고 있어요. 가위로 조심스럽게 잘라야 해요."}, {"voice": "V1", "text": "힘들지 않아요? 제가 좀 도와줄까요?"}, {"voice": "V2", "text": "괜찮아요. 거의 다 했어요. 조금만 더 하면 돼요."}], "durationSeconds": 15, "speakers": 2, "situation": "포도밭에서 포도를 수확하는 작업"}}
+
+Every question in the exam MUST follow the field set shown above (no extra/missing keys).
 Return the JSON array ONLY — no markdown, no commentary."""
 
 
@@ -425,7 +434,7 @@ def repair_exam(key, qs, stats=None):
             except Exception as e:
                 print(f"  answer repair failed Q{q['number']}: {str(e)[:100]}")
     img = sum(1 for q in qs if q.get("requiresImage"))
-    img_min = int(CFG.get("image_count_min", 18))
+    img_min, _ = image_bounds()
     if img < img_min:
         need = img_min - img
         candidates = [q for q in qs if q["section"] == "reading" and not q.get("requiresImage")]
@@ -492,6 +501,23 @@ def sanitize_exam(qs):
     return qs
 
 
+def image_bounds():
+    """Effective image-question bounds, clamped to what the exam size can satisfy.
+
+    Full exams (question_count == 2 * reading_count) keep the configured bounds.
+    Small/sample exams (dry-runs: 2 questions, 1 reading) clamp the bounds so
+    validation can never require more image questions than exist."""
+    q_count = int(CFG.get("question_count", 40))
+    r_count = int(CFG.get("reading_count", 20))
+    lo = int(CFG.get("image_count_min", 18))
+    hi = int(CFG.get("image_count_max", 26))
+    if q_count >= r_count * 2 and r_count >= 10:
+        return lo, hi
+    hi = min(hi, r_count)
+    lo = min(lo, max(0, r_count - 1))
+    return lo, hi
+
+
 def validate_exam(qs, stage="final"):
     """stage='author' = structure only (repair pass fixes the rest); 'final' = everything.
 
@@ -499,8 +525,7 @@ def validate_exam(qs, stage="final"):
     errs = []
     q_count = int(CFG.get("question_count", 40))
     r_count = int(CFG.get("reading_count", 20))
-    img_min = int(CFG.get("image_count_min", 18))
-    img_max = int(CFG.get("image_count_max", 26))
+    img_min, img_max = image_bounds()
     if not isinstance(qs, list) or len(qs) != q_count:
         errs.append(f"need exactly {q_count} questions, got {len(qs) if isinstance(qs, list) else type(qs)}")
         return errs
@@ -934,11 +959,12 @@ def final_summary(stats):
     print("=" * 66)
     print(f"  MOCK {stats['mock']} — COMPLETE")
     print("-" * 66)
+    q_n = int(CFG.get("question_count", 40))
     if stats.get("authored"):
-        line(f"author 40 questions ({_short(stats['author_model'])})",
+        line(f"author {q_n} questions ({_short(stats['author_model'])})",
              f"${stats['author_cost']:.3f}, attempt {stats['author_attempt']}")
     else:
-        line("author 40 questions", "resumed (existing file)")
+        line(f"author {q_n} questions", "resumed (existing file)")
     parts = []
     if stats["repair"]["answers"]:
         parts.append(f"{stats['repair']['answers']} answers fixed")
@@ -1054,7 +1080,8 @@ def main():
             last_err = "; ".join(errs)
             print(f"[author] validation failed: {last_err}")
         if not qs or validate_exam(qs, stage="author"):
-            sys.exit("FAILED: could not author a valid exam after 3 attempts")
+            errs = validate_exam(qs, stage="author") if qs else ["no questions returned"]
+            sys.exit("FAILED: could not author a valid exam after 3 attempts — " + "; ".join(errs[:12]))
 
         # 1b. Choose proofreading model (config-driven when --config/$MOCK_CONFIG, else interactive)
         proof_cfg = slug_cfg(args.proof_slug, PROOF_MODELS) if args.proof_slug \
@@ -1064,22 +1091,25 @@ def main():
         stats["proof_model"] = proof_cfg["name"]
 
         # 2. Proofread + repair (fill missing dialogues/answers, then Korean quality pass)
-        authored = qs
         print("[repair] fixing missing dialogues/answers...")
         qs = normalize_exam(repair_exam(key, qs, stats["repair"]))
-        if validate_exam(qs):
+        repaired = qs if not validate_exam(qs) else None
+        if repaired is None:
             print("[repair] second pass...")
             qs = normalize_exam(repair_exam(key, qs, stats["repair"]))
+            if not validate_exam(qs):
+                repaired = qs
         print(f"[proofread] {proof_cfg['name']} checking Korean quality...")
         qs, pu = llm_proofread(key, qs, proof_cfg)
         stats["proof_cost"] = pu.get("cost", 0.0)
         qs = normalize_exam(qs)
-        if validate_exam(qs):
+        if validate_exam(qs) and repaired is not None:
             print("[proofread] broke structure — reverting to repaired version")
-            qs = normalize_exam(repair_exam(key, authored, stats["repair"]))
+            qs = repaired
         qs.sort(key=lambda q: q["number"])
-        if validate_exam(qs):
-            sys.exit("FAILED: exam still invalid after repair+proofread — delete the folder and re-run")
+        errs = validate_exam(qs)
+        if errs:
+            sys.exit("FAILED: exam still invalid after repair+proofread — " + "; ".join(errs[:12]))
         qfile.write_text(json.dumps(qs, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"[save] {qfile}")
 
