@@ -446,7 +446,10 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
                               <span class="tip" v-if="f.field==='image_count'">?<span class="ttip">How many questions carry a picture — spread randomly across reading AND listening. Default 18.</span></span>
                               <span class="tip" v-if="f.field==='push_pb_pass'">?<span class="ttip">Admin password of the teacher app PocketBase. Leave empty + toggle Upload off to generate exams locally.</span></span>
                             </label>
-                            <template v-if="f.ftype==='select'">
+                            <template v-if="f.field==='tts_model'||f.field==='tts_fallback_model'">
+                              <select v-model="cfgData[f.field]" class="select"><option v-for="o in ttsOptions" :key="o" :value="o">{{ o }}</option></select>
+                            </template>
+                            <template v-else-if="f.ftype==='select'">
                               <select v-model="cfgData[f.field]" class="select" @change="hintText(f)"><option v-for="o in f.options" :key="o" :value="o">{{ o }}</option></select>
                             </template>
                             <template v-else-if="f.ftype==='bool'">
@@ -736,22 +739,22 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
           <span v-if="previewRun.report && previewRun.report.fal_balance != null" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(47,143,143,.12);color:var(--cyan)">Fal balance ${{ previewRun.report.fal_balance }}</span>
           <span v-if="previewRun.report && previewRun.report.or_balance != null" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(53,104,156,.12);color:var(--blue)">OpenRouter ${{ previewRun.report.or_balance }}</span>
           <span v-if="previewRun.report && previewRun.report.img_credits" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(138,95,181,.12);color:var(--purple)">{{ previewRun.report.img_credits }} credits</span>
-          <span v-if="previewRun.images && previewRun.images.length" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(138,95,181,.12);color:var(--purple)">{{ previewRun.images.length }} image(s)</span>
-          <span v-if="previewRun.audio && previewRun.audio.length" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(47,143,143,.12);color:var(--cyan)">{{ previewRun.audio.length }} audio clip(s)</span>
+          <span v-if="previewRun.images && runFiles(previewRun,'images').length" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(138,95,181,.12);color:var(--purple)">{{ runFiles(previewRun,'images').length }} image(s)</span>
+          <span v-if="previewRun.audio && runFiles(previewRun,'audio').length" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(47,143,143,.12);color:var(--cyan)">{{ runFiles(previewRun,'audio').length }} audio clip(s)</span>
           <button class="btn btn-ghost btn-sm ml-auto flex items-center gap-1" @click="copy(JSON.stringify(previewRun.questions,null,2))"><span v-html="ic('copy',12)"></span>Copy JSON</button>
         </div>
-        <div v-if="previewRun.images && previewRun.images.filter(x=>x).length" class="panel2 p-4 mb-3">
-          <div class="f-mono text-[10px] uppercase tracking-widest mb-2" style="color:var(--mut)">generated images ({{ previewRun.images.filter(x=>x).length }})</div>
+        <div v-if="runFiles(previewRun,'images').length" class="panel2 p-4 mb-3">
+          <div class="f-mono text-[10px] uppercase tracking-widest mb-2" style="color:var(--mut)">generated images ({{ runFiles(previewRun,'images').length }})</div>
           <div class="grid grid-cols-3 gap-2">
-            <a v-for="f in previewRun.images.filter(x=>x)" :key="f" :href="'/api/files/'+previewRun.collectionName+'/'+previewRun.id+'/'+f" target="_blank">
+            <a v-for="f in runFiles(previewRun,'images')" :key="f" :href="'/api/files/'+previewRun.collectionName+'/'+previewRun.id+'/'+f" target="_blank">
               <img :src="'/api/files/'+previewRun.collectionName+'/'+previewRun.id+'/'+f" class="w-full rounded-lg" style="border:1px solid var(--line);background:var(--panel)" :alt="f">
               <div class="text-[9.5px] f-mono mt-0.5 truncate" style="color:var(--mut)">{{ f }}</div>
             </a>
           </div>
         </div>
-        <div v-if="previewRun.audio && previewRun.audio.filter(x=>x).length && !Object.keys(previewRun.audio_map||{}).length" class="panel2 p-4 mb-3">
+        <div v-if="runFiles(previewRun,'audio').length && !Object.keys(previewRun.audio_map||{}).length" class="panel2 p-4 mb-3">
           <div class="f-mono text-[10px] uppercase tracking-widest mb-2" style="color:var(--mut)">generated audio</div>
-          <audio v-for="a in previewRun.audio.filter(x=>x)" :key="a" :src="'/api/files/'+previewRun.collectionName+'/'+previewRun.id+'/'+a" controls class="w-full mb-1" :style="{height:'36px'}"></audio>
+          <audio v-for="a in runFiles(previewRun,'audio')" :key="a" :src="'/api/files/'+previewRun.collectionName+'/'+previewRun.id+'/'+a" controls class="w-full mb-1" :style="{height:'36px'}"></audio>
         </div>
         <div v-if="!previewRun.questions || !previewRun.questions.length" class="text-sm py-10 text-center" style="color:var(--mut)">No questions stored for this run.</div>
         <div v-else class="space-y-3">

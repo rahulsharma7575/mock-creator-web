@@ -91,6 +91,7 @@ createApp({
       ];
     },
     groups(){const g=[...new Set(this.meta.map(m=>m.group))];return ['LLM','Exam','Images','Audio','Push','Advanced'].filter(x=>g.includes(x));},
+    ttsOptions(){const from=this.models.filter(m=>m.kind==='tts').map(m=>m.model).filter(Boolean);const cur=this.cfgData?this.cfgData.tts_model:null;if(cur&&!from.includes(cur))from.unshift(cur);return from.length?from:['fish-audio/s2.1-pro-free:free','microsoft/mai-voice-2-flash','x-ai/grok-voice-tts-1.0'];},
     listeningCount(){const c=this.cfgData.question_count||40;const r=this.cfgData.reading_count||20;return Math.max(0,c-r);},
     orCount(){return Object.keys(this.orModels).length;},
     costEst(){
@@ -170,6 +171,8 @@ createApp({
       if(f.field==='image_count'){const n=this.cfgData.image_count||18;return`${n} questions will have pictures, spread randomly across reading & listening`;}
       if(f.field==='image_primary'){const im=String(this.cfgData.image_primary||'');if(im.startsWith('fal-ai/'))return'Runs via Fal.ai (512x512, 1:1) - FAL_KEY must be in the container env';if(im==='z-image')return'Runs via Magnific (5 credits per image)';if(im==='nano-banana'||im==='black-forest-labs/flux.2-klein-4b')return'Runs via OpenRouter (flux.2 klein 4b, billed per image)';return'';}
       if(f.field==='reading_count'){const t=this.cfgData.question_count||0;const v=this.cfgData[f.field]||0;return t?`${t-v} listening questions remaining (Q${v+1}-Q${t})`:'Set total questions first';}
+      if(f.field==='sample_rate'){const m=String(this.cfgData.tts_model||'');const need=m.includes('mai-voice')||m.includes('gemini')?'24000':m.includes('fish')||m.includes('grok')?'44100':'';return need?`Selected TTS (${String(m).split('/').pop()}) expects ${need} Hz`:'';}
+      if(f.field==='tts_voices'){const n=this.listeningCount;return n?`${n} listening questions - each dialog's speakers are labelled V1..V4; map them here if you want distinct voices`:'Add listening questions first';}
       if(f.field==='llm_author_model'&&this.cfgData[f.field]){const m=this.orModels[this.cfgData[f.field]];return m?`OpenRouter: ${m.name}`:this.orStatus==='live'?`Model not found on OpenRouter`:'';
       }
       return'';},
@@ -288,6 +291,7 @@ createApp({
     dryFalCost(d){const r=(d&&d.report)||{};const c=r.fal_cost||0;const im=String(r.img_model||'');return c&&im.startsWith('fal-ai/')?`$${Number(c).toFixed(4)}`:'—';},
     dryTime(d){const st=((d&&d.report)||{}).stage_times||{};return st.total!=null?`${st.total}s`:'—';},
     openPreview(d){this.previewRun=d;},
+    runFiles(d,field){const v=d&&d[field];if(Array.isArray(v))return v.filter(x=>x&&typeof x==='string');if(typeof v==='string'&&v)return[v];return[];},
     pushReadyFor(clientId){
       const cfg=this.cfgByClient[clientId];
       if(!cfg)return false;

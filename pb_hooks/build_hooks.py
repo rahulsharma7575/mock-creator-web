@@ -79,6 +79,7 @@ SCHEMA = [
         f("tts_model", "text", max=200),
         f("tts_fallback_model", "text", max=200),
         f("tts_fallback_voice", "text", max=200),
+        f("tts_voices", "json", maxSize=65536),
         f("question_count", "number", min=1, max=200),
         f("reading_count", "number", min=0, max=50),
         f("image_count", "number", min=0, max=40),
@@ -225,10 +226,10 @@ META_FIELDS = [
     ("llm_repair_model", "Repair LLM", "text", "LLM", "OpenRouter model for repair pass"),
     ("image_primary", "Image provider", "select", "Images", "fal-ai (Fal.ai) | z-image (Magnific) | black-forest-labs/flux.2-klein-4b (OpenRouter)", ["fal-ai/z-image/turbo", "z-image", "black-forest-labs/flux.2-klein-4b"]),
     ("image_fallback", "Fallback image model", "text", "Images", "Deprecated - providers fall back automatically, keep empty"),
-    ("image_fallback", "Fallback image model", "text", "Images", "Magnific fallback (p-image-ideogram-1k)"),
-    ("tts_model", "TTS model", "text", "Audio", "OpenRouter TTS model"),
-    ("tts_fallback_model", "TTS fallback model", "text", "Audio", "Fallback TTS model"),
-    ("tts_fallback_voice", "TTS fallback voice", "text", "Audio", "Fallback voice id"),
+    ("tts_model", "TTS model", "select", "Audio", "Model that reads the listening scripts aloud. Options load from the models API.", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]),
+    ("tts_fallback_model", "Fallback TTS model", "select", "Audio", "Used only if the primary TTS model fails or times out.", ["microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]),
+    ("tts_fallback_voice", "Fallback voice", "text", "Audio", "Voice id used when the primary voice is unavailable (e.g. ko-KR-Haena)."),
+    ("tts_voices", "Speaker voices (JSON)", "json", "Audio", 'Map each speaker label to a TTS voice, e.g. {"V1": "alloy", "V2": "echo"}. Number of people in a dialog = number of speakers. Leave {} for defaults.'),
     ("question_count", "Total questions", "number", "Exam", "40 by default"),
     ("reading_count", "Reading questions", "number", "Exam", "Reading section size"),
     ("image_count", "Image questions target", "number", "Exam", "Target count"),
@@ -247,9 +248,9 @@ META_FIELDS = [
     ("push_subject_id", "Subject id", "text", "Push", "Subject record id on client PB"),
     ("push_exam_type", "Exam type on push", "text", "Push", "exam_type for the auto-created exam (mock/ubt/practice/official)"),
     ("push_exam_status", "Exam status on push", "select", "Push", "draft = review-then-publish | published = immediate", ["draft", "published"]),
-    ("audio_gap_ms", "Audio gap (ms)", "number", "Audio", "Gap between TTS clips"),
-    ("sample_rate", "Sample rate", "number", "Audio", "TTS output sample rate"),
-    ("audio_workers", "Audio workers", "number", "Audio", "Parallel TTS workers"),
+    ("audio_gap_ms", "Gap between clips (ms)", "number", "Audio", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."),
+    ("sample_rate", "Sample rate (Hz)", "number", "Audio", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."),
+    ("audio_workers", "Parallel audio workers", "number", "Audio", "How many clips are synthesized at the same time. 4 is safe for most machines."),
     ("active", "Config enabled", "bool", "General", "Use this config"),
 ]
 
@@ -259,10 +260,13 @@ MODEL_SEEDS = [
     ("llm", "qwen/qwen3.5-flash-02-23", "Qwen 3.5 Flash", "proofread"),
     ("llm", "claude-sonnet-4.5", "Claude Sonnet 4.5", "alt author"),
     ("llm", "deepseek/deepseek-v4-pro", "DeepSeek V4 Pro", "alt repair"),
-    ("tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS"),
-    ("tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS"),
-    ("tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS"),
-    ("tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS"),
+    ("tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"),
+    ("tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"),
+    ("tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"),
+    ("tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"),
+    ("tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"),
+    ("tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"),
+    ("tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"),
     ("image", "z-image", "z-image", "primary image gen (5 credits/img)"),
     ("image", "p-image-ideogram-1k", "P-Image Ideogram 1K", "fallback (may 404)"),
 ]
@@ -333,9 +337,38 @@ function ensureCollections() {
         if (!hasImg) col.fields.add({"name": "images", "type": "file", "required": false, "options": {"maxSelect": 20, "maxSize": 20971520, "mimeTypes": ["image/webp", "image/png", "image/jpeg"]}})
         if (!hasAud) col.fields.add({"name": "audio", "type": "file", "required": false, "options": {"maxSelect": 20, "maxSize": 20971520, "mimeTypes": ["audio/mpeg", "audio/mp3", "audio/wav"]}})
         $app.save(col)
+      } else {
+        // upgrade single-file fields (maxSelect defaulted to 1 on old installs) to multi-file
+        var changed = false
+        for (var fi2 = 0; fi2 < col.fields.items().length; fi2++) {
+          var fld2 = col.fields.items()[fi2]
+          if (fld2.name === "images" || fld2.name === "audio") {
+            var opts = fld2.options || {}
+            var max = Number(opts.maxSelect || 1)
+            if (max < 10) { opts.maxSelect = 20; changed = true }
+            if (!opts.mimeTypes || opts.mimeTypes.length === 0) {
+              opts.mimeTypes = fld2.name === "images" ? ["image/webp", "image/png", "image/jpeg"] : ["audio/mpeg", "audio/mp3", "audio/wav"]
+              changed = true
+            }
+          }
+        }
+        if (changed) $app.save(col)
       }
     }
   } catch (errF) {}
+  try {
+    var cfgCol = $app.findCollectionByNameOrId("mock_config")
+    var hasVoices = false
+    for (var fi3 = 0; fi3 < cfgCol.fields.items().length; fi3++) { if (cfgCol.fields.items()[fi3].name === "tts_voices") hasVoices = true }
+    if (!hasVoices) {
+      cfgCol.fields.add({"name": "tts_voices", "type": "json", "required": false, "maxSize": 65536})
+      $app.save(cfgCol)
+    }
+  } catch (errV) {}
+  try {
+    var mT = $app.findFirstRecordByData("mock_config_meta", "field", "tts_model")
+    if (mT.getString("ftype") !== "select") { mT.set("ftype", "select"); mT.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); mT.set("label", "TTS model"); mT.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); $app.save(mT) }
+  } catch (errT) {}
 """,
     "".join(
         "var k{0} = new Record(models); k{0}.set(\"kind\", \"{1}\"); k{0}.set(\"model\", \"{2}\"); k{0}.set(\"display\", \"{3}\"); k{0}.set(\"notes\", \"{4}\"); $app.save(k{0});\n".format(
