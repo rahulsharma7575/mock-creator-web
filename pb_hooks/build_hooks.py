@@ -23,6 +23,13 @@ Verified against the real v0.39.10 binary (see scratch tests):
 import json
 import textwrap
 
+
+def js_str(s):
+    """Safe JS string literal: JSON-escaped (ASCII-only, so the generated file
+    stays byte-level ASCII-clean for Goja). NEVER interpolate raw user/help
+    text into generated JS - a stray double quote kills the whole hooks file."""
+    return json.dumps(str(s))
+
 COLLECTION_IDS = {
     "mock_clients": "c_mock_clients",
     "mock_config": "c_mock_config",
@@ -299,8 +306,8 @@ function ensureCollections() {
     json.dumps(list(COLLECTION_IDS.keys())),
     json.dumps(SCHEMA),
     "".join(
-        "var m{0} = new Record(meta); m{0}.set(\"field\", \"{1}\"); m{0}.set(\"label\", \"{2}\"); m{0}.set(\"ftype\", \"{3}\"); m{0}.set(\"group\", \"{4}\"); m{0}.set(\"help\", \"{5}\"); {6}$app.save(m{0});\n".format(
-            i, field, label, ftype, group, help_text,
+        "var m{0} = new Record(meta); m{0}.set(\"field\", {1}); m{0}.set(\"label\", {2}); m{0}.set(\"ftype\", {3}); m{0}.set(\"group\", {4}); m{0}.set(\"help\", {5}); {6}$app.save(m{0});\n".format(
+            i, js_str(field), js_str(label), js_str(ftype), js_str(group), js_str(help_text),
             ("m{0}.set(\"options\", {1}); ".format(i, json.dumps(opts[0])) if opts else ""),
         )
         for i, (field, label, ftype, group, help_text, *opts) in enumerate(META_FIELDS)
@@ -371,8 +378,8 @@ function ensureCollections() {
   } catch (errT) {}
 """,
     "".join(
-        "var k{0} = new Record(models); k{0}.set(\"kind\", \"{1}\"); k{0}.set(\"model\", \"{2}\"); k{0}.set(\"display\", \"{3}\"); k{0}.set(\"notes\", \"{4}\"); $app.save(k{0});\n".format(
-            i, kind, model, display, notes)
+        "var k{0} = new Record(models); k{0}.set(\"kind\", {1}); k{0}.set(\"model\", {2}); k{0}.set(\"display\", {3}); k{0}.set(\"notes\", {4}); $app.save(k{0});\n".format(
+            i, js_str(kind), js_str(model), js_str(display), js_str(notes))
         for i, (kind, model, display, notes) in enumerate(MODEL_SEEDS)
     ),
 )
