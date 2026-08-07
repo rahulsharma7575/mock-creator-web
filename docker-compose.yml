@@ -1,11 +1,12 @@
-# Himal KB Mock Creator — Docker Compose (v2: PocketBase + worker)
-# Paste this file into Dockge / Dokploy (or run `docker compose up -d`).
-# All config is inline — no separate .env file needed. Fill in your real keys.
+# Mock Creator — Docker Compose v3
+# Paste into Dockge / Dokploy or run: docker compose up -d
 #
-#   GUI:  http://HOST:HOST_PORT/creator    Admin: http://HOST:HOST_PORT/_/
+#   GUI:     http://HOST:PORT/creator
+#   Admin:   http://HOST:PORT/_/
+#   Update:  docker compose pull && docker compose up -d
 #
-# Data persists in the mock-state (PocketBase DB + files) and mock-work
-# (job artifacts) volumes. Pull the new image to update: docker compose pull && up -d.
+# Data persists in mock-state (PB DB + files) and mock-work (job artifacts).
+# All config is inline-env — no .env file needed. Fill in your real keys below.
 
 services:
   mock-creator:
@@ -15,13 +16,26 @@ services:
     ports:
       - "33445:8090"
     environment:
-      # --- your real keys ---
+      # ---- REQUIRED: your API keys ----
       OPENROUTER_API_KEY: sk-or-YOUR_KEY_HERE
       MAGNIFIC_API_KEY: MS_YOUR_KEY_HERE
-      # --- PocketBase superuser (login for /creator) ---
+
+      # ---- REQUIRED: PocketBase superuser (login for /creator) ----
       PB_SUPERUSER_EMAIL: admin@yourdomain.com
       PB_PASSWORD: change-this-to-a-strong-password
-      # --- internals (do not change) ---
+
+      # ---- REQUIRED: push exam to teacher app (ubt.wts.com.np) ----
+      # Overrides whatever is saved in the /creator config editor.
+      # Use the admin password for shiva@cld.com.np on ubt.wts.com.np.
+      MOCK_PB_PASS: ""
+
+      # ---- UTF-8 hardening (prevents ascii-codec crashes) ----
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: utf-8
+
+      # ---- internals (do not change) ----
       PB_URL: http://127.0.0.1:8090
       PB_PORT: "8090"
       WORK_ROOT: /app/data
