@@ -6,7 +6,7 @@
 // snippets are physically inlined into every handler body.
 
 // Serve the /creator/ admin GUI (pb_public/creator). The page shell is public
-// (like PB's own _/ admin) — every data endpoint behind it is superuser-only,
+// (like PB's own _/ admin) - every data endpoint behind it is superuser-only,
 // and the GUI gates itself behind a superuser login screen.
 routerAdd("GET", "/creator/{path...}", $apis.static($filepath.join($filepath.dir(__hooks), "pb_public", "creator"), { indexFallback: true }))
 
@@ -690,4 +690,3 @@ try {
 }
 
 })
-

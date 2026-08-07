@@ -297,7 +297,7 @@ def route(name, method, path, middleware, body):
     HANDLERS.append((name, method, path, middleware, body))
 
 
-# GET /api/creator/ping - no auth, no schema — diagnostic: are hooks even loading?
+# GET /api/creator/ping - no auth, no schema - diagnostic: are hooks even loading?
 route(
     "ping", "GET", "/api/creator/ping", None,
     """
@@ -507,7 +507,7 @@ def build():
     out.append("// snippets are physically inlined into every handler body.")
     out.append("")
     out.append("// Serve the /creator/ admin GUI (pb_public/creator). The page shell is public")
-    out.append("// (like PB's own _/ admin) — every data endpoint behind it is superuser-only,")
+    out.append("// (like PB's own _/ admin) - every data endpoint behind it is superuser-only,")
     out.append("// and the GUI gates itself behind a superuser login screen.")
     out.append("routerAdd(\"GET\", \"/creator/{path...}\", $apis.static($filepath.join($filepath.dir(__hooks), \"pb_public\", \"creator\"), { indexFallback: true }))")
     out.append("")
@@ -525,4 +525,10 @@ def build():
 
 
 if __name__ == "__main__":
-    print(build())
+    # Write with explicit UTF-8. NEVER rely on stdout redirection ("> main.pb.js"):
+    # Windows' cp1252 console mangles non-ASCII (e.g. em-dash) into invalid UTF-8,
+    # which then makes Goja refuse to parse the whole hooks file at runtime.
+    out = build()
+    with open("main.pb.js", "w", encoding="utf-8", newline="\n") as f:
+        f.write(out)
+    print(f"wrote main.pb.js ({len(out)} bytes)")
