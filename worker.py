@@ -256,30 +256,60 @@ def collect_dryrun_assets(workdir):
     return images, audios
 
 
-def multipart_patch_dryrun(record_id, image_paths, audio_paths):
-    """Append generated files to a record via multipart PATCH (images+/audio+)."""
+def find_audio_map(workdir):
+    """Newest mock*/audio/mock*_audio_map.json mapping Q<num> -> mp3 filename."""
+    mocks_dir = workdir / "mocks"
+    if not mocks_dir.is_dir():
+        return None
+    dirs = sorted(mocks_dir.glob("mock*"),
+                  key=lambda p: p.stat().st_mtime if p.is_dir() else 0, reverse=True)
+    for d in dirs:
+        m = d / "audio" / (d.name + "_audio_map.json")
+        if m.exists():
+            try:
+                return json.loads(m.read_text(encoding="utf-8"))
+            except Exception:
+                return None
+    return None
+
+
+def multipart_create_record(collection, fields, image_paths, audio_paths):
+    """Create a record with JSON fields + files in ONE multipart POST (atomic)."""
     global _token, _token_at
     boundary = "----mc" + format(time.time_ns(), "x") + os.urandom(4).hex()
     parts = []
-    for field, paths, ctype in (("images+", image_paths, "image/webp"),
-                                ("audio+", audio_paths, "audio/mpeg")):
-        for p in paths:
-            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{field}"; '
-                         f'filename="{p.name}"\r\nContent-Type: {ctype}\r\n\r\n'.encode("utf-8"))
-            parts.append(p.read_bytes())
-            parts.append(b"\r\n")
+
+    def add_text(name, value):
+        if value is None:
+            return
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"))
+        parts.append(str(value).encode("utf-8"))
+        parts.append(b"\r\n")
+
+    def add_file(name, path, ctype):
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; '
+                     f'filename="{path.name}"\r\nContent-Type: {ctype}\r\n\r\n'.encode("utf-8"))
+        parts.append(path.read_bytes())
+        parts.append(b"\r\n")
+
+    for k, v in fields.items():
+        add_text(k, v)
+    for p in image_paths:
+        add_file("images", p, "image/webp")
+    for p in audio_paths:
+        add_file("audio", p, "audio/mpeg")
     parts.append(f"--{boundary}--\r\n".encode("utf-8"))
     body = b"".join(parts)
     if not _token or time.time() - _token_at > 3500:
         _token = auth()
         _token_at = time.time()
     req = urllib.request.Request(
-        PB_URL + f"/api/collections/dryrun/records/{record_id}",
-        data=body, method="PATCH",
+        PB_URL + f"/api/collections/{collection}/records",
+        data=body, method="POST",
         headers={"Authorization": "Bearer " + _token,
                  "Content-Type": "multipart/form-data; boundary=" + boundary})
-    with urllib.request.urlopen(req, timeout=180) as r:
-        r.read()
+    with urllib.request.urlopen(req, timeout=300) as r:
+        return json.loads(r.read().decode("utf-8"))
 
 
 def summarize_log(log_tail, kind):
@@ -427,18 +457,18 @@ def run_job(job):
                 questions = json.loads(qs_file.read_text(encoding="utf-8"))
             imgs, auds = collect_dryrun_assets(workdir)
             rec_collection = "dryrun" if kind.startswith("dry_") else "fullrun"
-            rec = api("POST", "/api/collections/" + rec_collection + "/records", {
+            rec = multipart_create_record(rec_collection, {
                 "client": client_id, "kind": kind, "status": "done",
                 "count": len(questions) if questions else 0,
                 "difficulty": str(cfg.get("difficulty_profile") or ""),
-                "questions": questions, "report": report, "summary": summary,
+                "questions": json.dumps(questions) if questions else None,
+                "report": json.dumps(report) if report else None,
+                "summary": summary or None,
                 "log": (log_tail or "")[-8000:],
-            })
-            rec_id = rec.get("id") if isinstance(rec, dict) else None
-            if rec_id and (imgs or auds):
-                multipart_patch_dryrun(rec_id, imgs, auds)
-                log(f"job {job_id}: {rec_collection} assets uploaded ({len(imgs)} images, {len(auds)} audio)")
-            log(f"job {job_id}: saved to {rec_collection} collection ({len(questions) if questions else 0} questions)")
+                "audio_map": json.dumps(find_audio_map(workdir)),
+            }, imgs, auds)
+            log(f"job {job_id}: saved to {rec_collection} collection "
+                f"({len(questions) if questions else 0} questions, {len(imgs)} images, {len(auds)} audio)")
         except Exception as e:
             log(f"job {job_id}: {rec_collection} save failed: {e}")
     else:

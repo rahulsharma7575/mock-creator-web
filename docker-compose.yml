@@ -1,4 +1,4 @@
-# Mock Creator — Docker Compose v3
+# Mock Creator — Docker Compose v4
 # Paste into Dockge / Dokploy or run: docker compose up -d
 #
 #   GUI:     http://HOST:PORT/creator
@@ -19,7 +19,9 @@ services:
       # ---- REQUIRED: your API keys ----
       OPENROUTER_API_KEY: sk-or-YOUR_KEY_HERE
       MAGNIFIC_API_KEY: MS_YOUR_KEY_HERE
-      # Fal.ai key - used when the Image provider in /creator config is fal-ai/z-image/turbo
+      # Fal.ai key - used when the Image provider in /creator config is fal-ai/z-image/turbo.
+      # Get it from https://fal.ai/dashboard/keys. Used for: image generation,
+      # balance checks and wrong-model verification.
       FAL_KEY: YOUR_FAL_KEY_HERE
 
       # ---- REQUIRED: PocketBase superuser (login for /creator) ----

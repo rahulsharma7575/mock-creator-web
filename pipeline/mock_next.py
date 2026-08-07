@@ -227,7 +227,19 @@ PROOF_MODELS = [
     {"key": "2", "name": "gemini-3.5-flash", "slug": "google/gemini-3.5-flash",
      "price": "$1.50/$9.00 per M (best quality)", "extra": {"reasoning_effort": "minimal"}},
 ]
-IMG_MODEL_NANO = "google/gemini-2.5-flash-image"   # OpenRouter nano-banana (explicit --img-model nano-banana only)
+IMG_MODEL_NANO = "black-forest-labs/flux.2-klein-4b"   # OpenRouter image provider (flux.2 klein)
+
+# Provider fallback chain (switch PROVIDER, never a model of the same provider).
+# Primary from config is tried first, then the other providers in order.
+IMG_FALLBACK_PROVIDERS = ["z-image", "black-forest-labs/flux.2-klein-4b", "fal-ai/z-image/turbo"]
+
+
+def img_chain(primary):
+    chain = [primary] if primary else []
+    for m in IMG_FALLBACK_PROVIDERS:
+        if m not in chain:
+            chain.append(m)
+    return chain
 
 def repair_cfg():
     """Repair pass model config (strong model; overridable via config)."""
@@ -831,6 +843,20 @@ def fal_usage_total(endpoint=None, start_iso=None, end_iso=None):
     return total
 
 
+def or_balance():
+    """OpenRouter credit balance (USD remaining) via the credits API."""
+    key = os.environ.get("OPENROUTER_API_KEY") or ""
+    if not key:
+        return None
+    r = httpx.get("https://openrouter.ai/api/v1/credits",
+                  headers={"Authorization": "Bearer " + key}, timeout=30)
+    r.raise_for_status()
+    d = (r.json().get("data") or {})
+    total = float(d.get("total_credits") or 0.0)
+    used = float(d.get("total_usage") or 0.0)
+    return {"total": total, "used": used, "remaining": round(max(0.0, total - used), 2)}
+
+
 def fal_model_exists(slug):
     """True when the exact fal endpoint id is in the model search results."""
     q = slug.split("/")[-1].split(":")[0]
@@ -902,17 +928,14 @@ def to_webp(data, max_size=1024, quality=80):
 def run_images(key, qs, record_ids, headers, work_dir, img_model=None):
     """Generate TOPIK images for requiresImage questions.
 
-    Model chain (first working wins): primary (CFG img_model) ->
-    CFG img_fallback_model -> z-image (final safe). Each step retried per
-    CFG img_retries / img_fallback_retries, with size + server-side verify,
+    Model chain (first working wins): primary provider (CFG img_model) ->
+    then the other providers (z-image / OpenRouter flux / fal-ai) in order.
+    Each step retried per CFG img_retries / img_fallback_retries, with size + server-side verify,
     then ONE backfill pass for anything still missing.
     Returns (ok, cost, credits, missing_numbers)."""
     from PIL import Image  # noqa: F401 — ensure importable early
     primary = img_model or CFG.get("img_model") or "z-image"
-    chain = []
-    for m in (primary, CFG.get("img_fallback_model"), "z-image"):
-        if m and m not in chain:
-            chain.append(m)
+    chain = img_chain(primary)
     img_retries = int(CFG.get("img_retries", 2))
     fb_retries = int(CFG.get("img_fallback_retries", 2))
     verify = bool(CFG.get("image_verify_after", True))
@@ -959,7 +982,7 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None):
             tries = img_retries if mi == 0 else fb_retries
             for attempt in range(tries):
                 try:
-                    if model == "nano-banana":
+                    if model == "nano-banana" or model == "black-forest-labs/flux.2-klein-4b":
                         data, usage = gen_image_nano(key, prompt)
                         used = usage.get("cost", 0)
                     elif str(model).startswith("fal-ai/"):
@@ -1068,10 +1091,7 @@ def dry_images_pass(key, qs, base_dir):
     """Dry-run images: generate for requiresImage questions, save locally, NO upload."""
     from PIL import Image  # noqa: F401 — same import check as the real pass
     primary = CFG.get("img_model") or "z-image"
-    chain = []
-    for m in (primary, CFG.get("img_fallback_model"), "z-image"):
-        if m and m not in chain:
-            chain.append(m)
+    chain = img_chain(primary)
     out_dir = base_dir / "images" / "generated"
     out_dir.mkdir(parents=True, exist_ok=True)
     jobs = [(q["number"], q.get("imagePrompt") or "") for q in qs
@@ -1088,7 +1108,7 @@ def dry_images_pass(key, qs, base_dir):
         done = False
         for model in chain:
             try:
-                if model == "nano-banana":
+                if model == "nano-banana" or model == "black-forest-labs/flux.2-klein-4b":
                     data, usage = gen_image_nano(key, fprompt)
                     cost += usage.get("cost", 0)
                 elif str(model).startswith("fal-ai/"):
@@ -1212,9 +1232,9 @@ def final_summary(stats):
          "created" if stats.get("exam_created") else "reused (resume)")
     line(f"{stats['audio_ok']}/{stats.get('audio_total', 0)} listening mp3s", "generated, uploaded")
     im = str(stats["img_model"])
-    if im == "nano-banana":
+    if im == "nano-banana" or im == "black-forest-labs/flux.2-klein-4b":
         line(f"{stats['img_ok']}/{stats['img_total']} TOPIK images",
-             f"nano-banana (OpenRouter), ${stats['img_cost']:.2f}, uploaded")
+             f"OpenRouter ({im}), ${stats['img_cost']:.2f}, uploaded")
     elif im.startswith("fal-ai/"):
         line(f"{stats['img_ok']}/{stats['img_total']} TOPIK images",
              f"fal.ai ({im}), {CFG.get('fal_size', 512)}x{CFG.get('fal_size', 512)}, uploaded")
@@ -1238,7 +1258,7 @@ def main():
     ap.add_argument("--mock", type=int, default=None, help="Force mock number (default: next)")
     ap.add_argument("--dry-run", action="store_true", help="Author + validate + save only (no PB/audio/images)")
     ap.add_argument("--config", default="", help="Config JSON file (see mock-config.example.json)")
-    ap.add_argument("--img-model", choices=["z-image", "nano-banana"], default=None,
+    ap.add_argument("--img-model", choices=["z-image", "nano-banana", "black-forest-labs/flux.2-klein-4b", "fal-ai/z-image/turbo"], default=None,
                     help="Image model override (default: config img_model, normally z-image)")
     ap.add_argument("--author-slug", default="", help="Author model slug (skips the interactive menu)")
     ap.add_argument("--proof-slug", default="", help="Proofread model slug (skips the interactive menu)")
@@ -1453,10 +1473,15 @@ def main():
         "img_count": stats["img_total"],
         "fal_cost": round(stats["img_cost"], 4) if str(stats["img_model"]).startswith("fal-ai/") else 0.0,
         "fal_balance": None,
+        "or_balance": None,
         "stage_times": stats["stage_times"],
     }
     try:
         report["fal_balance"] = fal_balance().get("balance")
+    except Exception:
+        pass
+    try:
+        report["or_balance"] = (or_balance() or {}).get("remaining")
     except Exception:
         pass
     (base_dir / "extra" / "run_report.json").write_text(

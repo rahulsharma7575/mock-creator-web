@@ -223,7 +223,8 @@ META_FIELDS = [
     ("llm_author_model", "Author LLM", "text", "LLM", "OpenRouter model for question authoring"),
     ("llm_proofread_model", "Proofread LLM", "text", "LLM", "OpenRouter model for proofreading"),
     ("llm_repair_model", "Repair LLM", "text", "LLM", "OpenRouter model for repair pass"),
-    ("image_primary", "Image provider", "select", "Images", "fal-ai (Fal.ai) | z-image (Magnific) | nano-banana (OpenRouter)", ["fal-ai/z-image/turbo", "z-image", "nano-banana"]),
+    ("image_primary", "Image provider", "select", "Images", "fal-ai (Fal.ai) | z-image (Magnific) | black-forest-labs/flux.2-klein-4b (OpenRouter)", ["fal-ai/z-image/turbo", "z-image", "black-forest-labs/flux.2-klein-4b"]),
+    ("image_fallback", "Fallback image model", "text", "Images", "Deprecated - providers fall back automatically, keep empty"),
     ("image_fallback", "Fallback image model", "text", "Images", "Magnific fallback (p-image-ideogram-1k)"),
     ("tts_model", "TTS model", "text", "Audio", "OpenRouter TTS model"),
     ("tts_fallback_model", "TTS fallback model", "text", "Audio", "Fallback TTS model"),
@@ -300,18 +301,41 @@ function ensureCollections() {
         )
         for i, (field, label, ftype, group, help_text, *opts) in enumerate(META_FIELDS)
     ) + """
+  // ---- migrations (idempotent, cheap after first run) ----
   try {
     var mImg = $app.findFirstRecordByData("mock_config_meta", "field", "image_primary")
     var cur = mImg.get("options") || []
     if (typeof cur === "string") { try { cur = JSON.parse(cur) } catch (errP) { cur = [] } }
-    if (mImg.getString("ftype") !== "select" || cur.indexOf("fal-ai/z-image/turbo") === -1) {
+    if (cur.indexOf("black-forest-labs/flux.2-klein-4b") === -1) {
       mImg.set("label", "Image provider")
       mImg.set("ftype", "select")
-      mImg.set("options", ["fal-ai/z-image/turbo", "z-image", "nano-banana"])
-      mImg.set("help", "fal-ai (Fal.ai) | z-image (Magnific) | nano-banana (OpenRouter)")
+      mImg.set("options", ["fal-ai/z-image/turbo", "z-image", "black-forest-labs/flux.2-klein-4b"])
+      mImg.set("help", "fal-ai (Fal.ai) | z-image (Magnific) | black-forest-labs/flux.2-klein-4b (OpenRouter)")
       $app.save(mImg)
     }
+    var oldCfgs = $app.findRecordsByFilter("mock_config", "image_primary = 'nano-banana'", "", 200, 0)
+    for (var cI = 0; cI < oldCfgs.length; cI++) {
+      oldCfgs[cI].set("image_primary", "black-forest-labs/flux.2-klein-4b")
+      $app.save(oldCfgs[cI])
+    }
   } catch (errM) {}
+  try {
+    var runCols = ["dryrun", "fullrun"]
+    for (var rc = 0; rc < runCols.length; rc++) {
+      var col = $app.findCollectionByNameOrId(runCols[rc])
+      var hasImg = false, hasAud = false
+      for (var fi = 0; fi < col.fields.items().length; fi++) {
+        var fld = col.fields.items()[fi]
+        if (fld.name === "images") hasImg = true
+        if (fld.name === "audio") hasAud = true
+      }
+      if (!hasImg || !hasAud) {
+        if (!hasImg) col.fields.add({"name": "images", "type": "file", "required": false, "options": {"maxSelect": 20, "maxSize": 20971520, "mimeTypes": ["image/webp", "image/png", "image/jpeg"]}})
+        if (!hasAud) col.fields.add({"name": "audio", "type": "file", "required": false, "options": {"maxSelect": 20, "maxSize": 20971520, "mimeTypes": ["audio/mpeg", "audio/mp3", "audio/wav"]}})
+        $app.save(col)
+      }
+    }
+  } catch (errF) {}
 """,
     "".join(
         "var k{0} = new Record(models); k{0}.set(\"kind\", \"{1}\"); k{0}.set(\"model\", \"{2}\"); k{0}.set(\"display\", \"{3}\"); k{0}.set(\"notes\", \"{4}\"); $app.save(k{0});\n".format(
@@ -424,6 +448,32 @@ try {
   else if (status === 404 || invalid) exists = false
   else exists = true
   return e.json(200, { exists: exists, status: status, message: String(msg).slice(0, 200) })
+} catch (err) {
+  return e.json(500, { error: String(err) })
+}
+""",
+)
+
+# GET /api/creator/or-status - superuser only - OpenRouter credit balance (real API call)
+route(
+    "or-status", "GET", "/api/creator/or-status", "$apis.requireSuperuserAuth()",
+    """
+try {
+  var key = $os.getenv("OPENROUTER_API_KEY") || ""
+  if (!key) return e.json(200, { ok: false, message: "OPENROUTER_API_KEY is not set in the container" })
+  var res = $http.send({ url: "https://openrouter.ai/api/v1/credits", method: "GET", headers: { "Authorization": "Bearer " + key }, timeout: 30 })
+  var j = {}
+  try { j = JSON.parse(res.raw || "{}") } catch (err) {}
+  var d = j.data || {}
+  var total = Number(d.total_credits || 0)
+  var used = Number(d.total_usage || 0)
+  return e.json(200, {
+    ok: res.statusCode === 200,
+    total: total,
+    used: used,
+    remaining: Math.max(0, Math.round((total - used) * 100) / 100),
+    status: res.statusCode || 0
+  })
 } catch (err) {
   return e.json(500, { error: String(err) })
 }

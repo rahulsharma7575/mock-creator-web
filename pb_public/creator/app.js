@@ -68,7 +68,7 @@ createApp({
     theme:localStorage.getItem(LS_TH)||'light',view:'overview',
     nav:[{id:'overview',label:'Overview'},{id:'clients',label:'Clients'},{id:'configs',label:'Configs'},{id:'jobs',label:'Jobs'},{id:'fullruns',label:'Full runs'},{id:'dryruns',label:'Dry runs'}],
     clients:[],jobs:[],configs:[],meta:[],models:[],jobsBusy:false,startBusy:false,
-    dryruns:[],dryrunsBusy:false,fullruns:[],fullrunsBusy:false,previewRun:null,falStatus:null,cfgByClient:{},
+    dryruns:[],dryrunsBusy:false,fullruns:[],fullrunsBusy:false,previewRun:null,falStatus:null,orBalance:null,cfgByClient:{},
     qs:{client:'',count:40,difficulty:'creative+difficult'},jobFilter:'all',
     drawerJob:null,drawerTimer:null,drawerLastUpd:'',clientModal:false,clientStep:0,newClientName:'',newKey:'',clientErr:'',
     confirmMsg:null,confirmFn:null,toasts:[],
@@ -104,7 +104,7 @@ createApp({
       const nano=price('google/gemini-2.5-flash-image');
       const im=String(this.cfgData.image_primary||this.cfgData.img_model||'z-image');
       let images=null,imgNote=null;
-      if(im==='nano-banana'&&nano)images=img*1320*nano.c;
+      if((im==='nano-banana'||im==='black-forest-labs/flux.2-klein-4b')&&nano)images=img*1320*nano.c;
       else if(im==='z-image')imgNote='Magnific credits';
       else if(im.startsWith('fal-ai/'))imgNote='Fal.ai (512x512)';
       const known=this.orStatus==='live';
@@ -168,7 +168,7 @@ createApp({
     grpIcon(g){return{LLM:'cpu',Images:'image',Exam:'bookOpen',Audio:'headphones',Push:'send',Advanced:'settings',General:'sliders'}[g]||'sliders';},
     hintText(f){if(!f||!this.cfgData)return'';
       if(f.field==='image_count'){const n=this.cfgData.image_count||18;return`${n} questions will have pictures, spread randomly across reading & listening`;}
-      if(f.field==='image_primary'){const im=String(this.cfgData.image_primary||'');if(im.startsWith('fal-ai/'))return'Runs via Fal.ai (512x512, 1:1) - FAL_KEY must be in the container env';if(im==='z-image')return'Runs via Magnific (5 credits per image)';if(im==='nano-banana')return'Runs via OpenRouter (billed per image)';return'';}
+      if(f.field==='image_primary'){const im=String(this.cfgData.image_primary||'');if(im.startsWith('fal-ai/'))return'Runs via Fal.ai (512x512, 1:1) - FAL_KEY must be in the container env';if(im==='z-image')return'Runs via Magnific (5 credits per image)';if(im==='nano-banana'||im==='black-forest-labs/flux.2-klein-4b')return'Runs via OpenRouter (flux.2 klein 4b, billed per image)';return'';}
       if(f.field==='reading_count'){const t=this.cfgData.question_count||0;const v=this.cfgData[f.field]||0;return t?`${t-v} listening questions remaining (Q${v+1}-Q${t})`:'Set total questions first';}
       if(f.field==='llm_author_model'&&this.cfgData[f.field]){const m=this.orModels[this.cfgData[f.field]];return m?`OpenRouter: ${m.name}`:this.orStatus==='live'?`Model not found on OpenRouter`:'';
       }
@@ -211,8 +211,8 @@ createApp({
       }
       if(!scope||scope.has('Images')){
         const im=String(c.image_primary||c.img_model||'');
-        if(im==='nano-banana'){
-          const r=await this.verifyModel('google/gemini-2.5-flash-image');
+        if(im==='nano-banana'||im==='black-forest-labs/flux.2-klein-4b'){
+          const r=await this.verifyModel(im==='nano-banana'?'google/gemini-2.5-flash-image':'black-forest-labs/flux.2-klein-4b');
           if(r.exists===false)add('Images','err','Image model gemini-2.5-flash-image not found on OpenRouter');
           else if(r.exists===null)add('Images','warn','Cannot verify image model right now: '+(r.message||'unknown'));
         }else if(im==='z-image'){
@@ -257,7 +257,7 @@ createApp({
     },
     cardState(g){const list=this.groupIssues[g]||[];if(list.some(i=>i.w==='err'))return'err';if(list.some(i=>i.w==='warn'))return'warn';if(this.verified[g])return'ok';return'idle';},
     groupIssueList(g){return this.groupIssues[g]||[];},
-    hiddenField(f){return['image_count_min','image_count_max','is_active','shuffle_questions','shuffle_options','negative_marks','push_subject_id','push_exam_type'].includes(f.field);},
+    hiddenField(f){return['image_count_min','image_count_max','is_active','shuffle_questions','shuffle_options','negative_marks','push_subject_id','push_exam_type','image_fallback'].includes(f.field);},
     toggleGroup(g){this.openGroup=this.openGroup===g?'':g;this.$nextTick(()=>this.deckEnter());},
     viewEnter(){
       if(!window.anime)return;
@@ -274,7 +274,7 @@ createApp({
     async login(){this.loginErr='';this.loginBusy=true;
       try{const r=await fetch('/api/collections/_superusers/auth-with-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity:this.loginEmail,password:this.loginPass})});const text=await r.text();let b;try{b=JSON.parse(text);}catch(e){throw new Error('Server returned unexpected response - is PocketBase running?');}if(!r.ok)throw new Error(b.message||'auth failed');localStorage.setItem(LS_TK,b.token);localStorage.setItem(LS_EM,b.record.email||this.loginEmail);this.who=localStorage.getItem(LS_EM);this.authed=true;try{await api('/api/creator/ensure');}catch(e){this.toast('ensure: '+e.message,'err');}this.loadAll();}catch(e){this.loginErr=e.message;}this.loginBusy=false;},
     logout(){localStorage.removeItem(LS_TK);localStorage.removeItem(LS_EM);clearInterval(this.drawerTimer);this.drawerTimer=null;this.drawerJob=null;this.authed=false;this.who='';this.view='overview';this.clients=[];this.jobs=[];this.configs=[];this.cfgClient='';this.cfg=null;},
-    loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();this.loadFalStatus();this.ensureOrModels();this.$nextTick(()=>this.viewEnter());},
+    loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();this.loadFalStatus();this.loadOrBalance();this.ensureOrModels();this.$nextTick(()=>this.viewEnter());},
     async loadClients(){try{const r=await api('/api/collections/mock_clients/records?perPage=200&sort=name');this.clients=r.items||[];}catch(e){this.toast('clients: '+e.message,'err');}},
     async loadConfigs(){try{const r=await api('/api/collections/mock_config/records?perPage=200');this.configs=r.items||[];const m={};for(const c of this.configs){m[c.client]=c;}this.cfgByClient=m;}catch(e){this.toast('configs: '+e.message,'err');}},
     async loadMeta(){try{const r=await api('/api/collections/mock_config_meta/records?perPage=200&sort=group,order');this.meta=r.items||[];}catch(e){}},
@@ -282,6 +282,7 @@ createApp({
     async loadDryruns(){this.dryrunsBusy=true;try{const r=await api('/api/collections/dryrun/records?perPage=50&sort=-created');this.dryruns=r.items||[];}catch(e){this.toast('dry runs: '+e.message,'err');}this.dryrunsBusy=false;},
     async loadFullruns(){this.fullrunsBusy=true;try{const r=await api('/api/collections/fullrun/records?perPage=50&sort=-created');this.fullruns=r.items||[];}catch(e){this.toast('full runs: '+e.message,'err');}this.fullrunsBusy=false;},
     async loadFalStatus(){try{const r=await api('/api/creator/fal-status');this.falStatus=r;}catch(e){this.falStatus=null;}},
+    async loadOrBalance(){try{const r=await api('/api/creator/or-status');this.orBalance=r;}catch(e){this.orBalance=null;}},
     dryKindLabel(k){return k==='dry_questions'?'Questions':k==='dry_images'?'Images':k==='dry_audio'?'Audio':(k||'—');},
     dryCost(d){const r=(d&&d.report)||{};const c=r.total_llm_cost_usd!=null?r.total_llm_cost_usd:r.llm_cost;return c?`$${Number(c).toFixed(3)}`:'—';},
     dryFalCost(d){const r=(d&&d.report)||{};const c=r.fal_cost||0;const im=String(r.img_model||'');return c&&im.startsWith('fal-ai/')?`$${Number(c).toFixed(4)}`:'—';},
