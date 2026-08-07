@@ -297,6 +297,18 @@ def route(name, method, path, middleware, body):
     HANDLERS.append((name, method, path, middleware, body))
 
 
+# GET /api/creator/ping - no auth, no schema — diagnostic: are hooks even loading?
+route(
+    "ping", "GET", "/api/creator/ping", None,
+    """
+try {
+  return e.json(200, { ok: true, hooks: "loaded" })
+} catch (err) {
+  return e.json(500, { error: String(err) })
+}
+""",
+)
+
 # GET /api/creator/ensure - superuser only, idempotent schema+seeds
 route(
     "ensure", "GET", "/api/creator/ensure", "$apis.requireSuperuserAuth()",
