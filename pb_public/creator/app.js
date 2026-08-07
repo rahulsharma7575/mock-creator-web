@@ -73,7 +73,7 @@ createApp({
     drawerJob:null,drawerTimer:null,drawerLastUpd:'',clientModal:false,clientStep:0,newClientName:'',newKey:'',clientErr:'',
     confirmMsg:null,confirmFn:null,toasts:[],
     cfgClient:'',cfg:null,cfgLoading:false,cfgSaving:false,cfgSavedAt:'',cfgRaw:false,cfgRawText:'',cfgRawErr:'',
-    cfgData:{},showPass:false,valIssues:[],valChecked:false,
+    cfgData:{},showPass:false,valIssues:[],valChecked:false,cfgSnapshot:null,
     groupIssues:{},verified:{},openGroup:'Exam',vmCache:{},dryBusy:null,
     orModels:{},orStatus:'loading',
   }},
@@ -366,17 +366,36 @@ createApp({
       }
       this.dryBusy=null;this.toast('Dry run still running - check the Jobs page','info');
     },
-    async loadConfig(){if(!this.cfgClient){this.cfg=null;return;}this.cfgLoading=true;this.cfgSavedAt='';try{const r=await api('/api/creator/config?client='+encodeURIComponent(this.cfgClient));this.cfg=r;const rest=Object.assign({},r.record);delete rest.id;delete rest.created;delete rest.updated;this.cfgData=rest;this.cfgData.prompts_json=JSON.stringify((r.record&&r.record.prompts_json)||{},null,2);this.cfgRawText=JSON.stringify(r.record,null,2);this.cfgRawErr='';this.valChecked=false;this.valIssues=[];this.groupIssues={};this.verified={};this.$nextTick(()=>this.deckEnter());}catch(e){this.toast('config: '+e.message,'err');this.cfg=null;}this.cfgLoading=false;},
+    async loadConfig(){if(!this.cfgClient){this.cfg=null;return;}this.cfgLoading=true;this.cfgSavedAt='';try{const r=await api('/api/creator/config?client='+encodeURIComponent(this.cfgClient));this.cfg=r;const rest=Object.assign({},r.record);delete rest.id;delete rest.created;delete rest.updated;this.cfgData=rest;this.cfgData.prompts_json=JSON.stringify((r.record&&r.record.prompts_json)||{},null,2);this.cfgRawText=JSON.stringify(r.record,null,2);this.cfgRawErr='';this.valChecked=false;this.valIssues=[];this.groupIssues={};this.verified={};this.cfgSnapshot=JSON.stringify(this.cfgData);this.$nextTick(()=>this.deckEnter());}catch(e){this.toast('config: '+e.message,'err');this.cfg=null;}this.cfgLoading=false;},
     metaByGroup(g){return this.meta.filter(m=>m.group===g);},
     validateRaw(){try{JSON.parse(this.cfgRawText);this.cfgRawErr='';this.toast('JSON is valid','ok');}catch(e){this.cfgRawErr='Invalid JSON: '+e.message;}},
-    async saveConfig(){this.cfgSaving=true;try{let body;if(this.cfgRaw){body=JSON.parse(this.cfgRawText);}else{
+    buildConfigBody(){
       const n=Number(this.cfgData.image_count)||18;
       this.cfgData.image_count=n;
       this.cfgData.image_count_min=Math.max(0,n-2);
       this.cfgData.image_count_max=Math.min(26,n+2);
-      const metaByField={};this.meta.forEach(m=>{metaByField[m.field]=m;});body={};
+      const metaByField={};this.meta.forEach(m=>{metaByField[m.field]=m;});const body={};
       for(const k of Object.keys(this.cfgData)){const m=metaByField[k];const v=this.cfgData[k];if(k==='prompts_json'){try{body[k]=JSON.parse(v||'{}');}catch(e){throw new Error('prompts_json is not valid JSON');}}else if(m&&m.ftype==='number')body[k]=(v===''||v===null||v===undefined)?null:Number(v);else if(m&&m.ftype==='bool')body[k]=!!v;else body[k]=v;}
-    }await api('/api/collections/mock_config/records/'+this.cfg.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});this.toast('Config saved','ok');await this.loadConfig();this.cfgSavedAt=new Date().toISOString();}catch(e){this.toast('save: '+e.message,'err');}this.cfgSaving=false;},
+      return body;
+    },
+    isDirty(g){
+      if(!this.cfgSnapshot)return false;
+      try{const snap=JSON.parse(this.cfgSnapshot);for(const f of this.metaByGroup(g)){if(this.hiddenField(f))continue;const cur=this.cfgData[f.field];const base=snap[f.field];if(JSON.stringify(cur==null?null:cur)!==JSON.stringify(base==null?null:base))return true;}return false;}catch(e){return false;}
+    },
+    anyDirty(){for(const g of this.groups){if(this.isDirty(g))return true;}return false;},
+    updateSnapshotFor(g){
+      try{const snap=JSON.parse(this.cfgSnapshot||'{}');for(const f of this.metaByGroup(g)){snap[f.field]=this.cfgData[f.field];}this.cfgSnapshot=JSON.stringify(snap);}catch(e){}
+    },
+    async saveGroup(g){
+      this.cfgSaving=true;
+      try{let body;if(this.cfgRaw){body=JSON.parse(this.cfgRawText);}else{body=this.buildConfigBody();}
+        await api('/api/collections/mock_config/records/'+this.cfg.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        this.updateSnapshotFor(g);this.toast(g+' saved','ok');
+      }catch(e){this.toast('save: '+e.message,'err');}
+      this.cfgSaving=false;
+    },
+    async saveConfig(){this.cfgSaving=true;try{let body;if(this.cfgRaw){body=JSON.parse(this.cfgRawText);}else{body=this.buildConfigBody();}
+    await api('/api/collections/mock_config/records/'+this.cfg.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});this.toast('Config saved','ok');this.cfgSavedAt=new Date().toISOString();this.cfgSnapshot=JSON.stringify(this.cfgData);}catch(e){this.toast('save: '+e.message,'err');}this.cfgSaving=false;},
     async openJob(j){try{const r=await api('/api/creator/jobs/'+j.id);this.drawerJob=r;this.drawerLastUpd=Date.now();if(r.report){j._report=r.report;}}catch(e){this.toast('job: '+e.message,'err');}},
     async refreshDrawer(){if(!this.drawerJob)return;try{const r=await api('/api/creator/jobs/'+this.drawerJob.id);Object.assign(this.drawerJob,r);this.drawerLastUpd=Date.now();const j=this.jobs.find(x=>x.id===r.id);if(j)Object.assign(j,{status:r.status,error:r.error,pushed:r.pushed});if(r.status!=='queued'&&r.status!=='running')clearInterval(this.drawerTimer);}catch(e){}},
     retryJob(){const j=this.drawerJob;const k=j.kind||'full';this.confirmMsg='Re-queue '+k+' job for "'+j.client_name+'" ('+j.count+'q)?';this.confirmFn=async()=>{try{await this.startJob({client:j.client,count:j.count,difficulty:j.difficulty||'',kind:k});this.toast('Re-queued','ok');this.drawerJob=null;this.loadJobs();}catch(e){this.toast('requeue: '+e.message,'err');}};},

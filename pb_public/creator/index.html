@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Fraunces:ital,opsz,wght@1,9..144,500;1,9..144,600&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/tailwind.css?v=12">
+<link rel="stylesheet" href="lib/tailwind.css?v=13">
 <style>
 :root{
   --bg:#f7f2e8; --panel:#fffdf8; --panel2:#f0e9d9; --line:#e3d9c1; --ink:#262218; --mut:#7f7866;
@@ -139,6 +139,7 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
 .acc-title{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:15px;letter-spacing:-.01em}
 .acc-desc{font-size:11.5px;color:var(--mut);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
 .acc-status{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.dirty-dot{width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 3px var(--glow);animation:pulse-dot 1.4s ease-in-out infinite;flex-shrink:0}
 .acc-state-badge{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:10px;flex-shrink:0}
 .acc-state-badge.idle{color:var(--mut);background:var(--panel)}
 .acc-state-badge.ok{color:var(--green);background:rgba(47,125,79,.1)}
@@ -426,9 +427,11 @@ th.sortable:hover{color:var(--amber2)}
                         <div class="acc-desc">{{ grpDesc(g) }}</div>
                       </div>
                       <div class="acc-status">
+                        <span v-if="isDirty(g)" class="dirty-dot" :title="g+' has unsaved changes'"></span>
                         <span class="acc-state-badge" :class="cardState(g)" :title="cardState(g)==='idle'?'Not verified yet':cardState(g)==='ok'?'All good':'Has issues'">
                           <span v-html="ic(cardState(g)==='err'?'alertTriangle':cardState(g)==='warn'?'info':cardState(g)==='ok'?'checkCircle':'circle',16)"></span>
                         </span>
+                        <button v-if="isDirty(g)" type="button" class="btn btn-amber btn-sm flex items-center gap-1" @click.stop="saveGroup(g)" :disabled="cfgSaving" title="Save {{ g }} changes"><span v-html="ic('save',13)"></span></button>
                         <button type="button" class="btn btn-ghost btn-sm flex items-center gap-1" @click.stop="verifyGroup(g)"><span v-html="ic('checkCircle',13)"></span>Verify</button>
                         <span class="acc-chev" v-html="ic('chevronDown',16)"></span>
                       </div>
@@ -498,7 +501,7 @@ th.sortable:hover{color:var(--amber2)}
 
                   <div class="flex items-center gap-3 flex-wrap mt-4">
                     <button type="submit" class="btn btn-amber px-6 py-3 text-sm flex items-center gap-2" :disabled="cfgSaving">
-                      <span v-if="cfgSaving" class="spinner"></span><span v-html="ic('save',15)"></span>Save config
+                      <span v-if="cfgSaving" class="spinner"></span><span v-html="ic('save',15)"></span>Save all changes<template v-if="anyDirty()"> ({{ groups.filter(g=>isDirty(g)).length }})</template>
                     </button>
                     <button type="button" class="btn btn-ghost px-4 py-2 text-xs flex items-center gap-1.5" @click="validateConfig"><span v-html="ic('checkCircle',13)"></span>Verify all</button>
                     <button type="button" class="btn btn-ghost px-4 py-2 text-xs flex items-center gap-1.5" @click="copyConfig"><span v-html="ic('copy',13)"></span>Copy JSON</button>
@@ -885,7 +888,7 @@ th.sortable:hover{color:var(--amber2)}
 
 <script src="lib/vue.global.prod.js"></script>
 <script src="lib/anime.min.js"></script>
-<script src="lib/icons.js?v=12"></script>
-<script src="app.min.js?v=12"></script>
+<script src="lib/icons.js?v=13"></script>
+<script src="app.min.js?v=13"></script>
 </body>
 </html>
