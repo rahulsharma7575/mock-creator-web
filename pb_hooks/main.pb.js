@@ -31,29 +31,28 @@ var m4 = new Record(meta); m4.set("field", "image_fallback"); m4.set("label", "F
 var m5 = new Record(meta); m5.set("field", "tts_model"); m5.set("label", "TTS model"); m5.set("ftype", "select"); m5.set("group", "Audio"); m5.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); m5.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); $app.save(m5);
 var m6 = new Record(meta); m6.set("field", "tts_fallback_model"); m6.set("label", "Fallback TTS model"); m6.set("ftype", "select"); m6.set("group", "Audio"); m6.set("help", "Used only if the primary TTS model fails or times out."); m6.set("options", ["microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]); $app.save(m6);
 var m7 = new Record(meta); m7.set("field", "tts_fallback_voice"); m7.set("label", "Fallback voice"); m7.set("ftype", "text"); m7.set("group", "Audio"); m7.set("help", "Voice id used when the primary voice is unavailable (e.g. ko-KR-Haena)."); $app.save(m7);
-var m8 = new Record(meta); m8.set("field", "tts_voices"); m8.set("label", "Speaker voices (JSON)"); m8.set("ftype", "json"); m8.set("group", "Audio"); m8.set("help", "Map each speaker label to a TTS voice, e.g. {\"V1\": \"alloy\", \"V2\": \"echo\"}. Number of people in a dialog = number of speakers. Leave {} for defaults."); $app.save(m8);
-var m9 = new Record(meta); m9.set("field", "question_count"); m9.set("label", "Total questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "40 by default"); $app.save(m9);
-var m10 = new Record(meta); m10.set("field", "reading_count"); m10.set("label", "Reading questions"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Reading section size"); $app.save(m10);
-var m11 = new Record(meta); m11.set("field", "image_count"); m11.set("label", "Image questions target"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Target count"); $app.save(m11);
-var m12 = new Record(meta); m12.set("field", "image_count_min"); m12.set("label", "Image questions min"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Minimum (18)"); $app.save(m12);
-var m13 = new Record(meta); m13.set("field", "image_count_max"); m13.set("label", "Image questions max"); m13.set("ftype", "number"); m13.set("group", "Exam"); m13.set("help", "Maximum (26)"); $app.save(m13);
-var m14 = new Record(meta); m14.set("field", "difficulty_profile"); m14.set("label", "Difficulty profile"); m14.set("ftype", "select"); m14.set("group", "Exam"); m14.set("help", "creative+difficult | creative+medium | hard"); m14.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m14);
-var m15 = new Record(meta); m15.set("field", "marks_per_question"); m15.set("label", "Marks per question"); m15.set("ftype", "number"); m15.set("group", "Exam"); m15.set("help", "Default marks"); $app.save(m15);
-var m16 = new Record(meta); m16.set("field", "max_tokens"); m16.set("label", "Max tokens"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM generation cap"); $app.save(m16);
-var m17 = new Record(meta); m17.set("field", "temperature"); m17.set("label", "Temperature"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM sampling temp"); $app.save(m17);
-var m18 = new Record(meta); m18.set("field", "timeout_s"); m18.set("label", "Timeout (s)"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "LLM call timeout"); $app.save(m18);
-var m19 = new Record(meta); m19.set("field", "retries"); m19.set("label", "LLM retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Retry count"); $app.save(m19);
-var m20 = new Record(meta); m20.set("field", "img_retries"); m20.set("label", "Image retries"); m20.set("ftype", "number"); m20.set("group", "Advanced"); m20.set("help", "Per-model image retries"); $app.save(m20);
-var m21 = new Record(meta); m21.set("field", "push_pb_base"); m21.set("label", "Push base URL"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PocketBase base URL"); $app.save(m21);
-var m22 = new Record(meta); m22.set("field", "push_pb_email"); m22.set("label", "Push email"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin email"); $app.save(m22);
-var m23 = new Record(meta); m23.set("field", "push_pb_pass"); m23.set("label", "Push password"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Client PB admin password"); $app.save(m23);
-var m24 = new Record(meta); m24.set("field", "push_subject_id"); m24.set("label", "Subject id"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "Subject record id on client PB"); $app.save(m24);
-var m25 = new Record(meta); m25.set("field", "push_exam_type"); m25.set("label", "Exam type on push"); m25.set("ftype", "text"); m25.set("group", "Push"); m25.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m25);
-var m26 = new Record(meta); m26.set("field", "push_exam_status"); m26.set("label", "Exam status on push"); m26.set("ftype", "select"); m26.set("group", "Push"); m26.set("help", "draft = review-then-publish | published = immediate"); m26.set("options", ["draft", "published"]); $app.save(m26);
-var m27 = new Record(meta); m27.set("field", "audio_gap_ms"); m27.set("label", "Gap between clips (ms)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m27);
-var m28 = new Record(meta); m28.set("field", "sample_rate"); m28.set("label", "Sample rate (Hz)"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m28);
-var m29 = new Record(meta); m29.set("field", "audio_workers"); m29.set("label", "Parallel audio workers"); m29.set("ftype", "number"); m29.set("group", "Audio"); m29.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m29);
-var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config enabled"); m30.set("ftype", "bool"); m30.set("group", "General"); m30.set("help", "Use this config"); $app.save(m30);
+var m8 = new Record(meta); m8.set("field", "question_count"); m8.set("label", "Total questions"); m8.set("ftype", "number"); m8.set("group", "Exam"); m8.set("help", "40 by default"); $app.save(m8);
+var m9 = new Record(meta); m9.set("field", "reading_count"); m9.set("label", "Reading questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "Reading section size"); $app.save(m9);
+var m10 = new Record(meta); m10.set("field", "image_count"); m10.set("label", "Image questions target"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Target count"); $app.save(m10);
+var m11 = new Record(meta); m11.set("field", "image_count_min"); m11.set("label", "Image questions min"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Minimum (18)"); $app.save(m11);
+var m12 = new Record(meta); m12.set("field", "image_count_max"); m12.set("label", "Image questions max"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Maximum (26)"); $app.save(m12);
+var m13 = new Record(meta); m13.set("field", "difficulty_profile"); m13.set("label", "Difficulty profile"); m13.set("ftype", "select"); m13.set("group", "Exam"); m13.set("help", "creative+difficult | creative+medium | hard"); m13.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m13);
+var m14 = new Record(meta); m14.set("field", "marks_per_question"); m14.set("label", "Marks per question"); m14.set("ftype", "number"); m14.set("group", "Exam"); m14.set("help", "Default marks"); $app.save(m14);
+var m15 = new Record(meta); m15.set("field", "max_tokens"); m15.set("label", "Max tokens"); m15.set("ftype", "number"); m15.set("group", "Advanced"); m15.set("help", "LLM generation cap"); $app.save(m15);
+var m16 = new Record(meta); m16.set("field", "temperature"); m16.set("label", "Temperature"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM sampling temp"); $app.save(m16);
+var m17 = new Record(meta); m17.set("field", "timeout_s"); m17.set("label", "Timeout (s)"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM call timeout"); $app.save(m17);
+var m18 = new Record(meta); m18.set("field", "retries"); m18.set("label", "LLM retries"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "Retry count"); $app.save(m18);
+var m19 = new Record(meta); m19.set("field", "img_retries"); m19.set("label", "Image retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Per-model image retries"); $app.save(m19);
+var m20 = new Record(meta); m20.set("field", "push_pb_base"); m20.set("label", "Push base URL"); m20.set("ftype", "text"); m20.set("group", "Push"); m20.set("help", "Client PocketBase base URL"); $app.save(m20);
+var m21 = new Record(meta); m21.set("field", "push_pb_email"); m21.set("label", "Push email"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PB admin email"); $app.save(m21);
+var m22 = new Record(meta); m22.set("field", "push_pb_pass"); m22.set("label", "Push password"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin password"); $app.save(m22);
+var m23 = new Record(meta); m23.set("field", "push_subject_id"); m23.set("label", "Subject id"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Subject record id on client PB"); $app.save(m23);
+var m24 = new Record(meta); m24.set("field", "push_exam_type"); m24.set("label", "Exam type on push"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m24);
+var m25 = new Record(meta); m25.set("field", "push_exam_status"); m25.set("label", "Exam status on push"); m25.set("ftype", "select"); m25.set("group", "Push"); m25.set("help", "draft = review-then-publish | published = immediate"); m25.set("options", ["draft", "published"]); $app.save(m25);
+var m26 = new Record(meta); m26.set("field", "audio_gap_ms"); m26.set("label", "Gap between clips (ms)"); m26.set("ftype", "number"); m26.set("group", "Audio"); m26.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m26);
+var m27 = new Record(meta); m27.set("field", "sample_rate"); m27.set("label", "Sample rate (Hz)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m27);
+var m28 = new Record(meta); m28.set("field", "audio_workers"); m28.set("label", "Parallel audio workers"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m28);
+var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config enabled"); m29.set("ftype", "bool"); m29.set("group", "General"); m29.set("help", "Use this config"); $app.save(m29);
 
   // ---- migrations (idempotent, cheap after first run) ----
   try {
@@ -119,6 +118,20 @@ var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config
     var mT = $app.findFirstRecordByData("mock_config_meta", "field", "tts_model")
     if (mT.getString("ftype") !== "select") { mT.set("ftype", "select"); mT.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); mT.set("label", "TTS model"); mT.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); $app.save(mT) }
   } catch (errT) {}
+  try {
+    // upsert missing default TTS model seeds (existing installs never got them)
+    var mCol = $app.findCollectionByNameOrId("mock_models")
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    for (var si = 0; si < seedDefs.length; si++) {
+      var exists = false
+      try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
+      if (!exists) {
+        var mRec = new Record(mCol)
+        mRec.set("kind", seedDefs[si][0]); mRec.set("model", seedDefs[si][1]); mRec.set("display", seedDefs[si][2]); mRec.set("notes", seedDefs[si][3])
+        $app.save(mRec)
+      }
+    }
+  } catch (errU) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -193,29 +206,28 @@ var m4 = new Record(meta); m4.set("field", "image_fallback"); m4.set("label", "F
 var m5 = new Record(meta); m5.set("field", "tts_model"); m5.set("label", "TTS model"); m5.set("ftype", "select"); m5.set("group", "Audio"); m5.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); m5.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); $app.save(m5);
 var m6 = new Record(meta); m6.set("field", "tts_fallback_model"); m6.set("label", "Fallback TTS model"); m6.set("ftype", "select"); m6.set("group", "Audio"); m6.set("help", "Used only if the primary TTS model fails or times out."); m6.set("options", ["microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]); $app.save(m6);
 var m7 = new Record(meta); m7.set("field", "tts_fallback_voice"); m7.set("label", "Fallback voice"); m7.set("ftype", "text"); m7.set("group", "Audio"); m7.set("help", "Voice id used when the primary voice is unavailable (e.g. ko-KR-Haena)."); $app.save(m7);
-var m8 = new Record(meta); m8.set("field", "tts_voices"); m8.set("label", "Speaker voices (JSON)"); m8.set("ftype", "json"); m8.set("group", "Audio"); m8.set("help", "Map each speaker label to a TTS voice, e.g. {\"V1\": \"alloy\", \"V2\": \"echo\"}. Number of people in a dialog = number of speakers. Leave {} for defaults."); $app.save(m8);
-var m9 = new Record(meta); m9.set("field", "question_count"); m9.set("label", "Total questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "40 by default"); $app.save(m9);
-var m10 = new Record(meta); m10.set("field", "reading_count"); m10.set("label", "Reading questions"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Reading section size"); $app.save(m10);
-var m11 = new Record(meta); m11.set("field", "image_count"); m11.set("label", "Image questions target"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Target count"); $app.save(m11);
-var m12 = new Record(meta); m12.set("field", "image_count_min"); m12.set("label", "Image questions min"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Minimum (18)"); $app.save(m12);
-var m13 = new Record(meta); m13.set("field", "image_count_max"); m13.set("label", "Image questions max"); m13.set("ftype", "number"); m13.set("group", "Exam"); m13.set("help", "Maximum (26)"); $app.save(m13);
-var m14 = new Record(meta); m14.set("field", "difficulty_profile"); m14.set("label", "Difficulty profile"); m14.set("ftype", "select"); m14.set("group", "Exam"); m14.set("help", "creative+difficult | creative+medium | hard"); m14.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m14);
-var m15 = new Record(meta); m15.set("field", "marks_per_question"); m15.set("label", "Marks per question"); m15.set("ftype", "number"); m15.set("group", "Exam"); m15.set("help", "Default marks"); $app.save(m15);
-var m16 = new Record(meta); m16.set("field", "max_tokens"); m16.set("label", "Max tokens"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM generation cap"); $app.save(m16);
-var m17 = new Record(meta); m17.set("field", "temperature"); m17.set("label", "Temperature"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM sampling temp"); $app.save(m17);
-var m18 = new Record(meta); m18.set("field", "timeout_s"); m18.set("label", "Timeout (s)"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "LLM call timeout"); $app.save(m18);
-var m19 = new Record(meta); m19.set("field", "retries"); m19.set("label", "LLM retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Retry count"); $app.save(m19);
-var m20 = new Record(meta); m20.set("field", "img_retries"); m20.set("label", "Image retries"); m20.set("ftype", "number"); m20.set("group", "Advanced"); m20.set("help", "Per-model image retries"); $app.save(m20);
-var m21 = new Record(meta); m21.set("field", "push_pb_base"); m21.set("label", "Push base URL"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PocketBase base URL"); $app.save(m21);
-var m22 = new Record(meta); m22.set("field", "push_pb_email"); m22.set("label", "Push email"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin email"); $app.save(m22);
-var m23 = new Record(meta); m23.set("field", "push_pb_pass"); m23.set("label", "Push password"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Client PB admin password"); $app.save(m23);
-var m24 = new Record(meta); m24.set("field", "push_subject_id"); m24.set("label", "Subject id"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "Subject record id on client PB"); $app.save(m24);
-var m25 = new Record(meta); m25.set("field", "push_exam_type"); m25.set("label", "Exam type on push"); m25.set("ftype", "text"); m25.set("group", "Push"); m25.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m25);
-var m26 = new Record(meta); m26.set("field", "push_exam_status"); m26.set("label", "Exam status on push"); m26.set("ftype", "select"); m26.set("group", "Push"); m26.set("help", "draft = review-then-publish | published = immediate"); m26.set("options", ["draft", "published"]); $app.save(m26);
-var m27 = new Record(meta); m27.set("field", "audio_gap_ms"); m27.set("label", "Gap between clips (ms)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m27);
-var m28 = new Record(meta); m28.set("field", "sample_rate"); m28.set("label", "Sample rate (Hz)"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m28);
-var m29 = new Record(meta); m29.set("field", "audio_workers"); m29.set("label", "Parallel audio workers"); m29.set("ftype", "number"); m29.set("group", "Audio"); m29.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m29);
-var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config enabled"); m30.set("ftype", "bool"); m30.set("group", "General"); m30.set("help", "Use this config"); $app.save(m30);
+var m8 = new Record(meta); m8.set("field", "question_count"); m8.set("label", "Total questions"); m8.set("ftype", "number"); m8.set("group", "Exam"); m8.set("help", "40 by default"); $app.save(m8);
+var m9 = new Record(meta); m9.set("field", "reading_count"); m9.set("label", "Reading questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "Reading section size"); $app.save(m9);
+var m10 = new Record(meta); m10.set("field", "image_count"); m10.set("label", "Image questions target"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Target count"); $app.save(m10);
+var m11 = new Record(meta); m11.set("field", "image_count_min"); m11.set("label", "Image questions min"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Minimum (18)"); $app.save(m11);
+var m12 = new Record(meta); m12.set("field", "image_count_max"); m12.set("label", "Image questions max"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Maximum (26)"); $app.save(m12);
+var m13 = new Record(meta); m13.set("field", "difficulty_profile"); m13.set("label", "Difficulty profile"); m13.set("ftype", "select"); m13.set("group", "Exam"); m13.set("help", "creative+difficult | creative+medium | hard"); m13.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m13);
+var m14 = new Record(meta); m14.set("field", "marks_per_question"); m14.set("label", "Marks per question"); m14.set("ftype", "number"); m14.set("group", "Exam"); m14.set("help", "Default marks"); $app.save(m14);
+var m15 = new Record(meta); m15.set("field", "max_tokens"); m15.set("label", "Max tokens"); m15.set("ftype", "number"); m15.set("group", "Advanced"); m15.set("help", "LLM generation cap"); $app.save(m15);
+var m16 = new Record(meta); m16.set("field", "temperature"); m16.set("label", "Temperature"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM sampling temp"); $app.save(m16);
+var m17 = new Record(meta); m17.set("field", "timeout_s"); m17.set("label", "Timeout (s)"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM call timeout"); $app.save(m17);
+var m18 = new Record(meta); m18.set("field", "retries"); m18.set("label", "LLM retries"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "Retry count"); $app.save(m18);
+var m19 = new Record(meta); m19.set("field", "img_retries"); m19.set("label", "Image retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Per-model image retries"); $app.save(m19);
+var m20 = new Record(meta); m20.set("field", "push_pb_base"); m20.set("label", "Push base URL"); m20.set("ftype", "text"); m20.set("group", "Push"); m20.set("help", "Client PocketBase base URL"); $app.save(m20);
+var m21 = new Record(meta); m21.set("field", "push_pb_email"); m21.set("label", "Push email"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PB admin email"); $app.save(m21);
+var m22 = new Record(meta); m22.set("field", "push_pb_pass"); m22.set("label", "Push password"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin password"); $app.save(m22);
+var m23 = new Record(meta); m23.set("field", "push_subject_id"); m23.set("label", "Subject id"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Subject record id on client PB"); $app.save(m23);
+var m24 = new Record(meta); m24.set("field", "push_exam_type"); m24.set("label", "Exam type on push"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m24);
+var m25 = new Record(meta); m25.set("field", "push_exam_status"); m25.set("label", "Exam status on push"); m25.set("ftype", "select"); m25.set("group", "Push"); m25.set("help", "draft = review-then-publish | published = immediate"); m25.set("options", ["draft", "published"]); $app.save(m25);
+var m26 = new Record(meta); m26.set("field", "audio_gap_ms"); m26.set("label", "Gap between clips (ms)"); m26.set("ftype", "number"); m26.set("group", "Audio"); m26.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m26);
+var m27 = new Record(meta); m27.set("field", "sample_rate"); m27.set("label", "Sample rate (Hz)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m27);
+var m28 = new Record(meta); m28.set("field", "audio_workers"); m28.set("label", "Parallel audio workers"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m28);
+var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config enabled"); m29.set("ftype", "bool"); m29.set("group", "General"); m29.set("help", "Use this config"); $app.save(m29);
 
   // ---- migrations (idempotent, cheap after first run) ----
   try {
@@ -281,6 +293,20 @@ var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config
     var mT = $app.findFirstRecordByData("mock_config_meta", "field", "tts_model")
     if (mT.getString("ftype") !== "select") { mT.set("ftype", "select"); mT.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); mT.set("label", "TTS model"); mT.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); $app.save(mT) }
   } catch (errT) {}
+  try {
+    // upsert missing default TTS model seeds (existing installs never got them)
+    var mCol = $app.findCollectionByNameOrId("mock_models")
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    for (var si = 0; si < seedDefs.length; si++) {
+      var exists = false
+      try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
+      if (!exists) {
+        var mRec = new Record(mCol)
+        mRec.set("kind", seedDefs[si][0]); mRec.set("model", seedDefs[si][1]); mRec.set("display", seedDefs[si][2]); mRec.set("notes", seedDefs[si][3])
+        $app.save(mRec)
+      }
+    }
+  } catch (errU) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -356,29 +382,28 @@ var m4 = new Record(meta); m4.set("field", "image_fallback"); m4.set("label", "F
 var m5 = new Record(meta); m5.set("field", "tts_model"); m5.set("label", "TTS model"); m5.set("ftype", "select"); m5.set("group", "Audio"); m5.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); m5.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); $app.save(m5);
 var m6 = new Record(meta); m6.set("field", "tts_fallback_model"); m6.set("label", "Fallback TTS model"); m6.set("ftype", "select"); m6.set("group", "Audio"); m6.set("help", "Used only if the primary TTS model fails or times out."); m6.set("options", ["microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]); $app.save(m6);
 var m7 = new Record(meta); m7.set("field", "tts_fallback_voice"); m7.set("label", "Fallback voice"); m7.set("ftype", "text"); m7.set("group", "Audio"); m7.set("help", "Voice id used when the primary voice is unavailable (e.g. ko-KR-Haena)."); $app.save(m7);
-var m8 = new Record(meta); m8.set("field", "tts_voices"); m8.set("label", "Speaker voices (JSON)"); m8.set("ftype", "json"); m8.set("group", "Audio"); m8.set("help", "Map each speaker label to a TTS voice, e.g. {\"V1\": \"alloy\", \"V2\": \"echo\"}. Number of people in a dialog = number of speakers. Leave {} for defaults."); $app.save(m8);
-var m9 = new Record(meta); m9.set("field", "question_count"); m9.set("label", "Total questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "40 by default"); $app.save(m9);
-var m10 = new Record(meta); m10.set("field", "reading_count"); m10.set("label", "Reading questions"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Reading section size"); $app.save(m10);
-var m11 = new Record(meta); m11.set("field", "image_count"); m11.set("label", "Image questions target"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Target count"); $app.save(m11);
-var m12 = new Record(meta); m12.set("field", "image_count_min"); m12.set("label", "Image questions min"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Minimum (18)"); $app.save(m12);
-var m13 = new Record(meta); m13.set("field", "image_count_max"); m13.set("label", "Image questions max"); m13.set("ftype", "number"); m13.set("group", "Exam"); m13.set("help", "Maximum (26)"); $app.save(m13);
-var m14 = new Record(meta); m14.set("field", "difficulty_profile"); m14.set("label", "Difficulty profile"); m14.set("ftype", "select"); m14.set("group", "Exam"); m14.set("help", "creative+difficult | creative+medium | hard"); m14.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m14);
-var m15 = new Record(meta); m15.set("field", "marks_per_question"); m15.set("label", "Marks per question"); m15.set("ftype", "number"); m15.set("group", "Exam"); m15.set("help", "Default marks"); $app.save(m15);
-var m16 = new Record(meta); m16.set("field", "max_tokens"); m16.set("label", "Max tokens"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM generation cap"); $app.save(m16);
-var m17 = new Record(meta); m17.set("field", "temperature"); m17.set("label", "Temperature"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM sampling temp"); $app.save(m17);
-var m18 = new Record(meta); m18.set("field", "timeout_s"); m18.set("label", "Timeout (s)"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "LLM call timeout"); $app.save(m18);
-var m19 = new Record(meta); m19.set("field", "retries"); m19.set("label", "LLM retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Retry count"); $app.save(m19);
-var m20 = new Record(meta); m20.set("field", "img_retries"); m20.set("label", "Image retries"); m20.set("ftype", "number"); m20.set("group", "Advanced"); m20.set("help", "Per-model image retries"); $app.save(m20);
-var m21 = new Record(meta); m21.set("field", "push_pb_base"); m21.set("label", "Push base URL"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PocketBase base URL"); $app.save(m21);
-var m22 = new Record(meta); m22.set("field", "push_pb_email"); m22.set("label", "Push email"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin email"); $app.save(m22);
-var m23 = new Record(meta); m23.set("field", "push_pb_pass"); m23.set("label", "Push password"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Client PB admin password"); $app.save(m23);
-var m24 = new Record(meta); m24.set("field", "push_subject_id"); m24.set("label", "Subject id"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "Subject record id on client PB"); $app.save(m24);
-var m25 = new Record(meta); m25.set("field", "push_exam_type"); m25.set("label", "Exam type on push"); m25.set("ftype", "text"); m25.set("group", "Push"); m25.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m25);
-var m26 = new Record(meta); m26.set("field", "push_exam_status"); m26.set("label", "Exam status on push"); m26.set("ftype", "select"); m26.set("group", "Push"); m26.set("help", "draft = review-then-publish | published = immediate"); m26.set("options", ["draft", "published"]); $app.save(m26);
-var m27 = new Record(meta); m27.set("field", "audio_gap_ms"); m27.set("label", "Gap between clips (ms)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m27);
-var m28 = new Record(meta); m28.set("field", "sample_rate"); m28.set("label", "Sample rate (Hz)"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m28);
-var m29 = new Record(meta); m29.set("field", "audio_workers"); m29.set("label", "Parallel audio workers"); m29.set("ftype", "number"); m29.set("group", "Audio"); m29.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m29);
-var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config enabled"); m30.set("ftype", "bool"); m30.set("group", "General"); m30.set("help", "Use this config"); $app.save(m30);
+var m8 = new Record(meta); m8.set("field", "question_count"); m8.set("label", "Total questions"); m8.set("ftype", "number"); m8.set("group", "Exam"); m8.set("help", "40 by default"); $app.save(m8);
+var m9 = new Record(meta); m9.set("field", "reading_count"); m9.set("label", "Reading questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "Reading section size"); $app.save(m9);
+var m10 = new Record(meta); m10.set("field", "image_count"); m10.set("label", "Image questions target"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Target count"); $app.save(m10);
+var m11 = new Record(meta); m11.set("field", "image_count_min"); m11.set("label", "Image questions min"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Minimum (18)"); $app.save(m11);
+var m12 = new Record(meta); m12.set("field", "image_count_max"); m12.set("label", "Image questions max"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Maximum (26)"); $app.save(m12);
+var m13 = new Record(meta); m13.set("field", "difficulty_profile"); m13.set("label", "Difficulty profile"); m13.set("ftype", "select"); m13.set("group", "Exam"); m13.set("help", "creative+difficult | creative+medium | hard"); m13.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m13);
+var m14 = new Record(meta); m14.set("field", "marks_per_question"); m14.set("label", "Marks per question"); m14.set("ftype", "number"); m14.set("group", "Exam"); m14.set("help", "Default marks"); $app.save(m14);
+var m15 = new Record(meta); m15.set("field", "max_tokens"); m15.set("label", "Max tokens"); m15.set("ftype", "number"); m15.set("group", "Advanced"); m15.set("help", "LLM generation cap"); $app.save(m15);
+var m16 = new Record(meta); m16.set("field", "temperature"); m16.set("label", "Temperature"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM sampling temp"); $app.save(m16);
+var m17 = new Record(meta); m17.set("field", "timeout_s"); m17.set("label", "Timeout (s)"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM call timeout"); $app.save(m17);
+var m18 = new Record(meta); m18.set("field", "retries"); m18.set("label", "LLM retries"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "Retry count"); $app.save(m18);
+var m19 = new Record(meta); m19.set("field", "img_retries"); m19.set("label", "Image retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Per-model image retries"); $app.save(m19);
+var m20 = new Record(meta); m20.set("field", "push_pb_base"); m20.set("label", "Push base URL"); m20.set("ftype", "text"); m20.set("group", "Push"); m20.set("help", "Client PocketBase base URL"); $app.save(m20);
+var m21 = new Record(meta); m21.set("field", "push_pb_email"); m21.set("label", "Push email"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PB admin email"); $app.save(m21);
+var m22 = new Record(meta); m22.set("field", "push_pb_pass"); m22.set("label", "Push password"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin password"); $app.save(m22);
+var m23 = new Record(meta); m23.set("field", "push_subject_id"); m23.set("label", "Subject id"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Subject record id on client PB"); $app.save(m23);
+var m24 = new Record(meta); m24.set("field", "push_exam_type"); m24.set("label", "Exam type on push"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m24);
+var m25 = new Record(meta); m25.set("field", "push_exam_status"); m25.set("label", "Exam status on push"); m25.set("ftype", "select"); m25.set("group", "Push"); m25.set("help", "draft = review-then-publish | published = immediate"); m25.set("options", ["draft", "published"]); $app.save(m25);
+var m26 = new Record(meta); m26.set("field", "audio_gap_ms"); m26.set("label", "Gap between clips (ms)"); m26.set("ftype", "number"); m26.set("group", "Audio"); m26.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m26);
+var m27 = new Record(meta); m27.set("field", "sample_rate"); m27.set("label", "Sample rate (Hz)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m27);
+var m28 = new Record(meta); m28.set("field", "audio_workers"); m28.set("label", "Parallel audio workers"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m28);
+var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config enabled"); m29.set("ftype", "bool"); m29.set("group", "General"); m29.set("help", "Use this config"); $app.save(m29);
 
   // ---- migrations (idempotent, cheap after first run) ----
   try {
@@ -444,6 +469,20 @@ var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config
     var mT = $app.findFirstRecordByData("mock_config_meta", "field", "tts_model")
     if (mT.getString("ftype") !== "select") { mT.set("ftype", "select"); mT.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); mT.set("label", "TTS model"); mT.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); $app.save(mT) }
   } catch (errT) {}
+  try {
+    // upsert missing default TTS model seeds (existing installs never got them)
+    var mCol = $app.findCollectionByNameOrId("mock_models")
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    for (var si = 0; si < seedDefs.length; si++) {
+      var exists = false
+      try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
+      if (!exists) {
+        var mRec = new Record(mCol)
+        mRec.set("kind", seedDefs[si][0]); mRec.set("model", seedDefs[si][1]); mRec.set("display", seedDefs[si][2]); mRec.set("notes", seedDefs[si][3])
+        $app.save(mRec)
+      }
+    }
+  } catch (errU) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -548,29 +587,28 @@ var m4 = new Record(meta); m4.set("field", "image_fallback"); m4.set("label", "F
 var m5 = new Record(meta); m5.set("field", "tts_model"); m5.set("label", "TTS model"); m5.set("ftype", "select"); m5.set("group", "Audio"); m5.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); m5.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); $app.save(m5);
 var m6 = new Record(meta); m6.set("field", "tts_fallback_model"); m6.set("label", "Fallback TTS model"); m6.set("ftype", "select"); m6.set("group", "Audio"); m6.set("help", "Used only if the primary TTS model fails or times out."); m6.set("options", ["microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]); $app.save(m6);
 var m7 = new Record(meta); m7.set("field", "tts_fallback_voice"); m7.set("label", "Fallback voice"); m7.set("ftype", "text"); m7.set("group", "Audio"); m7.set("help", "Voice id used when the primary voice is unavailable (e.g. ko-KR-Haena)."); $app.save(m7);
-var m8 = new Record(meta); m8.set("field", "tts_voices"); m8.set("label", "Speaker voices (JSON)"); m8.set("ftype", "json"); m8.set("group", "Audio"); m8.set("help", "Map each speaker label to a TTS voice, e.g. {\"V1\": \"alloy\", \"V2\": \"echo\"}. Number of people in a dialog = number of speakers. Leave {} for defaults."); $app.save(m8);
-var m9 = new Record(meta); m9.set("field", "question_count"); m9.set("label", "Total questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "40 by default"); $app.save(m9);
-var m10 = new Record(meta); m10.set("field", "reading_count"); m10.set("label", "Reading questions"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Reading section size"); $app.save(m10);
-var m11 = new Record(meta); m11.set("field", "image_count"); m11.set("label", "Image questions target"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Target count"); $app.save(m11);
-var m12 = new Record(meta); m12.set("field", "image_count_min"); m12.set("label", "Image questions min"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Minimum (18)"); $app.save(m12);
-var m13 = new Record(meta); m13.set("field", "image_count_max"); m13.set("label", "Image questions max"); m13.set("ftype", "number"); m13.set("group", "Exam"); m13.set("help", "Maximum (26)"); $app.save(m13);
-var m14 = new Record(meta); m14.set("field", "difficulty_profile"); m14.set("label", "Difficulty profile"); m14.set("ftype", "select"); m14.set("group", "Exam"); m14.set("help", "creative+difficult | creative+medium | hard"); m14.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m14);
-var m15 = new Record(meta); m15.set("field", "marks_per_question"); m15.set("label", "Marks per question"); m15.set("ftype", "number"); m15.set("group", "Exam"); m15.set("help", "Default marks"); $app.save(m15);
-var m16 = new Record(meta); m16.set("field", "max_tokens"); m16.set("label", "Max tokens"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM generation cap"); $app.save(m16);
-var m17 = new Record(meta); m17.set("field", "temperature"); m17.set("label", "Temperature"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM sampling temp"); $app.save(m17);
-var m18 = new Record(meta); m18.set("field", "timeout_s"); m18.set("label", "Timeout (s)"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "LLM call timeout"); $app.save(m18);
-var m19 = new Record(meta); m19.set("field", "retries"); m19.set("label", "LLM retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Retry count"); $app.save(m19);
-var m20 = new Record(meta); m20.set("field", "img_retries"); m20.set("label", "Image retries"); m20.set("ftype", "number"); m20.set("group", "Advanced"); m20.set("help", "Per-model image retries"); $app.save(m20);
-var m21 = new Record(meta); m21.set("field", "push_pb_base"); m21.set("label", "Push base URL"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PocketBase base URL"); $app.save(m21);
-var m22 = new Record(meta); m22.set("field", "push_pb_email"); m22.set("label", "Push email"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin email"); $app.save(m22);
-var m23 = new Record(meta); m23.set("field", "push_pb_pass"); m23.set("label", "Push password"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Client PB admin password"); $app.save(m23);
-var m24 = new Record(meta); m24.set("field", "push_subject_id"); m24.set("label", "Subject id"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "Subject record id on client PB"); $app.save(m24);
-var m25 = new Record(meta); m25.set("field", "push_exam_type"); m25.set("label", "Exam type on push"); m25.set("ftype", "text"); m25.set("group", "Push"); m25.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m25);
-var m26 = new Record(meta); m26.set("field", "push_exam_status"); m26.set("label", "Exam status on push"); m26.set("ftype", "select"); m26.set("group", "Push"); m26.set("help", "draft = review-then-publish | published = immediate"); m26.set("options", ["draft", "published"]); $app.save(m26);
-var m27 = new Record(meta); m27.set("field", "audio_gap_ms"); m27.set("label", "Gap between clips (ms)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m27);
-var m28 = new Record(meta); m28.set("field", "sample_rate"); m28.set("label", "Sample rate (Hz)"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m28);
-var m29 = new Record(meta); m29.set("field", "audio_workers"); m29.set("label", "Parallel audio workers"); m29.set("ftype", "number"); m29.set("group", "Audio"); m29.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m29);
-var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config enabled"); m30.set("ftype", "bool"); m30.set("group", "General"); m30.set("help", "Use this config"); $app.save(m30);
+var m8 = new Record(meta); m8.set("field", "question_count"); m8.set("label", "Total questions"); m8.set("ftype", "number"); m8.set("group", "Exam"); m8.set("help", "40 by default"); $app.save(m8);
+var m9 = new Record(meta); m9.set("field", "reading_count"); m9.set("label", "Reading questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "Reading section size"); $app.save(m9);
+var m10 = new Record(meta); m10.set("field", "image_count"); m10.set("label", "Image questions target"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Target count"); $app.save(m10);
+var m11 = new Record(meta); m11.set("field", "image_count_min"); m11.set("label", "Image questions min"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Minimum (18)"); $app.save(m11);
+var m12 = new Record(meta); m12.set("field", "image_count_max"); m12.set("label", "Image questions max"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Maximum (26)"); $app.save(m12);
+var m13 = new Record(meta); m13.set("field", "difficulty_profile"); m13.set("label", "Difficulty profile"); m13.set("ftype", "select"); m13.set("group", "Exam"); m13.set("help", "creative+difficult | creative+medium | hard"); m13.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m13);
+var m14 = new Record(meta); m14.set("field", "marks_per_question"); m14.set("label", "Marks per question"); m14.set("ftype", "number"); m14.set("group", "Exam"); m14.set("help", "Default marks"); $app.save(m14);
+var m15 = new Record(meta); m15.set("field", "max_tokens"); m15.set("label", "Max tokens"); m15.set("ftype", "number"); m15.set("group", "Advanced"); m15.set("help", "LLM generation cap"); $app.save(m15);
+var m16 = new Record(meta); m16.set("field", "temperature"); m16.set("label", "Temperature"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM sampling temp"); $app.save(m16);
+var m17 = new Record(meta); m17.set("field", "timeout_s"); m17.set("label", "Timeout (s)"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM call timeout"); $app.save(m17);
+var m18 = new Record(meta); m18.set("field", "retries"); m18.set("label", "LLM retries"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "Retry count"); $app.save(m18);
+var m19 = new Record(meta); m19.set("field", "img_retries"); m19.set("label", "Image retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Per-model image retries"); $app.save(m19);
+var m20 = new Record(meta); m20.set("field", "push_pb_base"); m20.set("label", "Push base URL"); m20.set("ftype", "text"); m20.set("group", "Push"); m20.set("help", "Client PocketBase base URL"); $app.save(m20);
+var m21 = new Record(meta); m21.set("field", "push_pb_email"); m21.set("label", "Push email"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PB admin email"); $app.save(m21);
+var m22 = new Record(meta); m22.set("field", "push_pb_pass"); m22.set("label", "Push password"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin password"); $app.save(m22);
+var m23 = new Record(meta); m23.set("field", "push_subject_id"); m23.set("label", "Subject id"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Subject record id on client PB"); $app.save(m23);
+var m24 = new Record(meta); m24.set("field", "push_exam_type"); m24.set("label", "Exam type on push"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m24);
+var m25 = new Record(meta); m25.set("field", "push_exam_status"); m25.set("label", "Exam status on push"); m25.set("ftype", "select"); m25.set("group", "Push"); m25.set("help", "draft = review-then-publish | published = immediate"); m25.set("options", ["draft", "published"]); $app.save(m25);
+var m26 = new Record(meta); m26.set("field", "audio_gap_ms"); m26.set("label", "Gap between clips (ms)"); m26.set("ftype", "number"); m26.set("group", "Audio"); m26.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m26);
+var m27 = new Record(meta); m27.set("field", "sample_rate"); m27.set("label", "Sample rate (Hz)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m27);
+var m28 = new Record(meta); m28.set("field", "audio_workers"); m28.set("label", "Parallel audio workers"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m28);
+var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config enabled"); m29.set("ftype", "bool"); m29.set("group", "General"); m29.set("help", "Use this config"); $app.save(m29);
 
   // ---- migrations (idempotent, cheap after first run) ----
   try {
@@ -636,6 +674,20 @@ var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config
     var mT = $app.findFirstRecordByData("mock_config_meta", "field", "tts_model")
     if (mT.getString("ftype") !== "select") { mT.set("ftype", "select"); mT.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); mT.set("label", "TTS model"); mT.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); $app.save(mT) }
   } catch (errT) {}
+  try {
+    // upsert missing default TTS model seeds (existing installs never got them)
+    var mCol = $app.findCollectionByNameOrId("mock_models")
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    for (var si = 0; si < seedDefs.length; si++) {
+      var exists = false
+      try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
+      if (!exists) {
+        var mRec = new Record(mCol)
+        mRec.set("kind", seedDefs[si][0]); mRec.set("model", seedDefs[si][1]); mRec.set("display", seedDefs[si][2]); mRec.set("notes", seedDefs[si][3])
+        $app.save(mRec)
+      }
+    }
+  } catch (errU) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -724,29 +776,28 @@ var m4 = new Record(meta); m4.set("field", "image_fallback"); m4.set("label", "F
 var m5 = new Record(meta); m5.set("field", "tts_model"); m5.set("label", "TTS model"); m5.set("ftype", "select"); m5.set("group", "Audio"); m5.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); m5.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); $app.save(m5);
 var m6 = new Record(meta); m6.set("field", "tts_fallback_model"); m6.set("label", "Fallback TTS model"); m6.set("ftype", "select"); m6.set("group", "Audio"); m6.set("help", "Used only if the primary TTS model fails or times out."); m6.set("options", ["microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]); $app.save(m6);
 var m7 = new Record(meta); m7.set("field", "tts_fallback_voice"); m7.set("label", "Fallback voice"); m7.set("ftype", "text"); m7.set("group", "Audio"); m7.set("help", "Voice id used when the primary voice is unavailable (e.g. ko-KR-Haena)."); $app.save(m7);
-var m8 = new Record(meta); m8.set("field", "tts_voices"); m8.set("label", "Speaker voices (JSON)"); m8.set("ftype", "json"); m8.set("group", "Audio"); m8.set("help", "Map each speaker label to a TTS voice, e.g. {\"V1\": \"alloy\", \"V2\": \"echo\"}. Number of people in a dialog = number of speakers. Leave {} for defaults."); $app.save(m8);
-var m9 = new Record(meta); m9.set("field", "question_count"); m9.set("label", "Total questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "40 by default"); $app.save(m9);
-var m10 = new Record(meta); m10.set("field", "reading_count"); m10.set("label", "Reading questions"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Reading section size"); $app.save(m10);
-var m11 = new Record(meta); m11.set("field", "image_count"); m11.set("label", "Image questions target"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Target count"); $app.save(m11);
-var m12 = new Record(meta); m12.set("field", "image_count_min"); m12.set("label", "Image questions min"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Minimum (18)"); $app.save(m12);
-var m13 = new Record(meta); m13.set("field", "image_count_max"); m13.set("label", "Image questions max"); m13.set("ftype", "number"); m13.set("group", "Exam"); m13.set("help", "Maximum (26)"); $app.save(m13);
-var m14 = new Record(meta); m14.set("field", "difficulty_profile"); m14.set("label", "Difficulty profile"); m14.set("ftype", "select"); m14.set("group", "Exam"); m14.set("help", "creative+difficult | creative+medium | hard"); m14.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m14);
-var m15 = new Record(meta); m15.set("field", "marks_per_question"); m15.set("label", "Marks per question"); m15.set("ftype", "number"); m15.set("group", "Exam"); m15.set("help", "Default marks"); $app.save(m15);
-var m16 = new Record(meta); m16.set("field", "max_tokens"); m16.set("label", "Max tokens"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM generation cap"); $app.save(m16);
-var m17 = new Record(meta); m17.set("field", "temperature"); m17.set("label", "Temperature"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM sampling temp"); $app.save(m17);
-var m18 = new Record(meta); m18.set("field", "timeout_s"); m18.set("label", "Timeout (s)"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "LLM call timeout"); $app.save(m18);
-var m19 = new Record(meta); m19.set("field", "retries"); m19.set("label", "LLM retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Retry count"); $app.save(m19);
-var m20 = new Record(meta); m20.set("field", "img_retries"); m20.set("label", "Image retries"); m20.set("ftype", "number"); m20.set("group", "Advanced"); m20.set("help", "Per-model image retries"); $app.save(m20);
-var m21 = new Record(meta); m21.set("field", "push_pb_base"); m21.set("label", "Push base URL"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PocketBase base URL"); $app.save(m21);
-var m22 = new Record(meta); m22.set("field", "push_pb_email"); m22.set("label", "Push email"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin email"); $app.save(m22);
-var m23 = new Record(meta); m23.set("field", "push_pb_pass"); m23.set("label", "Push password"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Client PB admin password"); $app.save(m23);
-var m24 = new Record(meta); m24.set("field", "push_subject_id"); m24.set("label", "Subject id"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "Subject record id on client PB"); $app.save(m24);
-var m25 = new Record(meta); m25.set("field", "push_exam_type"); m25.set("label", "Exam type on push"); m25.set("ftype", "text"); m25.set("group", "Push"); m25.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m25);
-var m26 = new Record(meta); m26.set("field", "push_exam_status"); m26.set("label", "Exam status on push"); m26.set("ftype", "select"); m26.set("group", "Push"); m26.set("help", "draft = review-then-publish | published = immediate"); m26.set("options", ["draft", "published"]); $app.save(m26);
-var m27 = new Record(meta); m27.set("field", "audio_gap_ms"); m27.set("label", "Gap between clips (ms)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m27);
-var m28 = new Record(meta); m28.set("field", "sample_rate"); m28.set("label", "Sample rate (Hz)"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m28);
-var m29 = new Record(meta); m29.set("field", "audio_workers"); m29.set("label", "Parallel audio workers"); m29.set("ftype", "number"); m29.set("group", "Audio"); m29.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m29);
-var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config enabled"); m30.set("ftype", "bool"); m30.set("group", "General"); m30.set("help", "Use this config"); $app.save(m30);
+var m8 = new Record(meta); m8.set("field", "question_count"); m8.set("label", "Total questions"); m8.set("ftype", "number"); m8.set("group", "Exam"); m8.set("help", "40 by default"); $app.save(m8);
+var m9 = new Record(meta); m9.set("field", "reading_count"); m9.set("label", "Reading questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "Reading section size"); $app.save(m9);
+var m10 = new Record(meta); m10.set("field", "image_count"); m10.set("label", "Image questions target"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Target count"); $app.save(m10);
+var m11 = new Record(meta); m11.set("field", "image_count_min"); m11.set("label", "Image questions min"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Minimum (18)"); $app.save(m11);
+var m12 = new Record(meta); m12.set("field", "image_count_max"); m12.set("label", "Image questions max"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Maximum (26)"); $app.save(m12);
+var m13 = new Record(meta); m13.set("field", "difficulty_profile"); m13.set("label", "Difficulty profile"); m13.set("ftype", "select"); m13.set("group", "Exam"); m13.set("help", "creative+difficult | creative+medium | hard"); m13.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m13);
+var m14 = new Record(meta); m14.set("field", "marks_per_question"); m14.set("label", "Marks per question"); m14.set("ftype", "number"); m14.set("group", "Exam"); m14.set("help", "Default marks"); $app.save(m14);
+var m15 = new Record(meta); m15.set("field", "max_tokens"); m15.set("label", "Max tokens"); m15.set("ftype", "number"); m15.set("group", "Advanced"); m15.set("help", "LLM generation cap"); $app.save(m15);
+var m16 = new Record(meta); m16.set("field", "temperature"); m16.set("label", "Temperature"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM sampling temp"); $app.save(m16);
+var m17 = new Record(meta); m17.set("field", "timeout_s"); m17.set("label", "Timeout (s)"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM call timeout"); $app.save(m17);
+var m18 = new Record(meta); m18.set("field", "retries"); m18.set("label", "LLM retries"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "Retry count"); $app.save(m18);
+var m19 = new Record(meta); m19.set("field", "img_retries"); m19.set("label", "Image retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Per-model image retries"); $app.save(m19);
+var m20 = new Record(meta); m20.set("field", "push_pb_base"); m20.set("label", "Push base URL"); m20.set("ftype", "text"); m20.set("group", "Push"); m20.set("help", "Client PocketBase base URL"); $app.save(m20);
+var m21 = new Record(meta); m21.set("field", "push_pb_email"); m21.set("label", "Push email"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PB admin email"); $app.save(m21);
+var m22 = new Record(meta); m22.set("field", "push_pb_pass"); m22.set("label", "Push password"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin password"); $app.save(m22);
+var m23 = new Record(meta); m23.set("field", "push_subject_id"); m23.set("label", "Subject id"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Subject record id on client PB"); $app.save(m23);
+var m24 = new Record(meta); m24.set("field", "push_exam_type"); m24.set("label", "Exam type on push"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m24);
+var m25 = new Record(meta); m25.set("field", "push_exam_status"); m25.set("label", "Exam status on push"); m25.set("ftype", "select"); m25.set("group", "Push"); m25.set("help", "draft = review-then-publish | published = immediate"); m25.set("options", ["draft", "published"]); $app.save(m25);
+var m26 = new Record(meta); m26.set("field", "audio_gap_ms"); m26.set("label", "Gap between clips (ms)"); m26.set("ftype", "number"); m26.set("group", "Audio"); m26.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m26);
+var m27 = new Record(meta); m27.set("field", "sample_rate"); m27.set("label", "Sample rate (Hz)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m27);
+var m28 = new Record(meta); m28.set("field", "audio_workers"); m28.set("label", "Parallel audio workers"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m28);
+var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config enabled"); m29.set("ftype", "bool"); m29.set("group", "General"); m29.set("help", "Use this config"); $app.save(m29);
 
   // ---- migrations (idempotent, cheap after first run) ----
   try {
@@ -812,6 +863,20 @@ var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config
     var mT = $app.findFirstRecordByData("mock_config_meta", "field", "tts_model")
     if (mT.getString("ftype") !== "select") { mT.set("ftype", "select"); mT.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); mT.set("label", "TTS model"); mT.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); $app.save(mT) }
   } catch (errT) {}
+  try {
+    // upsert missing default TTS model seeds (existing installs never got them)
+    var mCol = $app.findCollectionByNameOrId("mock_models")
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    for (var si = 0; si < seedDefs.length; si++) {
+      var exists = false
+      try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
+      if (!exists) {
+        var mRec = new Record(mCol)
+        mRec.set("kind", seedDefs[si][0]); mRec.set("model", seedDefs[si][1]); mRec.set("display", seedDefs[si][2]); mRec.set("notes", seedDefs[si][3])
+        $app.save(mRec)
+      }
+    }
+  } catch (errU) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -898,29 +963,28 @@ var m4 = new Record(meta); m4.set("field", "image_fallback"); m4.set("label", "F
 var m5 = new Record(meta); m5.set("field", "tts_model"); m5.set("label", "TTS model"); m5.set("ftype", "select"); m5.set("group", "Audio"); m5.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); m5.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); $app.save(m5);
 var m6 = new Record(meta); m6.set("field", "tts_fallback_model"); m6.set("label", "Fallback TTS model"); m6.set("ftype", "select"); m6.set("group", "Audio"); m6.set("help", "Used only if the primary TTS model fails or times out."); m6.set("options", ["microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]); $app.save(m6);
 var m7 = new Record(meta); m7.set("field", "tts_fallback_voice"); m7.set("label", "Fallback voice"); m7.set("ftype", "text"); m7.set("group", "Audio"); m7.set("help", "Voice id used when the primary voice is unavailable (e.g. ko-KR-Haena)."); $app.save(m7);
-var m8 = new Record(meta); m8.set("field", "tts_voices"); m8.set("label", "Speaker voices (JSON)"); m8.set("ftype", "json"); m8.set("group", "Audio"); m8.set("help", "Map each speaker label to a TTS voice, e.g. {\"V1\": \"alloy\", \"V2\": \"echo\"}. Number of people in a dialog = number of speakers. Leave {} for defaults."); $app.save(m8);
-var m9 = new Record(meta); m9.set("field", "question_count"); m9.set("label", "Total questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "40 by default"); $app.save(m9);
-var m10 = new Record(meta); m10.set("field", "reading_count"); m10.set("label", "Reading questions"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Reading section size"); $app.save(m10);
-var m11 = new Record(meta); m11.set("field", "image_count"); m11.set("label", "Image questions target"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Target count"); $app.save(m11);
-var m12 = new Record(meta); m12.set("field", "image_count_min"); m12.set("label", "Image questions min"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Minimum (18)"); $app.save(m12);
-var m13 = new Record(meta); m13.set("field", "image_count_max"); m13.set("label", "Image questions max"); m13.set("ftype", "number"); m13.set("group", "Exam"); m13.set("help", "Maximum (26)"); $app.save(m13);
-var m14 = new Record(meta); m14.set("field", "difficulty_profile"); m14.set("label", "Difficulty profile"); m14.set("ftype", "select"); m14.set("group", "Exam"); m14.set("help", "creative+difficult | creative+medium | hard"); m14.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m14);
-var m15 = new Record(meta); m15.set("field", "marks_per_question"); m15.set("label", "Marks per question"); m15.set("ftype", "number"); m15.set("group", "Exam"); m15.set("help", "Default marks"); $app.save(m15);
-var m16 = new Record(meta); m16.set("field", "max_tokens"); m16.set("label", "Max tokens"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM generation cap"); $app.save(m16);
-var m17 = new Record(meta); m17.set("field", "temperature"); m17.set("label", "Temperature"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM sampling temp"); $app.save(m17);
-var m18 = new Record(meta); m18.set("field", "timeout_s"); m18.set("label", "Timeout (s)"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "LLM call timeout"); $app.save(m18);
-var m19 = new Record(meta); m19.set("field", "retries"); m19.set("label", "LLM retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Retry count"); $app.save(m19);
-var m20 = new Record(meta); m20.set("field", "img_retries"); m20.set("label", "Image retries"); m20.set("ftype", "number"); m20.set("group", "Advanced"); m20.set("help", "Per-model image retries"); $app.save(m20);
-var m21 = new Record(meta); m21.set("field", "push_pb_base"); m21.set("label", "Push base URL"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PocketBase base URL"); $app.save(m21);
-var m22 = new Record(meta); m22.set("field", "push_pb_email"); m22.set("label", "Push email"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin email"); $app.save(m22);
-var m23 = new Record(meta); m23.set("field", "push_pb_pass"); m23.set("label", "Push password"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Client PB admin password"); $app.save(m23);
-var m24 = new Record(meta); m24.set("field", "push_subject_id"); m24.set("label", "Subject id"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "Subject record id on client PB"); $app.save(m24);
-var m25 = new Record(meta); m25.set("field", "push_exam_type"); m25.set("label", "Exam type on push"); m25.set("ftype", "text"); m25.set("group", "Push"); m25.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m25);
-var m26 = new Record(meta); m26.set("field", "push_exam_status"); m26.set("label", "Exam status on push"); m26.set("ftype", "select"); m26.set("group", "Push"); m26.set("help", "draft = review-then-publish | published = immediate"); m26.set("options", ["draft", "published"]); $app.save(m26);
-var m27 = new Record(meta); m27.set("field", "audio_gap_ms"); m27.set("label", "Gap between clips (ms)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m27);
-var m28 = new Record(meta); m28.set("field", "sample_rate"); m28.set("label", "Sample rate (Hz)"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m28);
-var m29 = new Record(meta); m29.set("field", "audio_workers"); m29.set("label", "Parallel audio workers"); m29.set("ftype", "number"); m29.set("group", "Audio"); m29.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m29);
-var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config enabled"); m30.set("ftype", "bool"); m30.set("group", "General"); m30.set("help", "Use this config"); $app.save(m30);
+var m8 = new Record(meta); m8.set("field", "question_count"); m8.set("label", "Total questions"); m8.set("ftype", "number"); m8.set("group", "Exam"); m8.set("help", "40 by default"); $app.save(m8);
+var m9 = new Record(meta); m9.set("field", "reading_count"); m9.set("label", "Reading questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "Reading section size"); $app.save(m9);
+var m10 = new Record(meta); m10.set("field", "image_count"); m10.set("label", "Image questions target"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Target count"); $app.save(m10);
+var m11 = new Record(meta); m11.set("field", "image_count_min"); m11.set("label", "Image questions min"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Minimum (18)"); $app.save(m11);
+var m12 = new Record(meta); m12.set("field", "image_count_max"); m12.set("label", "Image questions max"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Maximum (26)"); $app.save(m12);
+var m13 = new Record(meta); m13.set("field", "difficulty_profile"); m13.set("label", "Difficulty profile"); m13.set("ftype", "select"); m13.set("group", "Exam"); m13.set("help", "creative+difficult | creative+medium | hard"); m13.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m13);
+var m14 = new Record(meta); m14.set("field", "marks_per_question"); m14.set("label", "Marks per question"); m14.set("ftype", "number"); m14.set("group", "Exam"); m14.set("help", "Default marks"); $app.save(m14);
+var m15 = new Record(meta); m15.set("field", "max_tokens"); m15.set("label", "Max tokens"); m15.set("ftype", "number"); m15.set("group", "Advanced"); m15.set("help", "LLM generation cap"); $app.save(m15);
+var m16 = new Record(meta); m16.set("field", "temperature"); m16.set("label", "Temperature"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM sampling temp"); $app.save(m16);
+var m17 = new Record(meta); m17.set("field", "timeout_s"); m17.set("label", "Timeout (s)"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM call timeout"); $app.save(m17);
+var m18 = new Record(meta); m18.set("field", "retries"); m18.set("label", "LLM retries"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "Retry count"); $app.save(m18);
+var m19 = new Record(meta); m19.set("field", "img_retries"); m19.set("label", "Image retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Per-model image retries"); $app.save(m19);
+var m20 = new Record(meta); m20.set("field", "push_pb_base"); m20.set("label", "Push base URL"); m20.set("ftype", "text"); m20.set("group", "Push"); m20.set("help", "Client PocketBase base URL"); $app.save(m20);
+var m21 = new Record(meta); m21.set("field", "push_pb_email"); m21.set("label", "Push email"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PB admin email"); $app.save(m21);
+var m22 = new Record(meta); m22.set("field", "push_pb_pass"); m22.set("label", "Push password"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin password"); $app.save(m22);
+var m23 = new Record(meta); m23.set("field", "push_subject_id"); m23.set("label", "Subject id"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Subject record id on client PB"); $app.save(m23);
+var m24 = new Record(meta); m24.set("field", "push_exam_type"); m24.set("label", "Exam type on push"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m24);
+var m25 = new Record(meta); m25.set("field", "push_exam_status"); m25.set("label", "Exam status on push"); m25.set("ftype", "select"); m25.set("group", "Push"); m25.set("help", "draft = review-then-publish | published = immediate"); m25.set("options", ["draft", "published"]); $app.save(m25);
+var m26 = new Record(meta); m26.set("field", "audio_gap_ms"); m26.set("label", "Gap between clips (ms)"); m26.set("ftype", "number"); m26.set("group", "Audio"); m26.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m26);
+var m27 = new Record(meta); m27.set("field", "sample_rate"); m27.set("label", "Sample rate (Hz)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m27);
+var m28 = new Record(meta); m28.set("field", "audio_workers"); m28.set("label", "Parallel audio workers"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m28);
+var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config enabled"); m29.set("ftype", "bool"); m29.set("group", "General"); m29.set("help", "Use this config"); $app.save(m29);
 
   // ---- migrations (idempotent, cheap after first run) ----
   try {
@@ -986,6 +1050,20 @@ var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config
     var mT = $app.findFirstRecordByData("mock_config_meta", "field", "tts_model")
     if (mT.getString("ftype") !== "select") { mT.set("ftype", "select"); mT.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); mT.set("label", "TTS model"); mT.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); $app.save(mT) }
   } catch (errT) {}
+  try {
+    // upsert missing default TTS model seeds (existing installs never got them)
+    var mCol = $app.findCollectionByNameOrId("mock_models")
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    for (var si = 0; si < seedDefs.length; si++) {
+      var exists = false
+      try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
+      if (!exists) {
+        var mRec = new Record(mCol)
+        mRec.set("kind", seedDefs[si][0]); mRec.set("model", seedDefs[si][1]); mRec.set("display", seedDefs[si][2]); mRec.set("notes", seedDefs[si][3])
+        $app.save(mRec)
+      }
+    }
+  } catch (errU) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -1053,6 +1131,12 @@ try {
   try { count = parseInt(q.get("count") || "40", 10) } catch (err) {}
   if (isNaN(count) || count < 1 || count > 200) count = 40
   var difficulty = q.get("difficulty") || cfg.getString("difficulty_profile") || "creative+difficult"
+  // Normalize teacher-portal vocabulary to pipeline profiles:
+  //   creative+medium | creative+difficult | TOPIK EPIS HARD (-> hard)
+  var dm = (difficulty || "").trim()
+  if (dm === "TOPIK EPIS HARD") dm = "hard"
+  if (["creative+medium", "creative+difficult", "hard", "standard"].indexOf(dm) === -1) dm = "creative+difficult"
+  difficulty = dm
   var kind = (q.get("kind") || "full").trim()
   if (kind === "dry") kind = "dry_questions"
   if (["full","dry_questions","dry_images","dry_audio"].indexOf(kind) === -1) kind = "full"
@@ -1103,29 +1187,28 @@ var m4 = new Record(meta); m4.set("field", "image_fallback"); m4.set("label", "F
 var m5 = new Record(meta); m5.set("field", "tts_model"); m5.set("label", "TTS model"); m5.set("ftype", "select"); m5.set("group", "Audio"); m5.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); m5.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); $app.save(m5);
 var m6 = new Record(meta); m6.set("field", "tts_fallback_model"); m6.set("label", "Fallback TTS model"); m6.set("ftype", "select"); m6.set("group", "Audio"); m6.set("help", "Used only if the primary TTS model fails or times out."); m6.set("options", ["microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]); $app.save(m6);
 var m7 = new Record(meta); m7.set("field", "tts_fallback_voice"); m7.set("label", "Fallback voice"); m7.set("ftype", "text"); m7.set("group", "Audio"); m7.set("help", "Voice id used when the primary voice is unavailable (e.g. ko-KR-Haena)."); $app.save(m7);
-var m8 = new Record(meta); m8.set("field", "tts_voices"); m8.set("label", "Speaker voices (JSON)"); m8.set("ftype", "json"); m8.set("group", "Audio"); m8.set("help", "Map each speaker label to a TTS voice, e.g. {\"V1\": \"alloy\", \"V2\": \"echo\"}. Number of people in a dialog = number of speakers. Leave {} for defaults."); $app.save(m8);
-var m9 = new Record(meta); m9.set("field", "question_count"); m9.set("label", "Total questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "40 by default"); $app.save(m9);
-var m10 = new Record(meta); m10.set("field", "reading_count"); m10.set("label", "Reading questions"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Reading section size"); $app.save(m10);
-var m11 = new Record(meta); m11.set("field", "image_count"); m11.set("label", "Image questions target"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Target count"); $app.save(m11);
-var m12 = new Record(meta); m12.set("field", "image_count_min"); m12.set("label", "Image questions min"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Minimum (18)"); $app.save(m12);
-var m13 = new Record(meta); m13.set("field", "image_count_max"); m13.set("label", "Image questions max"); m13.set("ftype", "number"); m13.set("group", "Exam"); m13.set("help", "Maximum (26)"); $app.save(m13);
-var m14 = new Record(meta); m14.set("field", "difficulty_profile"); m14.set("label", "Difficulty profile"); m14.set("ftype", "select"); m14.set("group", "Exam"); m14.set("help", "creative+difficult | creative+medium | hard"); m14.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m14);
-var m15 = new Record(meta); m15.set("field", "marks_per_question"); m15.set("label", "Marks per question"); m15.set("ftype", "number"); m15.set("group", "Exam"); m15.set("help", "Default marks"); $app.save(m15);
-var m16 = new Record(meta); m16.set("field", "max_tokens"); m16.set("label", "Max tokens"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM generation cap"); $app.save(m16);
-var m17 = new Record(meta); m17.set("field", "temperature"); m17.set("label", "Temperature"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM sampling temp"); $app.save(m17);
-var m18 = new Record(meta); m18.set("field", "timeout_s"); m18.set("label", "Timeout (s)"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "LLM call timeout"); $app.save(m18);
-var m19 = new Record(meta); m19.set("field", "retries"); m19.set("label", "LLM retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Retry count"); $app.save(m19);
-var m20 = new Record(meta); m20.set("field", "img_retries"); m20.set("label", "Image retries"); m20.set("ftype", "number"); m20.set("group", "Advanced"); m20.set("help", "Per-model image retries"); $app.save(m20);
-var m21 = new Record(meta); m21.set("field", "push_pb_base"); m21.set("label", "Push base URL"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PocketBase base URL"); $app.save(m21);
-var m22 = new Record(meta); m22.set("field", "push_pb_email"); m22.set("label", "Push email"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin email"); $app.save(m22);
-var m23 = new Record(meta); m23.set("field", "push_pb_pass"); m23.set("label", "Push password"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Client PB admin password"); $app.save(m23);
-var m24 = new Record(meta); m24.set("field", "push_subject_id"); m24.set("label", "Subject id"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "Subject record id on client PB"); $app.save(m24);
-var m25 = new Record(meta); m25.set("field", "push_exam_type"); m25.set("label", "Exam type on push"); m25.set("ftype", "text"); m25.set("group", "Push"); m25.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m25);
-var m26 = new Record(meta); m26.set("field", "push_exam_status"); m26.set("label", "Exam status on push"); m26.set("ftype", "select"); m26.set("group", "Push"); m26.set("help", "draft = review-then-publish | published = immediate"); m26.set("options", ["draft", "published"]); $app.save(m26);
-var m27 = new Record(meta); m27.set("field", "audio_gap_ms"); m27.set("label", "Gap between clips (ms)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m27);
-var m28 = new Record(meta); m28.set("field", "sample_rate"); m28.set("label", "Sample rate (Hz)"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m28);
-var m29 = new Record(meta); m29.set("field", "audio_workers"); m29.set("label", "Parallel audio workers"); m29.set("ftype", "number"); m29.set("group", "Audio"); m29.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m29);
-var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config enabled"); m30.set("ftype", "bool"); m30.set("group", "General"); m30.set("help", "Use this config"); $app.save(m30);
+var m8 = new Record(meta); m8.set("field", "question_count"); m8.set("label", "Total questions"); m8.set("ftype", "number"); m8.set("group", "Exam"); m8.set("help", "40 by default"); $app.save(m8);
+var m9 = new Record(meta); m9.set("field", "reading_count"); m9.set("label", "Reading questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "Reading section size"); $app.save(m9);
+var m10 = new Record(meta); m10.set("field", "image_count"); m10.set("label", "Image questions target"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Target count"); $app.save(m10);
+var m11 = new Record(meta); m11.set("field", "image_count_min"); m11.set("label", "Image questions min"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Minimum (18)"); $app.save(m11);
+var m12 = new Record(meta); m12.set("field", "image_count_max"); m12.set("label", "Image questions max"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Maximum (26)"); $app.save(m12);
+var m13 = new Record(meta); m13.set("field", "difficulty_profile"); m13.set("label", "Difficulty profile"); m13.set("ftype", "select"); m13.set("group", "Exam"); m13.set("help", "creative+difficult | creative+medium | hard"); m13.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m13);
+var m14 = new Record(meta); m14.set("field", "marks_per_question"); m14.set("label", "Marks per question"); m14.set("ftype", "number"); m14.set("group", "Exam"); m14.set("help", "Default marks"); $app.save(m14);
+var m15 = new Record(meta); m15.set("field", "max_tokens"); m15.set("label", "Max tokens"); m15.set("ftype", "number"); m15.set("group", "Advanced"); m15.set("help", "LLM generation cap"); $app.save(m15);
+var m16 = new Record(meta); m16.set("field", "temperature"); m16.set("label", "Temperature"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM sampling temp"); $app.save(m16);
+var m17 = new Record(meta); m17.set("field", "timeout_s"); m17.set("label", "Timeout (s)"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM call timeout"); $app.save(m17);
+var m18 = new Record(meta); m18.set("field", "retries"); m18.set("label", "LLM retries"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "Retry count"); $app.save(m18);
+var m19 = new Record(meta); m19.set("field", "img_retries"); m19.set("label", "Image retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Per-model image retries"); $app.save(m19);
+var m20 = new Record(meta); m20.set("field", "push_pb_base"); m20.set("label", "Push base URL"); m20.set("ftype", "text"); m20.set("group", "Push"); m20.set("help", "Client PocketBase base URL"); $app.save(m20);
+var m21 = new Record(meta); m21.set("field", "push_pb_email"); m21.set("label", "Push email"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PB admin email"); $app.save(m21);
+var m22 = new Record(meta); m22.set("field", "push_pb_pass"); m22.set("label", "Push password"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin password"); $app.save(m22);
+var m23 = new Record(meta); m23.set("field", "push_subject_id"); m23.set("label", "Subject id"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Subject record id on client PB"); $app.save(m23);
+var m24 = new Record(meta); m24.set("field", "push_exam_type"); m24.set("label", "Exam type on push"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m24);
+var m25 = new Record(meta); m25.set("field", "push_exam_status"); m25.set("label", "Exam status on push"); m25.set("ftype", "select"); m25.set("group", "Push"); m25.set("help", "draft = review-then-publish | published = immediate"); m25.set("options", ["draft", "published"]); $app.save(m25);
+var m26 = new Record(meta); m26.set("field", "audio_gap_ms"); m26.set("label", "Gap between clips (ms)"); m26.set("ftype", "number"); m26.set("group", "Audio"); m26.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m26);
+var m27 = new Record(meta); m27.set("field", "sample_rate"); m27.set("label", "Sample rate (Hz)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m27);
+var m28 = new Record(meta); m28.set("field", "audio_workers"); m28.set("label", "Parallel audio workers"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m28);
+var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config enabled"); m29.set("ftype", "bool"); m29.set("group", "General"); m29.set("help", "Use this config"); $app.save(m29);
 
   // ---- migrations (idempotent, cheap after first run) ----
   try {
@@ -1191,6 +1274,20 @@ var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config
     var mT = $app.findFirstRecordByData("mock_config_meta", "field", "tts_model")
     if (mT.getString("ftype") !== "select") { mT.set("ftype", "select"); mT.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); mT.set("label", "TTS model"); mT.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); $app.save(mT) }
   } catch (errT) {}
+  try {
+    // upsert missing default TTS model seeds (existing installs never got them)
+    var mCol = $app.findCollectionByNameOrId("mock_models")
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    for (var si = 0; si < seedDefs.length; si++) {
+      var exists = false
+      try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
+      if (!exists) {
+        var mRec = new Record(mCol)
+        mRec.set("kind", seedDefs[si][0]); mRec.set("model", seedDefs[si][1]); mRec.set("display", seedDefs[si][2]); mRec.set("notes", seedDefs[si][3])
+        $app.save(mRec)
+      }
+    }
+  } catch (errU) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -1279,29 +1376,28 @@ var m4 = new Record(meta); m4.set("field", "image_fallback"); m4.set("label", "F
 var m5 = new Record(meta); m5.set("field", "tts_model"); m5.set("label", "TTS model"); m5.set("ftype", "select"); m5.set("group", "Audio"); m5.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); m5.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); $app.save(m5);
 var m6 = new Record(meta); m6.set("field", "tts_fallback_model"); m6.set("label", "Fallback TTS model"); m6.set("ftype", "select"); m6.set("group", "Audio"); m6.set("help", "Used only if the primary TTS model fails or times out."); m6.set("options", ["microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]); $app.save(m6);
 var m7 = new Record(meta); m7.set("field", "tts_fallback_voice"); m7.set("label", "Fallback voice"); m7.set("ftype", "text"); m7.set("group", "Audio"); m7.set("help", "Voice id used when the primary voice is unavailable (e.g. ko-KR-Haena)."); $app.save(m7);
-var m8 = new Record(meta); m8.set("field", "tts_voices"); m8.set("label", "Speaker voices (JSON)"); m8.set("ftype", "json"); m8.set("group", "Audio"); m8.set("help", "Map each speaker label to a TTS voice, e.g. {\"V1\": \"alloy\", \"V2\": \"echo\"}. Number of people in a dialog = number of speakers. Leave {} for defaults."); $app.save(m8);
-var m9 = new Record(meta); m9.set("field", "question_count"); m9.set("label", "Total questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "40 by default"); $app.save(m9);
-var m10 = new Record(meta); m10.set("field", "reading_count"); m10.set("label", "Reading questions"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Reading section size"); $app.save(m10);
-var m11 = new Record(meta); m11.set("field", "image_count"); m11.set("label", "Image questions target"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Target count"); $app.save(m11);
-var m12 = new Record(meta); m12.set("field", "image_count_min"); m12.set("label", "Image questions min"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Minimum (18)"); $app.save(m12);
-var m13 = new Record(meta); m13.set("field", "image_count_max"); m13.set("label", "Image questions max"); m13.set("ftype", "number"); m13.set("group", "Exam"); m13.set("help", "Maximum (26)"); $app.save(m13);
-var m14 = new Record(meta); m14.set("field", "difficulty_profile"); m14.set("label", "Difficulty profile"); m14.set("ftype", "select"); m14.set("group", "Exam"); m14.set("help", "creative+difficult | creative+medium | hard"); m14.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m14);
-var m15 = new Record(meta); m15.set("field", "marks_per_question"); m15.set("label", "Marks per question"); m15.set("ftype", "number"); m15.set("group", "Exam"); m15.set("help", "Default marks"); $app.save(m15);
-var m16 = new Record(meta); m16.set("field", "max_tokens"); m16.set("label", "Max tokens"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM generation cap"); $app.save(m16);
-var m17 = new Record(meta); m17.set("field", "temperature"); m17.set("label", "Temperature"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM sampling temp"); $app.save(m17);
-var m18 = new Record(meta); m18.set("field", "timeout_s"); m18.set("label", "Timeout (s)"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "LLM call timeout"); $app.save(m18);
-var m19 = new Record(meta); m19.set("field", "retries"); m19.set("label", "LLM retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Retry count"); $app.save(m19);
-var m20 = new Record(meta); m20.set("field", "img_retries"); m20.set("label", "Image retries"); m20.set("ftype", "number"); m20.set("group", "Advanced"); m20.set("help", "Per-model image retries"); $app.save(m20);
-var m21 = new Record(meta); m21.set("field", "push_pb_base"); m21.set("label", "Push base URL"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PocketBase base URL"); $app.save(m21);
-var m22 = new Record(meta); m22.set("field", "push_pb_email"); m22.set("label", "Push email"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin email"); $app.save(m22);
-var m23 = new Record(meta); m23.set("field", "push_pb_pass"); m23.set("label", "Push password"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Client PB admin password"); $app.save(m23);
-var m24 = new Record(meta); m24.set("field", "push_subject_id"); m24.set("label", "Subject id"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "Subject record id on client PB"); $app.save(m24);
-var m25 = new Record(meta); m25.set("field", "push_exam_type"); m25.set("label", "Exam type on push"); m25.set("ftype", "text"); m25.set("group", "Push"); m25.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m25);
-var m26 = new Record(meta); m26.set("field", "push_exam_status"); m26.set("label", "Exam status on push"); m26.set("ftype", "select"); m26.set("group", "Push"); m26.set("help", "draft = review-then-publish | published = immediate"); m26.set("options", ["draft", "published"]); $app.save(m26);
-var m27 = new Record(meta); m27.set("field", "audio_gap_ms"); m27.set("label", "Gap between clips (ms)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m27);
-var m28 = new Record(meta); m28.set("field", "sample_rate"); m28.set("label", "Sample rate (Hz)"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m28);
-var m29 = new Record(meta); m29.set("field", "audio_workers"); m29.set("label", "Parallel audio workers"); m29.set("ftype", "number"); m29.set("group", "Audio"); m29.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m29);
-var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config enabled"); m30.set("ftype", "bool"); m30.set("group", "General"); m30.set("help", "Use this config"); $app.save(m30);
+var m8 = new Record(meta); m8.set("field", "question_count"); m8.set("label", "Total questions"); m8.set("ftype", "number"); m8.set("group", "Exam"); m8.set("help", "40 by default"); $app.save(m8);
+var m9 = new Record(meta); m9.set("field", "reading_count"); m9.set("label", "Reading questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "Reading section size"); $app.save(m9);
+var m10 = new Record(meta); m10.set("field", "image_count"); m10.set("label", "Image questions target"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Target count"); $app.save(m10);
+var m11 = new Record(meta); m11.set("field", "image_count_min"); m11.set("label", "Image questions min"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Minimum (18)"); $app.save(m11);
+var m12 = new Record(meta); m12.set("field", "image_count_max"); m12.set("label", "Image questions max"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Maximum (26)"); $app.save(m12);
+var m13 = new Record(meta); m13.set("field", "difficulty_profile"); m13.set("label", "Difficulty profile"); m13.set("ftype", "select"); m13.set("group", "Exam"); m13.set("help", "creative+difficult | creative+medium | hard"); m13.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m13);
+var m14 = new Record(meta); m14.set("field", "marks_per_question"); m14.set("label", "Marks per question"); m14.set("ftype", "number"); m14.set("group", "Exam"); m14.set("help", "Default marks"); $app.save(m14);
+var m15 = new Record(meta); m15.set("field", "max_tokens"); m15.set("label", "Max tokens"); m15.set("ftype", "number"); m15.set("group", "Advanced"); m15.set("help", "LLM generation cap"); $app.save(m15);
+var m16 = new Record(meta); m16.set("field", "temperature"); m16.set("label", "Temperature"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM sampling temp"); $app.save(m16);
+var m17 = new Record(meta); m17.set("field", "timeout_s"); m17.set("label", "Timeout (s)"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM call timeout"); $app.save(m17);
+var m18 = new Record(meta); m18.set("field", "retries"); m18.set("label", "LLM retries"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "Retry count"); $app.save(m18);
+var m19 = new Record(meta); m19.set("field", "img_retries"); m19.set("label", "Image retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Per-model image retries"); $app.save(m19);
+var m20 = new Record(meta); m20.set("field", "push_pb_base"); m20.set("label", "Push base URL"); m20.set("ftype", "text"); m20.set("group", "Push"); m20.set("help", "Client PocketBase base URL"); $app.save(m20);
+var m21 = new Record(meta); m21.set("field", "push_pb_email"); m21.set("label", "Push email"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PB admin email"); $app.save(m21);
+var m22 = new Record(meta); m22.set("field", "push_pb_pass"); m22.set("label", "Push password"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin password"); $app.save(m22);
+var m23 = new Record(meta); m23.set("field", "push_subject_id"); m23.set("label", "Subject id"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Subject record id on client PB"); $app.save(m23);
+var m24 = new Record(meta); m24.set("field", "push_exam_type"); m24.set("label", "Exam type on push"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m24);
+var m25 = new Record(meta); m25.set("field", "push_exam_status"); m25.set("label", "Exam status on push"); m25.set("ftype", "select"); m25.set("group", "Push"); m25.set("help", "draft = review-then-publish | published = immediate"); m25.set("options", ["draft", "published"]); $app.save(m25);
+var m26 = new Record(meta); m26.set("field", "audio_gap_ms"); m26.set("label", "Gap between clips (ms)"); m26.set("ftype", "number"); m26.set("group", "Audio"); m26.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m26);
+var m27 = new Record(meta); m27.set("field", "sample_rate"); m27.set("label", "Sample rate (Hz)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m27);
+var m28 = new Record(meta); m28.set("field", "audio_workers"); m28.set("label", "Parallel audio workers"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m28);
+var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config enabled"); m29.set("ftype", "bool"); m29.set("group", "General"); m29.set("help", "Use this config"); $app.save(m29);
 
   // ---- migrations (idempotent, cheap after first run) ----
   try {
@@ -1367,6 +1463,20 @@ var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config
     var mT = $app.findFirstRecordByData("mock_config_meta", "field", "tts_model")
     if (mT.getString("ftype") !== "select") { mT.set("ftype", "select"); mT.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); mT.set("label", "TTS model"); mT.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); $app.save(mT) }
   } catch (errT) {}
+  try {
+    // upsert missing default TTS model seeds (existing installs never got them)
+    var mCol = $app.findCollectionByNameOrId("mock_models")
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    for (var si = 0; si < seedDefs.length; si++) {
+      var exists = false
+      try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
+      if (!exists) {
+        var mRec = new Record(mCol)
+        mRec.set("kind", seedDefs[si][0]); mRec.set("model", seedDefs[si][1]); mRec.set("display", seedDefs[si][2]); mRec.set("notes", seedDefs[si][3])
+        $app.save(mRec)
+      }
+    }
+  } catch (errU) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -1443,6 +1553,13 @@ try {
       kind: r.getString("kind") || "full",
       count: r.getInt("count"),
       difficulty: r.getString("difficulty"),
+      focus: (function () {
+        try {
+          var ov = r.get("overrides")
+          if (ov && typeof ov === "string") { ov = JSON.parse(ov) }
+          return (ov && ov.focus) || ""
+        } catch (errF) { return "" }
+      })(),
       log: (r.getString("log") || "").substring(0, 300),
       pushed: r.getBool("pushed"),
       report: (function () {
@@ -1485,29 +1602,28 @@ var m4 = new Record(meta); m4.set("field", "image_fallback"); m4.set("label", "F
 var m5 = new Record(meta); m5.set("field", "tts_model"); m5.set("label", "TTS model"); m5.set("ftype", "select"); m5.set("group", "Audio"); m5.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); m5.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); $app.save(m5);
 var m6 = new Record(meta); m6.set("field", "tts_fallback_model"); m6.set("label", "Fallback TTS model"); m6.set("ftype", "select"); m6.set("group", "Audio"); m6.set("help", "Used only if the primary TTS model fails or times out."); m6.set("options", ["microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]); $app.save(m6);
 var m7 = new Record(meta); m7.set("field", "tts_fallback_voice"); m7.set("label", "Fallback voice"); m7.set("ftype", "text"); m7.set("group", "Audio"); m7.set("help", "Voice id used when the primary voice is unavailable (e.g. ko-KR-Haena)."); $app.save(m7);
-var m8 = new Record(meta); m8.set("field", "tts_voices"); m8.set("label", "Speaker voices (JSON)"); m8.set("ftype", "json"); m8.set("group", "Audio"); m8.set("help", "Map each speaker label to a TTS voice, e.g. {\"V1\": \"alloy\", \"V2\": \"echo\"}. Number of people in a dialog = number of speakers. Leave {} for defaults."); $app.save(m8);
-var m9 = new Record(meta); m9.set("field", "question_count"); m9.set("label", "Total questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "40 by default"); $app.save(m9);
-var m10 = new Record(meta); m10.set("field", "reading_count"); m10.set("label", "Reading questions"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Reading section size"); $app.save(m10);
-var m11 = new Record(meta); m11.set("field", "image_count"); m11.set("label", "Image questions target"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Target count"); $app.save(m11);
-var m12 = new Record(meta); m12.set("field", "image_count_min"); m12.set("label", "Image questions min"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Minimum (18)"); $app.save(m12);
-var m13 = new Record(meta); m13.set("field", "image_count_max"); m13.set("label", "Image questions max"); m13.set("ftype", "number"); m13.set("group", "Exam"); m13.set("help", "Maximum (26)"); $app.save(m13);
-var m14 = new Record(meta); m14.set("field", "difficulty_profile"); m14.set("label", "Difficulty profile"); m14.set("ftype", "select"); m14.set("group", "Exam"); m14.set("help", "creative+difficult | creative+medium | hard"); m14.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m14);
-var m15 = new Record(meta); m15.set("field", "marks_per_question"); m15.set("label", "Marks per question"); m15.set("ftype", "number"); m15.set("group", "Exam"); m15.set("help", "Default marks"); $app.save(m15);
-var m16 = new Record(meta); m16.set("field", "max_tokens"); m16.set("label", "Max tokens"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM generation cap"); $app.save(m16);
-var m17 = new Record(meta); m17.set("field", "temperature"); m17.set("label", "Temperature"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM sampling temp"); $app.save(m17);
-var m18 = new Record(meta); m18.set("field", "timeout_s"); m18.set("label", "Timeout (s)"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "LLM call timeout"); $app.save(m18);
-var m19 = new Record(meta); m19.set("field", "retries"); m19.set("label", "LLM retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Retry count"); $app.save(m19);
-var m20 = new Record(meta); m20.set("field", "img_retries"); m20.set("label", "Image retries"); m20.set("ftype", "number"); m20.set("group", "Advanced"); m20.set("help", "Per-model image retries"); $app.save(m20);
-var m21 = new Record(meta); m21.set("field", "push_pb_base"); m21.set("label", "Push base URL"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PocketBase base URL"); $app.save(m21);
-var m22 = new Record(meta); m22.set("field", "push_pb_email"); m22.set("label", "Push email"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin email"); $app.save(m22);
-var m23 = new Record(meta); m23.set("field", "push_pb_pass"); m23.set("label", "Push password"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Client PB admin password"); $app.save(m23);
-var m24 = new Record(meta); m24.set("field", "push_subject_id"); m24.set("label", "Subject id"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "Subject record id on client PB"); $app.save(m24);
-var m25 = new Record(meta); m25.set("field", "push_exam_type"); m25.set("label", "Exam type on push"); m25.set("ftype", "text"); m25.set("group", "Push"); m25.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m25);
-var m26 = new Record(meta); m26.set("field", "push_exam_status"); m26.set("label", "Exam status on push"); m26.set("ftype", "select"); m26.set("group", "Push"); m26.set("help", "draft = review-then-publish | published = immediate"); m26.set("options", ["draft", "published"]); $app.save(m26);
-var m27 = new Record(meta); m27.set("field", "audio_gap_ms"); m27.set("label", "Gap between clips (ms)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m27);
-var m28 = new Record(meta); m28.set("field", "sample_rate"); m28.set("label", "Sample rate (Hz)"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m28);
-var m29 = new Record(meta); m29.set("field", "audio_workers"); m29.set("label", "Parallel audio workers"); m29.set("ftype", "number"); m29.set("group", "Audio"); m29.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m29);
-var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config enabled"); m30.set("ftype", "bool"); m30.set("group", "General"); m30.set("help", "Use this config"); $app.save(m30);
+var m8 = new Record(meta); m8.set("field", "question_count"); m8.set("label", "Total questions"); m8.set("ftype", "number"); m8.set("group", "Exam"); m8.set("help", "40 by default"); $app.save(m8);
+var m9 = new Record(meta); m9.set("field", "reading_count"); m9.set("label", "Reading questions"); m9.set("ftype", "number"); m9.set("group", "Exam"); m9.set("help", "Reading section size"); $app.save(m9);
+var m10 = new Record(meta); m10.set("field", "image_count"); m10.set("label", "Image questions target"); m10.set("ftype", "number"); m10.set("group", "Exam"); m10.set("help", "Target count"); $app.save(m10);
+var m11 = new Record(meta); m11.set("field", "image_count_min"); m11.set("label", "Image questions min"); m11.set("ftype", "number"); m11.set("group", "Exam"); m11.set("help", "Minimum (18)"); $app.save(m11);
+var m12 = new Record(meta); m12.set("field", "image_count_max"); m12.set("label", "Image questions max"); m12.set("ftype", "number"); m12.set("group", "Exam"); m12.set("help", "Maximum (26)"); $app.save(m12);
+var m13 = new Record(meta); m13.set("field", "difficulty_profile"); m13.set("label", "Difficulty profile"); m13.set("ftype", "select"); m13.set("group", "Exam"); m13.set("help", "creative+difficult | creative+medium | hard"); m13.set("options", ["creative+difficult", "creative+medium", "hard"]); $app.save(m13);
+var m14 = new Record(meta); m14.set("field", "marks_per_question"); m14.set("label", "Marks per question"); m14.set("ftype", "number"); m14.set("group", "Exam"); m14.set("help", "Default marks"); $app.save(m14);
+var m15 = new Record(meta); m15.set("field", "max_tokens"); m15.set("label", "Max tokens"); m15.set("ftype", "number"); m15.set("group", "Advanced"); m15.set("help", "LLM generation cap"); $app.save(m15);
+var m16 = new Record(meta); m16.set("field", "temperature"); m16.set("label", "Temperature"); m16.set("ftype", "number"); m16.set("group", "Advanced"); m16.set("help", "LLM sampling temp"); $app.save(m16);
+var m17 = new Record(meta); m17.set("field", "timeout_s"); m17.set("label", "Timeout (s)"); m17.set("ftype", "number"); m17.set("group", "Advanced"); m17.set("help", "LLM call timeout"); $app.save(m17);
+var m18 = new Record(meta); m18.set("field", "retries"); m18.set("label", "LLM retries"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "Retry count"); $app.save(m18);
+var m19 = new Record(meta); m19.set("field", "img_retries"); m19.set("label", "Image retries"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "Per-model image retries"); $app.save(m19);
+var m20 = new Record(meta); m20.set("field", "push_pb_base"); m20.set("label", "Push base URL"); m20.set("ftype", "text"); m20.set("group", "Push"); m20.set("help", "Client PocketBase base URL"); $app.save(m20);
+var m21 = new Record(meta); m21.set("field", "push_pb_email"); m21.set("label", "Push email"); m21.set("ftype", "text"); m21.set("group", "Push"); m21.set("help", "Client PB admin email"); $app.save(m21);
+var m22 = new Record(meta); m22.set("field", "push_pb_pass"); m22.set("label", "Push password"); m22.set("ftype", "text"); m22.set("group", "Push"); m22.set("help", "Client PB admin password"); $app.save(m22);
+var m23 = new Record(meta); m23.set("field", "push_subject_id"); m23.set("label", "Subject id"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Subject record id on client PB"); $app.save(m23);
+var m24 = new Record(meta); m24.set("field", "push_exam_type"); m24.set("label", "Exam type on push"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m24);
+var m25 = new Record(meta); m25.set("field", "push_exam_status"); m25.set("label", "Exam status on push"); m25.set("ftype", "select"); m25.set("group", "Push"); m25.set("help", "draft = review-then-publish | published = immediate"); m25.set("options", ["draft", "published"]); $app.save(m25);
+var m26 = new Record(meta); m26.set("field", "audio_gap_ms"); m26.set("label", "Gap between clips (ms)"); m26.set("ftype", "number"); m26.set("group", "Audio"); m26.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m26);
+var m27 = new Record(meta); m27.set("field", "sample_rate"); m27.set("label", "Sample rate (Hz)"); m27.set("ftype", "number"); m27.set("group", "Audio"); m27.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m27);
+var m28 = new Record(meta); m28.set("field", "audio_workers"); m28.set("label", "Parallel audio workers"); m28.set("ftype", "number"); m28.set("group", "Audio"); m28.set("help", "How many clips are synthesized at the same time. 4 is safe for most machines."); $app.save(m28);
+var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config enabled"); m29.set("ftype", "bool"); m29.set("group", "General"); m29.set("help", "Use this config"); $app.save(m29);
 
   // ---- migrations (idempotent, cheap after first run) ----
   try {
@@ -1573,6 +1689,20 @@ var m30 = new Record(meta); m30.set("field", "active"); m30.set("label", "Config
     var mT = $app.findFirstRecordByData("mock_config_meta", "field", "tts_model")
     if (mT.getString("ftype") !== "select") { mT.set("ftype", "select"); mT.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); mT.set("label", "TTS model"); mT.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); $app.save(mT) }
   } catch (errT) {}
+  try {
+    // upsert missing default TTS model seeds (existing installs never got them)
+    var mCol = $app.findCollectionByNameOrId("mock_models")
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    for (var si = 0; si < seedDefs.length; si++) {
+      var exists = false
+      try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
+      if (!exists) {
+        var mRec = new Record(mCol)
+        mRec.set("kind", seedDefs[si][0]); mRec.set("model", seedDefs[si][1]); mRec.set("display", seedDefs[si][2]); mRec.set("notes", seedDefs[si][3])
+        $app.save(mRec)
+      }
+    }
+  } catch (errU) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {

@@ -294,7 +294,7 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
                     <input type="range" min="10" max="100" step="10" v-model.number="qs.count" class="range mt-3">
                     <div class="flex justify-between text-[10.5px] f-mono mt-1.5" style="color:var(--mut)"><span>10</span><span>100</span></div>
                   </div>
-                  <div><label class="lbl"><span v-html="ic('zap',13)"></span> Difficulty</label><select v-model="qs.difficulty" class="select"><option value="creative+difficult">Creative + Difficult</option><option value="creative+medium">Creative + Medium</option><option value="hard">Hard (TOPIK/EPS)</option></select></div>
+                  <div><label class="lbl"><span v-html="ic('zap',13)"></span> Difficulty</label><select v-model="qs.difficulty" class="select"><option value="creative+medium">Creative + Medium</option><option value="creative+difficult">Creative + Difficult</option><option value="hard">TOPIK EPIS HARD</option></select></div>
                 </div>
               </div>
             </div>
@@ -326,9 +326,11 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
               </div>
               <div v-if="!jobs.length" class="text-sm py-10 text-center" style="color:var(--mut)">Nothing has run yet — your first exam awaits.</div>
               <table v-else class="w-full">
-                <thead><tr><th>Created</th><th>Client</th><th>Stage</th><th>Kind</th><th>Time</th><th>LLM $</th><th>Img credits</th><th>Status</th></tr></thead>
+                <thead><tr><th>Created</th><th>Client</th><th>Difficulty</th><th>Focus</th><th>Stage</th><th>Kind</th><th>Time</th><th>LLM $</th><th>Img credits</th><th>Status</th></tr></thead>
                 <tbody><tr v-for="j in jobs.slice(0,6)" :key="j.id" class="cursor-pointer" @click="openJob(j)">
                   <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td class="font-semibold">{{ j.client_name }}</td>
+                  <td class="text-xs">{{ j.difficulty || '—' }}</td>
+                  <td class="text-xs max-w-[140px] truncate" :title="j.focus || ''">{{ j.focus || '—' }}</td>
                   <td><span class="stage-bar" v-html="stageFor(j)"></span></td>
                   <td><span class="text-xs f-mono px-2.5 py-1 rounded-lg" :style="{background:j.kind!=='full'?'rgba(53,104,156,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ dryLabel(j.kind) }}</span></td>
                   <td class="tcell-num" :title="jobTime(j).title">{{ jobTime(j).label }}</td>
@@ -557,9 +559,11 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
             <div class="panel">
               <div v-if="!filteredJobs.length" class="text-sm py-12 text-center" style="color:var(--mut)">Nothing here.</div>
               <table v-else class="w-full">
-                <thead><tr><th>Created</th><th>Client</th><th>Stage</th><th>Kind</th><th>Q</th><th>Time</th><th>LLM $</th><th>Img credits</th><th>Status</th><th>Pushed</th><th>Error</th></tr></thead>
+                <thead><tr><th>Created</th><th>Client</th><th>Difficulty</th><th>Focus</th><th>Stage</th><th>Kind</th><th>Q</th><th>Time</th><th>LLM $</th><th>Img credits</th><th>Status</th><th>Pushed</th><th>Error</th></tr></thead>
                 <tbody><tr v-for="j in filteredJobs" :key="j.id" class="cursor-pointer" @click="openJob(j)">
                   <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td class="font-semibold">{{ j.client_name||j.client }}</td>
+                  <td class="text-xs">{{ j.difficulty || '—' }}</td>
+                  <td class="text-xs max-w-[160px] truncate" :title="j.focus || ''">{{ j.focus || '—' }}</td>
                   <td><span class="stage-bar" v-html="stageFor(j)"></span></td>
                   <td><span class="text-xs f-mono px-2.5 py-1 rounded-lg" :style="{background:j.kind!=='full'?'rgba(53,104,156,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ dryLabel(j.kind) }}</span></td>
                   <td class="f-mono">{{ j.count }}</td>
@@ -638,7 +642,7 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
         <div class="flex items-start justify-between mb-5">
           <div>
             <h2 class="f-disp text-xl font-extrabold flex items-center gap-2"><span v-html="ic('terminal',19)" style="color:var(--amber2)"></span>Job <span class="f-mono text-base">{{ short(drawerJob.id) }}</span></h2>
-            <div class="text-xs f-mono mt-1.5" style="color:var(--mut)">{{ drawerJob.client_name }} · {{ dryLabel(drawerJob.kind) }} · {{ drawerJob.count }}q · {{ drawerJob.difficulty }}</div>
+            <div class="text-xs f-mono mt-1.5" style="color:var(--mut)">{{ drawerJob.client_name }} · {{ dryLabel(drawerJob.kind) }} · {{ drawerJob.count }}q · {{ drawerJob.difficulty }}<template v-if="drawerJob.focus"> · focus: {{ drawerJob.focus }}</template></div>
           </div>
           <button class="btn btn-ghost btn-sm" @click="drawerJob=null"><span v-html="ic('x',13)"></span>Close</button>
         </div>
@@ -710,55 +714,55 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
     </div>
 
     <!-- Run Preview (dry + full) -->
-    <div v-if="previewRun" class="fixed inset-0 z-50 flex justify-end" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)" @click.self="previewRun=null" :title="'Click outside to close'">
+    <div v-if="previewData" class="fixed inset-0 z-50 flex justify-end" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)" @click.self="previewRun=null" :title="'Click outside to close'">
       <div class="w-full max-w-2xl h-full overflow-y-auto panel rounded-none drawer p-7" style="border:none;border-left:1px solid var(--line)">
         <div class="flex items-start justify-between mb-4">
           <div>
             <h2 class="f-disp text-xl font-extrabold flex items-center gap-2">
-              <span v-html="ic(previewRun.kind==='full'?'rocket':'database',19)" style="color:var(--amber2)"></span>
-              {{ previewRun.kind==='full' ? 'Full run preview' : 'Dry run preview' }}
+              <span v-html="ic(previewData.kind==='full'?'rocket':'database',19)" style="color:var(--amber2)"></span>
+              {{ previewData.kind==='full' ? 'Full run preview' : 'Dry run preview' }}
             </h2>
-            <div class="text-xs f-mono mt-1.5" style="color:var(--mut)">{{ dryKindLabel(previewRun.kind) }} · {{ previewRun.count || 0 }} questions · {{ fmtTime(previewRun.created) }}</div>
+            <div class="text-xs f-mono mt-1.5" style="color:var(--mut)">{{ dryKindLabel(previewData.kind) }} · {{ previewData.count || 0 }} questions · {{ fmtTime(previewData.created) }}</div>
           </div>
           <button class="btn btn-ghost btn-sm" @click="previewRun=null"><span v-html="ic('x',13)"></span>Close</button>
         </div>
-        <div v-if="previewRun.summary" class="term mb-4">
+        <div v-if="previewData.summary" class="term mb-4">
           <div class="term-bar">
             <span class="term-dot" style="background:#ff5f57"></span><span class="term-dot" style="background:#febc2e"></span><span class="term-dot" style="background:#28c840"></span>
             <span class="term-title">AI SUMMARY</span>
           </div>
           <div class="term-body">
-            <div><span class="term-prompt">$</span><span style="color:var(--cyan)">mock-creator</span> <span style="color:#8b93a5">--summary --run {{ (previewRun.id||'').slice(0,8) }} --{{ previewRun.kind }}</span></div>
-            <div class="term-out">{{ previewRun.summary }}</div>
+            <div><span class="term-prompt">$</span><span style="color:var(--cyan)">mock-creator</span> <span style="color:#8b93a5">--summary --run {{ (previewData.id||'').slice(0,8) }} --{{ previewData.kind }}</span></div>
+            <div class="term-out">{{ previewData.summary }}</div>
           </div>
         </div>
         <div class="panel2 p-3 mb-4 flex items-center gap-3 flex-wrap">
-          <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--soft);color:var(--amber2)">LLM cost {{ dryCost(previewRun) }}</span>
-          <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--soft);color:var(--amber2)">time {{ dryTime(previewRun) }}</span>
-          <span v-if="dryFalCost(previewRun) !== '—'" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(226,114,63,.12);color:var(--amber2)">Fal.ai cost {{ dryFalCost(previewRun) }}</span>
-          <span v-if="previewRun.report && previewRun.report.fal_balance != null" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(47,143,143,.12);color:var(--cyan)">Fal balance ${{ previewRun.report.fal_balance }}</span>
-          <span v-if="previewRun.report && previewRun.report.or_balance != null" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(53,104,156,.12);color:var(--blue)">OpenRouter ${{ previewRun.report.or_balance }}</span>
-          <span v-if="previewRun.report && previewRun.report.img_credits" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(138,95,181,.12);color:var(--purple)">{{ previewRun.report.img_credits }} credits</span>
-          <span v-if="previewRun.images && runFiles(previewRun,'images').length" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(138,95,181,.12);color:var(--purple)">{{ runFiles(previewRun,'images').length }} image(s)</span>
-          <span v-if="previewRun.audio && runFiles(previewRun,'audio').length" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(47,143,143,.12);color:var(--cyan)">{{ runFiles(previewRun,'audio').length }} audio clip(s)</span>
-          <button class="btn btn-ghost btn-sm ml-auto flex items-center gap-1" @click="copy(JSON.stringify(previewRun.questions,null,2))"><span v-html="ic('copy',12)"></span>Copy JSON</button>
+          <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--soft);color:var(--amber2)">LLM cost {{ dryCost(previewData) }}</span>
+          <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--soft);color:var(--amber2)">time {{ dryTime(previewData) }}</span>
+          <span v-if="dryFalCost(previewData) !== '—'" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(226,114,63,.12);color:var(--amber2)">Fal.ai cost {{ dryFalCost(previewData) }}</span>
+          <span v-if="previewData.report && previewData.report.fal_balance != null" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(47,143,143,.12);color:var(--cyan)">Fal balance ${{ previewData.report.fal_balance }}</span>
+          <span v-if="previewData.report && previewData.report.or_balance != null" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(53,104,156,.12);color:var(--blue)">OpenRouter ${{ previewData.report.or_balance }}</span>
+          <span v-if="previewData.report && previewData.report.img_credits" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(138,95,181,.12);color:var(--purple)">{{ previewData.report.img_credits }} credits</span>
+          <span v-if="previewData.images && previewData.images.length" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(138,95,181,.12);color:var(--purple)">{{ previewData.images.length }} image(s)</span>
+          <span v-if="previewData.audio && previewData.audio.length" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(47,143,143,.12);color:var(--cyan)">{{ previewData.audio.length }} audio clip(s)</span>
+          <button class="btn btn-ghost btn-sm ml-auto flex items-center gap-1" @click="copy(JSON.stringify(previewData.questions,null,2))"><span v-html="ic('copy',12)"></span>Copy JSON</button>
         </div>
-        <div v-if="runFiles(previewRun,'images').length" class="panel2 p-4 mb-3">
-          <div class="f-mono text-[10px] uppercase tracking-widest mb-2" style="color:var(--mut)">generated images ({{ runFiles(previewRun,'images').length }})</div>
+        <div v-if="previewData.images.length" class="panel2 p-4 mb-3">
+          <div class="f-mono text-[10px] uppercase tracking-widest mb-2" style="color:var(--mut)">generated images ({{ previewData.images.length }})</div>
           <div class="grid grid-cols-3 gap-2">
-            <a v-for="f in runFiles(previewRun,'images')" :key="f" :href="'/api/files/'+previewRun.collectionName+'/'+previewRun.id+'/'+f" target="_blank">
-              <img :src="'/api/files/'+previewRun.collectionName+'/'+previewRun.id+'/'+f" class="w-full rounded-lg" style="border:1px solid var(--line);background:var(--panel)" :alt="f">
+            <a v-for="f in previewData.images" :key="f" :href="'/api/files/'+previewData.collectionName+'/'+previewData.id+'/'+f" target="_blank">
+              <img :src="'/api/files/'+previewData.collectionName+'/'+previewData.id+'/'+f" class="w-full rounded-lg" style="border:1px solid var(--line);background:var(--panel)" :alt="f">
               <div class="text-[9.5px] f-mono mt-0.5 truncate" style="color:var(--mut)">{{ f }}</div>
             </a>
           </div>
         </div>
-        <div v-if="runFiles(previewRun,'audio').length && !Object.keys(previewRun.audio_map||{}).length" class="panel2 p-4 mb-3">
+        <div v-if="previewData.audio.length && !Object.keys(previewData.audio_map||{}).length" class="panel2 p-4 mb-3">
           <div class="f-mono text-[10px] uppercase tracking-widest mb-2" style="color:var(--mut)">generated audio</div>
-          <audio v-for="a in runFiles(previewRun,'audio')" :key="a" :src="'/api/files/'+previewRun.collectionName+'/'+previewRun.id+'/'+a" controls class="w-full mb-1" :style="{height:'36px'}"></audio>
+          <audio v-for="a in previewData.audio" :key="a" :src="'/api/files/'+previewData.collectionName+'/'+previewData.id+'/'+a" controls class="w-full mb-1" :style="{height:'36px'}"></audio>
         </div>
-        <div v-if="!previewRun.questions || !previewRun.questions.length" class="text-sm py-10 text-center" style="color:var(--mut)">No questions stored for this run.</div>
+        <div v-if="!previewData.questions || !previewData.questions.length" class="text-sm py-10 text-center" style="color:var(--mut)">No questions stored for this run.</div>
         <div v-else class="space-y-3">
-          <div v-for="q in previewRun.questions" :key="q.number" class="panel2 p-4">
+          <div v-for="q in previewData.questions" :key="q.number" class="panel2 p-4">
             <div class="flex items-center gap-2 mb-2 flex-wrap">
               <span class="f-mono text-xs px-2 py-0.5 rounded-lg" style="background:var(--soft);color:var(--amber2)">Q{{ q.number }}</span>
               <span class="text-[11px] uppercase tracking-widest" style="color:var(--mut)">{{ q.section }} · {{ q.type }} · {{ q.difficulty }}</span>
@@ -778,7 +782,7 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
                 <span class="f-mono shrink-0" style="color:var(--cyan)">{{ t.voice }}</span><span>{{ t.text }}</span>
               </div>
               <div v-if="q.listening.situation" class="f-serif text-xs mt-1" style="color:var(--mut)">situation: {{ q.listening.situation }}</div>
-              <audio v-if="previewRun.audio_map && previewRun.audio_map['Q'+q.number]" :src="'/api/files/'+previewRun.collectionName+'/'+previewRun.id+'/'+previewRun.audio_map['Q'+q.number]" controls class="w-full mt-2" :style="{height:'34px'}"></audio>
+              <audio v-if="previewData.audio_map && previewData.audio_map['Q'+q.number]" :src="'/api/files/'+previewData.collectionName+'/'+previewData.id+'/'+previewData.audio_map['Q'+q.number]" controls class="w-full mt-2" :style="{height:'34px'}"></audio>
             </div>
             <div v-if="q.imagePrompt" class="mt-2 text-xs" style="color:var(--purple)">image: {{ q.imagePrompt }}</div>
           </div>

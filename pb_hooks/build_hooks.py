@@ -236,7 +236,6 @@ META_FIELDS = [
     ("tts_model", "TTS model", "select", "Audio", "Model that reads the listening scripts aloud. Options load from the models API.", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]),
     ("tts_fallback_model", "Fallback TTS model", "select", "Audio", "Used only if the primary TTS model fails or times out.", ["microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]),
     ("tts_fallback_voice", "Fallback voice", "text", "Audio", "Voice id used when the primary voice is unavailable (e.g. ko-KR-Haena)."),
-    ("tts_voices", "Speaker voices (JSON)", "json", "Audio", 'Map each speaker label to a TTS voice, e.g. {"V1": "alloy", "V2": "echo"}. Number of people in a dialog = number of speakers. Leave {} for defaults.'),
     ("question_count", "Total questions", "number", "Exam", "40 by default"),
     ("reading_count", "Reading questions", "number", "Exam", "Reading section size"),
     ("image_count", "Image questions target", "number", "Exam", "Target count"),
@@ -376,6 +375,20 @@ function ensureCollections() {
     var mT = $app.findFirstRecordByData("mock_config_meta", "field", "tts_model")
     if (mT.getString("ftype") !== "select") { mT.set("ftype", "select"); mT.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); mT.set("label", "TTS model"); mT.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); $app.save(mT) }
   } catch (errT) {}
+  try {
+    // upsert missing default TTS model seeds (existing installs never got them)
+    var mCol = $app.findCollectionByNameOrId("mock_models")
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    for (var si = 0; si < seedDefs.length; si++) {
+      var exists = false
+      try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
+      if (!exists) {
+        var mRec = new Record(mCol)
+        mRec.set("kind", seedDefs[si][0]); mRec.set("model", seedDefs[si][1]); mRec.set("display", seedDefs[si][2]); mRec.set("notes", seedDefs[si][3])
+        $app.save(mRec)
+      }
+    }
+  } catch (errU) {}
 """,
     "".join(
         "var k{0} = new Record(models); k{0}.set(\"kind\", {1}); k{0}.set(\"model\", {2}); k{0}.set(\"display\", {3}); k{0}.set(\"notes\", {4}); $app.save(k{0});\n".format(
@@ -571,6 +584,12 @@ try {
   try { count = parseInt(q.get("count") || "40", 10) } catch (err) {}
   if (isNaN(count) || count < 1 || count > 200) count = 40
   var difficulty = q.get("difficulty") || cfg.getString("difficulty_profile") || "creative+difficult"
+  // Normalize teacher-portal vocabulary to pipeline profiles:
+  //   creative+medium | creative+difficult | TOPIK EPIS HARD (-> hard)
+  var dm = (difficulty || "").trim()
+  if (dm === "TOPIK EPIS HARD") dm = "hard"
+  if (["creative+medium", "creative+difficult", "hard", "standard"].indexOf(dm) === -1) dm = "creative+difficult"
+  difficulty = dm
   var kind = (q.get("kind") || "full").trim()
   if (kind === "dry") kind = "dry_questions"
   if (["full","dry_questions","dry_images","dry_audio"].indexOf(kind) === -1) kind = "full"
@@ -664,6 +683,13 @@ try {
       kind: r.getString("kind") || "full",
       count: r.getInt("count"),
       difficulty: r.getString("difficulty"),
+      focus: (function () {
+        try {
+          var ov = r.get("overrides")
+          if (ov && typeof ov === "string") { ov = JSON.parse(ov) }
+          return (ov && ov.focus) || ""
+        } catch (errF) { return "" }
+      })(),
       log: (r.getString("log") || "").substring(0, 300),
       pushed: r.getBool("pushed"),
       report: (function () {

@@ -91,7 +91,7 @@ createApp({
       ];
     },
     groups(){const g=[...new Set(this.meta.map(m=>m.group))];return ['LLM','Exam','Images','Audio','Push','Advanced'].filter(x=>g.includes(x));},
-    ttsOptions(){const from=this.models.filter(m=>m.kind==='tts').map(m=>m.model).filter(Boolean);const cur=this.cfgData?this.cfgData.tts_model:null;if(cur&&!from.includes(cur))from.unshift(cur);return from.length?from:['fish-audio/s2.1-pro-free:free','microsoft/mai-voice-2-flash','x-ai/grok-voice-tts-1.0'];},
+    ttsOptions(){const BASE=['fish-audio/s2.1-pro-free:free','microsoft/mai-voice-2-flash','x-ai/grok-voice-tts-1.0','google/gemini-3.1-flash-tts-preview','hexgrad/kokoro-82m','mistralai/voxtral-mini-tts-2603','deepgram/deepgram-multi-voice-tts'];const from=(this.models||[]).filter(m=>m&&m.kind==='tts').map(m=>m.model).filter(Boolean);for(const m of from){if(!BASE.includes(m))BASE.push(m);}const cur=this.cfgData?this.cfgData.tts_model:null;if(cur&&!BASE.includes(cur))BASE.unshift(cur);return BASE;},
     listeningCount(){const c=this.cfgData.question_count||40;const r=this.cfgData.reading_count||20;return Math.max(0,c-r);},
     orCount(){return Object.keys(this.orModels).length;},
     costEst(){
@@ -121,6 +121,7 @@ createApp({
       if(isNaN(c)||isNaN(u))return'—';const s=(u-c)/1000;if(s<60)return s.toFixed(0)+'s';
       if(s<3600)return Math.floor(s/60)+'m '+Math.round(s%60)+'s';return Math.floor(s/3600)+'h '+Math.round(s%3600/60)+'m';
     },
+    previewData(){return this.previewSafe(this.previewRun);},
     pipeIndex(){
       if(!this.drawerJob)return-1;const log=this.drawerJob.log||'';
       let last=-1;PIPE_STAGES.forEach((s,i)=>{if(log.includes('['+s+']'))last=i;});
@@ -260,7 +261,7 @@ createApp({
     },
     cardState(g){const list=this.groupIssues[g]||[];if(list.some(i=>i.w==='err'))return'err';if(list.some(i=>i.w==='warn'))return'warn';if(this.verified[g])return'ok';return'idle';},
     groupIssueList(g){return this.groupIssues[g]||[];},
-    hiddenField(f){return['image_count_min','image_count_max','is_active','shuffle_questions','shuffle_options','negative_marks','push_subject_id','push_exam_type','image_fallback'].includes(f.field);},
+    hiddenField(f){return['image_count_min','image_count_max','is_active','shuffle_questions','shuffle_options','negative_marks','push_subject_id','push_exam_type','image_fallback','tts_voices'].includes(f.field);},
     toggleGroup(g){this.openGroup=this.openGroup===g?'':g;this.$nextTick(()=>this.deckEnter());},
     viewEnter(){
       if(!window.anime)return;
@@ -292,6 +293,23 @@ createApp({
     dryTime(d){const st=((d&&d.report)||{}).stage_times||{};return st.total!=null?`${st.total}s`:'—';},
     openPreview(d){this.previewRun=d;},
     runFiles(d,field){const v=d&&d[field];if(Array.isArray(v))return v.filter(x=>x&&typeof x==='string');if(typeof v==='string'&&v)return[v];return[];},
+    parseObj(v){if(v==null)return null;if(typeof v==='object')return v;try{const p=JSON.parse(v);return p&&typeof p==='object'?p:null;}catch(e){return null;}},
+    previewSafe(d){
+      if(!d||typeof d!=='object')return null;
+      let qs=d.questions;
+      if(typeof qs==='string'){try{qs=JSON.parse(qs);}catch(e){qs=null;}}
+      if(!Array.isArray(qs))qs=[];
+      const rep=this.parseObj(d.report)||{};
+      const amap=this.parseObj(d.audio_map)||{};
+      return{
+        id:String(d.id||''),collectionName:String(d.collectionName||'dryrun'),kind:String(d.kind||''),
+        count:d.count!=null?d.count:qs.length,created:d.created||'',
+        questions:qs.filter(q=>q&&typeof q==='object'),
+        report:rep,audio_map:amap,
+        images:this.runFiles(d,'images'),audio:this.runFiles(d,'audio'),
+        summary:typeof d.summary==='string'?d.summary:''
+      };
+    },
     pushReadyFor(clientId){
       const cfg=this.cfgByClient[clientId];
       if(!cfg)return false;
@@ -375,7 +393,11 @@ createApp({
       this.confirmFn=async()=>{try{let d=0;for(const j of failed){try{await api('/api/collections/mock_jobs/records/'+j.id,{method:'DELETE'});d++;}catch(e){}}this.toast(d+' of '+failed.length+' deleted','ok');this.loadJobs();}catch(e){this.toast('clear: '+e.message,'err');}};
     },
   },
-  mounted(){document.documentElement.setAttribute('data-theme',this.theme);if(this.authed)this.loadAll();this._onKey=e=>{const t=document.activeElement.tagName;if(e.key==='Escape'&&t!=='INPUT'&&t!=='TEXTAREA'&&t!=='SELECT'){this.drawerJob=null;this.clientModal=false;this.confirmMsg=null;}if(e.key==='r'&&!e.ctrlKey&&!e.metaKey&&document.activeElement===document.body)this.loadAll();};document.addEventListener('keydown',this._onKey);},
+  mounted(){document.documentElement.setAttribute('data-theme',this.theme);if(this.authed)this.loadAll();this._onKey=e=>{const t=document.activeElement.tagName;if(e.key==='Escape'&&t!=='INPUT'&&t!=='TEXTAREA'&&t!=='SELECT'){this.drawerJob=null;this.clientModal=false;this.confirmMsg=null;this.previewRun=null;}if(e.key==='r'&&!e.ctrlKey&&!e.metaKey&&document.activeElement===document.body)this.loadAll();};document.addEventListener('keydown',this._onKey);
+    if(!this._errBound){
+      this._errBound=true;
+      window.addEventListener('error',ev=>{if(ev&&ev.message&&!String(ev.message).includes('favicon')){try{this.toast('UI error: '+String(ev.message).slice(0,120),'err');}catch(e2){}}});
+    }},
   unmounted(){document.removeEventListener('keydown',this._onKey);},
   updated(){const el=this.$refs.logBox;if(el)el.scrollTop=el.scrollHeight;},
 }).mount('#app');
