@@ -78,8 +78,8 @@ createApp({
     orModels:{},orStatus:'loading',
   }},
   computed:{
-    filteredJobs(){let l=this.jobs;if(this.jobFilter!=='all')l=l.filter(j=>j.status===this.jobFilter);const q=this.searchQ.trim().toLowerCase();if(q){l=l.filter(j=>[j.client_name,j.client,j.difficulty,j.focus,j.status,j.kind,String(j.id)].join(' ').toLowerCase().includes(q));}const k=this.sortKey,dir=this.sortDir;return[...l].sort((a,b)=>{let x=this.sortVal(a,k),y=this.sortVal(b,k);if(typeof x==='string'){x=x.toLowerCase();y=String(y).toLowerCase();}if(x<y)return-1*dir;if(x>y)return1*dir;return 0;});},
-    sortVal(j,k){if(k==='cost'){const r=this.jobRep(j);return r?(r.total_llm_cost_usd!=null?r.total_llm_cost_usd:r.llm_cost)||0:0;}if(k==='time'){const st=(this.jobRep(j)||{}).stage_times||{};return st.total||0;}if(k==='created')return this.fixT(j.created)||'';return j[k]!=null?j[k]:'';},
+    filteredJobs(){try{let l=Array.isArray(this.jobs)?this.jobs.slice():[];if(this.jobFilter&&this.jobFilter!=='all')l=l.filter(j=>j&&j.status===this.jobFilter);const q=String(this.searchQ||'').trim().toLowerCase();if(q){l=l.filter(j=>{if(!j)return false;return [j.client_name,j.client,j.difficulty,j.focus,j.status,j.kind,String(j.id)].join(' ').toLowerCase().includes(q);});}const k=this.sortKey||'created',dir=this.sortDir||-1;return l.sort((a,b)=>{try{let x=this.sortVal(a,k),y=this.sortVal(b,k);if(typeof x==='string'){x=x.toLowerCase();y=String(y==null?'':y).toLowerCase();}else{y=Number(y)||0;x=Number(x)||0;}if(x<y)return-1*dir;if(x>y)return1*dir;return 0;}catch(e){return 0;}});}catch(e){console.error('filteredJobs',e);return Array.isArray(this.jobs)?this.jobs.slice():[];}},
+    sortVal(j,k){if(!j)return'';if(k==='cost'){const r=this.jobRep(j);return r?(Number(r.total_llm_cost_usd)||Number(r.llm_cost)||0):0;}if(k==='time'){const st=(this.jobRep(j)||{}).stage_times||{};return Number(st.total)||0;}if(k==='created')return this.fixT(j.created)||'';return j[k]!=null?j[k]:'';},
     sortBy(k){if(this.sortKey===k){this.sortDir=-this.sortDir;}else{this.sortKey=k;this.sortDir=k==='created'?-1:1;}},
     sortIcon(k){return this.sortKey===k?(this.sortDir<0?'▼':'▲'):'↕';},
     stats(){
