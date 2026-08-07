@@ -1,5 +1,5 @@
 const { createApp } = Vue;
-const LS_TK = 'mc_token', LS_EM = 'mc_email', LS_TH = 'mc_theme';
+const LS_TK = 'mc_token', LS_EM = 'mc_email', LS_TH = 'mc_theme', LS_OR = 'mc_ormodels';
 
 function api(path, opts) {
   opts = opts || {};
@@ -65,11 +65,9 @@ const ICONS = {
   download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
   eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
   eyeOff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24M1 1l22 22',
-  help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01',
   settings: 'M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
   clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
   dollar: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
-  server: 'M2 2h20v8H2zM2 14h20v8H2zM6 6h.01M6 18h.01',
   send: 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z',
   lock: 'M7 11V7a5 5 0 0 1 10 0v4M3 11h18v10H3z',
   mail: 'M2 4h20v16H2zM22 7l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7',
@@ -79,13 +77,23 @@ const ICONS = {
   rocket: 'M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09zM12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2zM9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5',
   checkCircle: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3',
   circle: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',
-  chevronRight: 'M9 18l6-6-6-6',
+  chevronDown: 'M6 9l6 6 6-6',
   arrowRight: 'M5 12h14M12 5l7 7-7 7',
-  search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
   logOut: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
   moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z',
-  sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42'
+  sun: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42',
+  database: 'M12 2a7 7 0 0 1 7 7v6a7 7 0 0 1-14 0V9a7 7 0 0 1 7-7zM19 13a7 7 0 0 1-14 0',
+  terminal: 'M4 17l6-6-6-6M12 19h8',
+  gauge: 'M12 15l3.5-3.5M20.3 18a10 10 0 1 0-16.6 0',
+  wifi: 'M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01'
 };
+
+const LOG_COLORS = {
+  author: 'var(--blue)', repair: 'var(--amber2)', proofread: 'var(--purple)',
+  save: 'var(--green)', pb: 'var(--amber2)', audio: 'var(--cyan)', images: 'var(--purple)',
+  local: 'var(--green)', 'dry-run': 'var(--blue)', resume: 'var(--mut)'
+};
+const PIPE_STAGES = ['author', 'repair', 'proofread', 'save', 'pb', 'audio', 'images'];
 
 createApp({
   data(){return{
@@ -95,11 +103,12 @@ createApp({
     nav:[{id:'overview',label:'Overview'},{id:'clients',label:'Clients'},{id:'configs',label:'Configs'},{id:'jobs',label:'Jobs'}],
     clients:[],jobs:[],configs:[],meta:[],models:[],jobsBusy:false,startBusy:false,
     qs:{client:'',count:40,difficulty:'creative+difficult'},jobFilter:'all',
-    drawerJob:null,drawerTimer:null,clientModal:false,clientStep:0,newClientName:'',newKey:'',clientErr:'',
+    drawerJob:null,drawerTimer:null,drawerLastUpd:'',clientModal:false,clientStep:0,newClientName:'',newKey:'',clientErr:'',
     confirmMsg:null,confirmFn:null,toasts:[],
     cfgClient:'',cfg:null,cfgLoading:false,cfgSaving:false,cfgSavedAt:'',cfgRaw:false,cfgRawText:'',cfgRawErr:'',
     cfgData:{},showPass:false,valIssues:[],valChecked:false,
-    groupIssues:{},verified:{},
+    groupIssues:{},verified:{},openGroup:'Exam',
+    orModels:{},orStatus:'loading',
   }},
   computed:{
     filteredJobs(){return this.jobFilter==='all'?this.jobs:this.jobs.filter(j=>j.status===this.jobFilter);},
@@ -116,13 +125,21 @@ createApp({
     },
     groups(){const g=[...new Set(this.meta.map(m=>m.group))];return ['LLM','Exam','Images','Audio','Push','Advanced','General'].filter(x=>g.includes(x));},
     listeningCount(){const c=this.cfgData.question_count||40;const r=this.cfgData.reading_count||20;return Math.max(0,c-r);},
+    orCount(){return Object.keys(this.orModels).length;},
     costEst(){
-      const q=this.cfgData.question_count||40,r=this.cfgData.reading_count||20,img=this.cfgData.image_count||22,list=Math.max(0,q-r);
-      const authCostPerQ=0.0005,proofCostPerQ=0.00015,text=(q*0.75)*(authCostPerQ+proofCostPerQ);
-      const imgCost=img*0.008,audioCost=list*0.0004;
-      return{text:text,images:imgCost,audio:audioCost,total:text+imgCost+audioCost};
+      const q=+this.cfgData.question_count||40,r=+this.cfgData.reading_count||20,img=+this.cfgData.image_count||18,list=Math.max(0,q-r);
+      const price=s=>{const m=this.orModels[s];return m?{p:+m.p||0,c:+m.c||0}:null;};
+      const stage=(slug,inTok,outTok)=>{const m=price(slug);if(!m)return 0;return inTok*m.p+outTok*m.c;};
+      const text=stage(this.cfgData.llm_author_model,3500+q*80,q*150)
+                +stage(this.cfgData.llm_proofread_model,2000+q*170,q*150)
+                +stage(this.cfgData.llm_repair_model,2400,2000)*2;
+      const audio=stage(this.cfgData.tts_model,0,list*90);
+      const nano=price('google/gemini-2.5-flash-image');
+      const images=this.cfgData.img_model==='nano-banana'&&nano?img*1320*nano.c:null;
+      const known=this.orStatus==='live';
+      return{text,audio,images,total:text+audio+(images||0),magnific:this.cfgData.img_model!=='nano-banana',known};
     },
-    costPct(){const t=this.costEst;const m=t.total||0.0001;return{text:(t.text/m*100).toFixed(1),images:(t.images/m*100).toFixed(1),audio:(t.audio/m*100).toFixed(1)};},
+    costPct(){const t=this.costEst;const m=t.total||0.0001;return{text:(t.text/m*100).toFixed(1),images:((t.images||0)/m*100).toFixed(1),audio:(t.audio/m*100).toFixed(1)};},
     failedCount(){return this.jobs.filter(j=>j.status==='failed').length;},
     totalCost(){
       let t=0;for(const j of this.jobs){const r=j._report;if(r){t+=(r.llm_cost||0)+(r.img_cost||0);}}return t;
@@ -131,6 +148,24 @@ createApp({
       if(!this.drawerJob)return'—';const c=new Date(this.fixT(this.drawerJob.created)),u=new Date(this.fixT(this.drawerJob.updated));
       if(isNaN(c)||isNaN(u))return'—';const s=(u-c)/1000;if(s<60)return s.toFixed(0)+'s';
       if(s<3600)return Math.floor(s/60)+'m '+Math.round(s%60)+'s';return Math.floor(s/3600)+'h '+Math.round(s%3600/60)+'m';
+    },
+    pipeIndex(){
+      if(!this.drawerJob)return-1;const log=this.drawerJob.log||'';
+      let last=-1;PIPE_STAGES.forEach((s,i)=>{if(log.includes('['+s+']'))last=i;});
+      if(this.drawerJob.status==='done')return PIPE_STAGES.length;
+      return last;
+    },
+    logLines(){
+      if(!this.drawerJob)return[];
+      const lines=(this.drawerJob.log||'').split('\n').filter(Boolean);
+      return lines.map(l=>{
+        const m=l.match(/^\[([a-z-]+)\]/);
+        let cls='plain';
+        if(m&&LOG_COLORS[m[1]])cls=m[1];
+        else if(/FAILED|error|failed/i.test(l))cls='err';
+        else if(/OK|COMPLETE|saved|created/i.test(l))cls='ok';
+        return{cls,text:l};
+      });
     },
   },
   watch:{
@@ -159,7 +194,33 @@ createApp({
     hintText(f){if(!f||!this.cfgData)return'';
       if(f.field==='image_count'){const n=this.cfgData.image_count||18;return`${n} questions will have pictures, spread randomly across reading & listening`;}
       if(f.field==='reading_count'){const t=this.cfgData.question_count||0;const v=this.cfgData[f.field]||0;return t?`${t-v} listening questions remaining (Q${v+1}–Q${t})`:'Set total questions first';}
+      if(f.field==='llm_author_model'&&this.cfgData[f.field]){const m=this.orModels[this.cfgData[f.field]];return m?`OpenRouter: ${m.name}`:this.orStatus==='live'?`Model not found on OpenRouter`:'';
+      }
       return'';},
+    modelIssue(field){
+      const v=this.cfgData[field];
+      if(!v)return null;
+      if(this.orStatus!=='live')return null;
+      if(!this.orModels[v])return`Model "${v}" is NOT on OpenRouter — fix or verification will fail`;
+      return null;
+    },
+    modelFieldValue(field){return this.cfgData[field]||'';},
+    async ensureOrModels(force){
+      if(this.orStatus==='live'&&!force)return true;
+      try{const cache=JSON.parse(localStorage.getItem(LS_OR)||'null');
+        if(cache&&cache.at&&Date.now()-cache.at<900000&&Object.keys(cache.models||{}).length){this.orModels=cache.models;this.orStatus='live';return true;}
+      }catch(e){}
+      try{
+        const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),10000);
+        const r=await fetch('https://openrouter.ai/api/v1/models',{signal:ctrl.signal});clearTimeout(to);
+        const j=await r.json();
+        const m={};(j.data||[]).forEach(x=>{m[x.id]={name:x.name||x.id,p:+(x.pricing&&x.pricing.prompt)||0,c:+(x.pricing&&x.pricing.completion)||0};});
+        this.orModels=m;this.orStatus='live';
+        try{localStorage.setItem(LS_OR,JSON.stringify({at:Date.now(),models:m}));}catch(e){}
+        this.toast('Connected to OpenRouter — '+Object.keys(m).length+' models loaded','info');
+      }catch(e){this.orStatus='offline';this.toast('OpenRouter unreachable — model checks skipped (offline)','warn');}
+      return this.orStatus==='live';
+    },
     checkIssues(){
       this.groupIssues={};const c=this.cfgData;if(!c)return;
       const add=(g,w,msg)=>{if(!this.groupIssues[g])this.groupIssues[g]=[];this.groupIssues[g].push({w,msg});};
@@ -169,6 +230,17 @@ createApp({
       const n=Number(c.image_count)||18;
       if(n<0||n>40)add('Images','err','Image questions must be between 0 and 40');
       if((c.image_count_min||0)>n||n>(c.image_count_max||26))add('Images','warn','Image count is outside the allowed range — it will be auto-adjusted on save');
+      for(const f of ['llm_author_model','llm_proofread_model','llm_repair_model']){
+        const i=this.modelIssue(f);if(i)add('LLM','err',i);
+      }
+      if(this.orStatus==='offline')add('LLM','warn','OpenRouter unreachable — model checks skipped');
+      for(const f of ['tts_model','tts_fallback_model']){
+        const i=this.modelIssue(f);if(i)add('Audio','err',i);
+      }
+      if(this.orStatus==='offline')add('Audio','warn','OpenRouter unreachable — model checks skipped');
+      if(c.img_model==='nano-banana'&&this.orStatus==='live'&&!this.orModels['google/gemini-2.5-flash-image'])
+        add('Images','err','Image model gemini-2.5-flash-image not found on OpenRouter');
+      else if(c.img_model==='z-image')add('Images','info','z-image runs via Magnific (credits) — not checked on OpenRouter');
       if(c.push_enabled!==false){
         if(!c.push_pb_base)add('Push','err','Push is on but no target URL is set — add it or toggle push off');
         if(!c.push_pb_pass)add('Push','warn','No push password — exams will be generated locally and not uploaded');
@@ -178,15 +250,18 @@ createApp({
     },
     validateConfig(){this.checkIssues();this.valChecked=true;Object.keys(this.groupIssues).forEach(g=>this.verified[g]=true);
       const e=this.valIssues.filter(i=>i.w==='err').length,w=this.valIssues.filter(i=>i.w==='warn').length;
-      if(!e&&!w)this.toast('All checks passed — every card is healthy','ok');
-      else this.toast(`${e} error${e===1?'':'s'}, ${w} warning${w===1?'':'s'} — see the cards`,'warn');},
-    verifyGroup(g){this.checkIssues();this.verified[g]=true;
+      if(!e&&!w)this.toast('All checks passed — every section is healthy','ok');
+      else this.toast(`${e} error${e===1?'':'s'}, ${w} warning${w===1?'':'s'} — see the sections`,'warn');},
+    async verifyGroup(g){
+      if(['LLM','Images','Audio'].includes(g))await this.ensureOrModels();
+      this.checkIssues();this.verified[g]=true;
       const list=this.groupIssues[g]||[];
-      if(!list.length)this.toast(`${g} card looks good`,'ok');
+      if(!list.length)this.toast(`${g} section looks good`,'ok');
       else this.toast(`${g}: ${list.map(i=>i.msg).join(' · ')}`,'warn');},
     cardState(g){const list=this.groupIssues[g]||[];if(list.some(i=>i.w==='err'))return'err';if(list.some(i=>i.w==='warn'))return'warn';if(this.verified[g])return'ok';return'idle';},
     groupIssueList(g){return this.groupIssues[g]||[];},
-    hiddenField(f){return f.field==='image_count_min'||f.field==='image_count_max';},
+    hiddenField(f){return['image_count_min','image_count_max','is_active','shuffle_questions','shuffle_options','negative_marks'].includes(f.field);},
+    toggleGroup(g){this.openGroup=this.openGroup===g?'':g;this.$nextTick(()=>this.deckEnter());},
     viewEnter(){
       if(!window.anime)return;
       const els=document.querySelectorAll('main .view-block > *');
@@ -195,14 +270,14 @@ createApp({
     },
     deckEnter(){
       if(!window.anime)return;
-      const els=document.querySelectorAll('.cfg-card');
+      const els=document.querySelectorAll('.acc-body:not([style*="display: none"]) .acc-field');
       if(!els.length)return;
-      window.anime({targets:els,opacity:[0,1],translateY:[22,0],scale:[.97,1],duration:480,delay:window.anime.stagger(70),easing:'easeOutCubic'});
+      window.anime({targets:els,opacity:[0,1],translateY:[10,0],duration:380,delay:window.anime.stagger(35),easing:'easeOutCubic'});
     },
     async login(){this.loginErr='';this.loginBusy=true;
       try{const r=await fetch('/api/collections/_superusers/auth-with-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity:this.loginEmail,password:this.loginPass})});const text=await r.text();let b;try{b=JSON.parse(text);}catch(e){throw new Error('Server returned unexpected response - is PocketBase running?');}if(!r.ok)throw new Error(b.message||'auth failed');localStorage.setItem(LS_TK,b.token);localStorage.setItem(LS_EM,b.record.email||this.loginEmail);this.who=localStorage.getItem(LS_EM);this.authed=true;try{await api('/api/creator/ensure');}catch(e){this.toast('ensure: '+e.message,'err');}this.loadAll();}catch(e){this.loginErr=e.message;}this.loginBusy=false;},
     logout(){localStorage.removeItem(LS_TK);localStorage.removeItem(LS_EM);clearInterval(this.drawerTimer);this.drawerTimer=null;this.drawerJob=null;this.authed=false;this.who='';this.view='overview';this.clients=[];this.jobs=[];this.configs=[];this.cfgClient='';this.cfg=null;},
-    loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();this.$nextTick(()=>this.viewEnter());},
+    loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();this.ensureOrModels();this.$nextTick(()=>this.viewEnter());},
     async loadClients(){try{const r=await api('/api/collections/mock_clients/records?perPage=200&sort=name');this.clients=r.items||[];}catch(e){this.toast('clients: '+e.message,'err');}},
     async loadConfigs(){try{const r=await api('/api/collections/mock_config/records?perPage=200');this.configs=r.items||[];}catch(e){this.toast('configs: '+e.message,'err');}},
     async loadMeta(){try{const r=await api('/api/collections/mock_config_meta/records?perPage=200&sort=group,order');this.meta=r.items||[];}catch(e){}},
@@ -210,7 +285,7 @@ createApp({
     async loadJobs(){this.jobsBusy=true;try{const r=await api('/api/creator/jobs');this.jobs=r.jobs||[];}catch(e){this.toast('jobs: '+e.message,'err');}this.jobsBusy=false;},
     startJob(params){const q=new URLSearchParams(params);return api('/api/creator/start?'+q.toString(),{method:'POST'});},
     async quickStart(kind){this.startBusy=true;try{const params={client:this.qs.client,count:this.qs.count,difficulty:this.qs.difficulty};if(kind&&kind!=='full'){params.kind=kind;params.count=2;}const r=await this.startJob(params);this.toast('Job '+r.job_id.slice(0,8)+' queued ('+(r.kind||kind)+')','ok');this.loadJobs();}catch(e){this.toast('start: '+e.message,'err');}this.startBusy=false;},
-    async dryRun(kind){if(!this.cfgClient)return this.toast('Select a client first','err');this.startBusy=true;try{const r=await this.startJob({client:this.cfgClient,kind:kind,count:2,difficulty:this.cfgData.difficulty_profile||'creative+difficult'});this.toast('Dry run '+kind+' queued (job '+r.job_id.slice(0,8)+')','ok');this.loadJobs();}catch(e){this.toast('dry run: '+e.message,'err');}this.startBusy=false;},
+    async dryRun(kind){if(!this.cfgClient)return this.toast('Choose a client first','err');this.startBusy=true;try{const r=await this.startJob({client:this.cfgClient,kind:kind,count:2,difficulty:this.cfgData.difficulty_profile||'creative+difficult'});this.toast('Dry run '+kind+' queued (job '+r.job_id.slice(0,8)+')','ok');this.loadJobs();}catch(e){this.toast('dry run: '+e.message,'err');}this.startBusy=false;},
     async dryRunConfig(kind){if(!this.qs.client)return this.toast('Choose a client first','err');this.startBusy=true;try{const r=await this.startJob({client:this.qs.client,kind:kind,count:2,difficulty:this.qs.difficulty});this.toast('Dry run '+kind+' queued (job '+r.job_id.slice(0,8)+')','ok');this.loadJobs();}catch(e){this.toast('dry run: '+e.message,'err');}this.startBusy=false;},
     async loadConfig(){if(!this.cfgClient){this.cfg=null;return;}this.cfgLoading=true;this.cfgSavedAt='';try{const r=await api('/api/creator/config?client='+encodeURIComponent(this.cfgClient));this.cfg=r;const rest=Object.assign({},r.record);delete rest.id;delete rest.created;delete rest.updated;this.cfgData=rest;this.cfgData.prompts_json=JSON.stringify((r.record&&r.record.prompts_json)||{},null,2);this.cfgRawText=JSON.stringify(r.record,null,2);this.cfgRawErr='';this.valChecked=false;this.valIssues=[];this.groupIssues={};this.verified={};this.$nextTick(()=>this.deckEnter());}catch(e){this.toast('config: '+e.message,'err');this.cfg=null;}this.cfgLoading=false;},
     metaByGroup(g){return this.meta.filter(m=>m.group===g);},
@@ -223,13 +298,13 @@ createApp({
       const metaByField={};this.meta.forEach(m=>{metaByField[m.field]=m;});body={};
       for(const k of Object.keys(this.cfgData)){const m=metaByField[k];const v=this.cfgData[k];if(k==='prompts_json'){try{body[k]=JSON.parse(v||'{}');}catch(e){throw new Error('prompts_json is not valid JSON');}}else if(m&&m.ftype==='number')body[k]=(v===''||v===null||v===undefined)?null:Number(v);else if(m&&m.ftype==='bool')body[k]=!!v;else body[k]=v;}
     }await api('/api/collections/mock_config/records/'+this.cfg.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});this.toast('Config saved','ok');await this.loadConfig();this.cfgSavedAt=new Date().toISOString();}catch(e){this.toast('save: '+e.message,'err');}this.cfgSaving=false;},
-    async openJob(j){try{const r=await api('/api/creator/jobs/'+j.id);this.drawerJob=r;if(r.report){j._report=r.report;}}catch(e){this.toast('job: '+e.message,'err');}},
-    async refreshDrawer(){if(!this.drawerJob)return;try{const r=await api('/api/creator/jobs/'+this.drawerJob.id);Object.assign(this.drawerJob,r);const j=this.jobs.find(x=>x.id===r.id);if(j)Object.assign(j,{status:r.status,error:r.error,pushed:r.pushed});if(r.status!=='queued'&&r.status!=='running')clearInterval(this.drawerTimer);}catch(e){}},
+    async openJob(j){try{const r=await api('/api/creator/jobs/'+j.id);this.drawerJob=r;this.drawerLastUpd=Date.now();if(r.report){j._report=r.report;}}catch(e){this.toast('job: '+e.message,'err');}},
+    async refreshDrawer(){if(!this.drawerJob)return;try{const r=await api('/api/creator/jobs/'+this.drawerJob.id);Object.assign(this.drawerJob,r);this.drawerLastUpd=Date.now();const j=this.jobs.find(x=>x.id===r.id);if(j)Object.assign(j,{status:r.status,error:r.error,pushed:r.pushed});if(r.status!=='queued'&&r.status!=='running')clearInterval(this.drawerTimer);}catch(e){}},
     retryJob(){const j=this.drawerJob;const k=j.kind||'full';this.confirmMsg='Re-queue '+k+' job for "'+j.client_name+'" ('+j.count+'q)?';this.confirmFn=async()=>{try{await this.startJob({client:j.client,count:j.count,difficulty:j.difficulty||'',kind:k});this.toast('Re-queued','ok');this.drawerJob=null;this.loadJobs();}catch(e){this.toast('requeue: '+e.message,'err');}};},
     delJob(){const j=this.drawerJob;this.confirmMsg='Delete job '+j.id.slice(0,8)+' permanently?';this.confirmFn=async()=>{try{await api('/api/collections/mock_jobs/records/'+j.id,{method:'DELETE'});this.toast('Job deleted','ok');this.drawerJob=null;this.loadJobs();}catch(e){this.toast('delete: '+e.message,'err');}};},
     confirmDo(){const fn=this.confirmFn;this.confirmMsg=null;this.confirmFn=null;if(fn)fn();},
     openClientModal(){this.clientModal=true;this.clientStep=0;this.newClientName='';this.clientErr='';this.newKey=genKey();this.newKeyHash='';sha256Hex(this.newKey).then(h=>{this.newKeyHash=h;});},
-    async createClient(){if(this.clientBusy)return;this.clientErr='';this.clientBusy=true;try{const h=await sha256Hex(this.newKey);await api('/api/collections/mock_clients/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:this.newClientName,api_key_hash:h,active:true})});this.clientStep=2;this.toast('Client created — the key above is now active','ok');this.loadClients();}catch(e){this.clientErr=e.message;}this.clientBusy=false;},
+    async createClient(){if(this.clientBusy)return;this.clientErr='';this.clientBusy=true;try{const h=await sha256Hex(this.newKey);await api('/api/collections/mock_clients/records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:this.newClientName,api_key_hash:h,active:true})});this.clientStep=2;this.toast('Client created — the key from the previous step is now active','ok');this.loadClients();}catch(e){this.clientErr=e.message;}this.clientBusy=false;},
     async toggleClient(c){if(this.togglingId)return;this.togglingId=c.id;try{await api('/api/collections/mock_clients/records/'+c.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:!c.active})});c.active=!c.active;}catch(e){this.toast('toggle: '+e.message,'err');}this.togglingId='';},
     delClient(c){this.confirmMsg='Delete client "'+c.name+'"? Its config and jobs stay, but the key stops working.';this.confirmFn=async()=>{try{await api('/api/collections/mock_clients/records/'+c.id,{method:'DELETE'});this.toast('Client deleted','ok');this.loadClients();}catch(e){this.toast('delete: '+e.message,'err');}};},
     openConfigFor(id){this.view='configs';this.cfgClient=id;this.cfgRaw=false;this.loadConfig();},
@@ -239,6 +314,7 @@ createApp({
       const active=stages.filter(s=>log.includes('['+s+']'));const last=active[active.length-1];
       return stages.map(s=>`<span class="stage-dot ${s===last?'on':''}" style="color:${s==='author'?'var(--blue)':s==='images'?'var(--purple)':s==='audio'?'var(--cyan)':s==='pb'?'var(--amber2)':'var(--mut)'}" title="${s}"></span>`).join('');
     },
+    logCls(c){return c==='err'?'var(--red)':c==='ok'?'var(--green)':LOG_COLORS[c]?LOG_COLORS[c]:'var(--mut)';},
     async copyConfig(){const o={...this.cfgData};if(typeof o.prompts_json==='string')try{o.prompts_json=JSON.parse(o.prompts_json)}catch(e){}try{await navigator.clipboard.writeText(JSON.stringify(o,null,2));this.toast('Config copied to clipboard','ok');}catch(e){this.toast('copy failed','err');}},
     cloneConfigDialog(){
       const targets=this.clients.filter(c=>c.id!==this.cfgClient);if(!targets.length)return this.toast('No other clients to clone to','err');
