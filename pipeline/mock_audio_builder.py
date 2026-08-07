@@ -79,7 +79,7 @@ TMP = Path(os.environ.get("MOCK_TMP") or Path(tempfile.gettempdir()) / "mock_aud
 TTS_DEFAULTS = {
     "tts_model": "fish-audio/s2.1-pro-free:free",
     "tts_fallback_model": "microsoft/mai-voice-2-flash",
-    "tts_fallback_voice": "ko-KR-Haena",
+    "tts_fallback_voice": "ko-KR-Haena:MAI-Voice-2",
     "tts_rate": 44100,
     "tts_gap_ms": 400,
     "tts_workers": 4,
@@ -144,14 +144,48 @@ def find_ffmpeg() -> str:
 
 
 def load_tts():
-    """Return the global tts module (from ~/.config/opencode/scripts) or None."""
+    """Return the global tts module (global scripts dir or repo scripts dir) or None."""
+    candidates = [Path.home() / ".config" / "opencode" / "scripts",
+                  Path(__file__).resolve().parent.parent / "scripts"]
+    for scripts in candidates:
+        try:
+            sys.path.insert(0, str(scripts))
+            import tts  # noqa: F401
+            return tts
+        except Exception:
+            continue
+    return None
+
+
+def resolve_voice(model, voice, cfg, tts_mod, use_fallback_voice=False):
+    """Pick a voice that is VALID for the chosen model.
+
+    Speaker labels V1-V4 map to fish-audio UUID voices - which only fish
+    models accept. For every other model: tts_voices map > (fallback voice,
+    only for the fallback model) > first voice in the TTS catalog > provider
+    default."""
+    if not model:
+        return model, voice
     try:
-        scripts = Path.home() / ".config" / "opencode" / "scripts"
-        sys.path.insert(0, str(scripts))
-        import tts  # noqa: F401
-        return tts
+        tts_voices = cfg.get("tts_voices") or {}
+        if voice in tts_voices:
+            return model, str(tts_voices[voice])
+        if "fish" in model:
+            return model, voice
+        if use_fallback_voice:
+            fb = str(cfg.get("tts_fallback_voice") or "").strip()
+            if fb:
+                return model, fb
     except Exception:
-        return None
+        pass
+    try:
+        if tts_mod is not None:
+            vs = tts_mod.get_voices(model)
+            if vs:
+                return model, vs[0]
+    except Exception:
+        pass
+    return model, "default"
 
 
 def synth(tts, text: str, voice: str, out: Path, model: str,
@@ -399,14 +433,19 @@ def _gen(job, tts, args, cfg):
     n, k, voice, text, out = job
     if out.exists() and out.stat().st_size > 2000:
         return (n, k, True)
+    model, voice = resolve_voice(cfg["tts_model"], voice, cfg, tts)
+    fallback_model = cfg.get("tts_fallback_model", "")
+    fallback_voice = ""
+    if fallback_model and fallback_model != model:
+        fallback_voice = resolve_voice(fallback_model, cfg.get("tts_fallback_voice", ""), cfg, tts, use_fallback_voice=True)[1]
     for attempt in range(3):
         try:
-            if synth(tts, text, voice, out, cfg["tts_model"],
-                     cfg.get("tts_fallback_model", ""), cfg.get("tts_fallback_voice", "")):
+            if synth(tts, text, voice, out, model, fallback_model, fallback_voice):
                 print(f"  ok q{n}_{k:02d} ({out.stat().st_size} bytes)", flush=True)
                 return (n, k, True)
-        except SystemExit:
-            print(f"    q{n}_{k:02d} attempt {attempt + 1}: TTS fatal error (check API key)", flush=True)
+        except SystemExit as se:
+            msg = str(se.code) if se.code else "TTS fatal error"
+            print(f"    q{n}_{k:02d} attempt {attempt + 1}: {msg}", flush=True)
         except Exception as e:
             print(f"    q{n}_{k:02d} attempt {attempt + 1}: {e}", flush=True)
         time.sleep(3 * (attempt + 1))

@@ -121,7 +121,7 @@ var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config
   try {
     // upsert missing default TTS model seeds (existing installs never got them)
     var mCol = $app.findCollectionByNameOrId("mock_models")
-    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"]]
     for (var si = 0; si < seedDefs.length; si++) {
       var exists = false
       try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
@@ -147,9 +147,8 @@ var k7 = new Record(models); k7.set("kind", "tts"); k7.set("model", "x-ai/grok-v
 var k8 = new Record(models); k8.set("kind", "tts"); k8.set("model", "google/gemini-3.1-flash-tts-preview"); k8.set("display", "Gemini Flash TTS"); k8.set("notes", "alt TTS - 24000 Hz"); $app.save(k8);
 var k9 = new Record(models); k9.set("kind", "tts"); k9.set("model", "hexgrad/kokoro-82m"); k9.set("display", "Kokoro 82M"); k9.set("notes", "alt TTS - open weights"); $app.save(k9);
 var k10 = new Record(models); k10.set("kind", "tts"); k10.set("model", "mistralai/voxtral-mini-tts-2603"); k10.set("display", "Voxtral Mini TTS"); k10.set("notes", "alt TTS"); $app.save(k10);
-var k11 = new Record(models); k11.set("kind", "tts"); k11.set("model", "deepgram/deepgram-multi-voice-tts"); k11.set("display", "Deepgram Multi Voice TTS"); k11.set("notes", "alt TTS"); $app.save(k11);
-var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "z-image"); k12.set("display", "z-image"); k12.set("notes", "primary image gen (5 credits/img)"); $app.save(k12);
-var k13 = new Record(models); k13.set("kind", "image"); k13.set("model", "p-image-ideogram-1k"); k13.set("display", "P-Image Ideogram 1K"); k13.set("notes", "fallback (may 404)"); $app.save(k13);
+var k11 = new Record(models); k11.set("kind", "image"); k11.set("model", "z-image"); k11.set("display", "z-image"); k11.set("notes", "primary image gen (5 credits/img)"); $app.save(k11);
+var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "p-image-ideogram-1k"); k12.set("display", "P-Image Ideogram 1K"); k12.set("notes", "fallback (may 404)"); $app.save(k12);
 
   }
 }
@@ -171,7 +170,7 @@ function ensureConfig(clientId) {
     var col = $app.findCollectionByNameOrId("mock_config")
     cfg = new Record(col)
     cfg.set("client", clientId)
-    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
+    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena:MAI-Voice-2"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
     $app.save(cfg)
   }
   return cfg
@@ -296,7 +295,7 @@ var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config
   try {
     // upsert missing default TTS model seeds (existing installs never got them)
     var mCol = $app.findCollectionByNameOrId("mock_models")
-    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"]]
     for (var si = 0; si < seedDefs.length; si++) {
       var exists = false
       try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
@@ -322,9 +321,8 @@ var k7 = new Record(models); k7.set("kind", "tts"); k7.set("model", "x-ai/grok-v
 var k8 = new Record(models); k8.set("kind", "tts"); k8.set("model", "google/gemini-3.1-flash-tts-preview"); k8.set("display", "Gemini Flash TTS"); k8.set("notes", "alt TTS - 24000 Hz"); $app.save(k8);
 var k9 = new Record(models); k9.set("kind", "tts"); k9.set("model", "hexgrad/kokoro-82m"); k9.set("display", "Kokoro 82M"); k9.set("notes", "alt TTS - open weights"); $app.save(k9);
 var k10 = new Record(models); k10.set("kind", "tts"); k10.set("model", "mistralai/voxtral-mini-tts-2603"); k10.set("display", "Voxtral Mini TTS"); k10.set("notes", "alt TTS"); $app.save(k10);
-var k11 = new Record(models); k11.set("kind", "tts"); k11.set("model", "deepgram/deepgram-multi-voice-tts"); k11.set("display", "Deepgram Multi Voice TTS"); k11.set("notes", "alt TTS"); $app.save(k11);
-var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "z-image"); k12.set("display", "z-image"); k12.set("notes", "primary image gen (5 credits/img)"); $app.save(k12);
-var k13 = new Record(models); k13.set("kind", "image"); k13.set("model", "p-image-ideogram-1k"); k13.set("display", "P-Image Ideogram 1K"); k13.set("notes", "fallback (may 404)"); $app.save(k13);
+var k11 = new Record(models); k11.set("kind", "image"); k11.set("model", "z-image"); k11.set("display", "z-image"); k11.set("notes", "primary image gen (5 credits/img)"); $app.save(k11);
+var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "p-image-ideogram-1k"); k12.set("display", "P-Image Ideogram 1K"); k12.set("notes", "fallback (may 404)"); $app.save(k12);
 
   }
 }
@@ -346,7 +344,7 @@ function ensureConfig(clientId) {
     var col = $app.findCollectionByNameOrId("mock_config")
     cfg = new Record(col)
     cfg.set("client", clientId)
-    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
+    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena:MAI-Voice-2"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
     $app.save(cfg)
   }
   return cfg
@@ -472,7 +470,7 @@ var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config
   try {
     // upsert missing default TTS model seeds (existing installs never got them)
     var mCol = $app.findCollectionByNameOrId("mock_models")
-    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"]]
     for (var si = 0; si < seedDefs.length; si++) {
       var exists = false
       try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
@@ -498,9 +496,8 @@ var k7 = new Record(models); k7.set("kind", "tts"); k7.set("model", "x-ai/grok-v
 var k8 = new Record(models); k8.set("kind", "tts"); k8.set("model", "google/gemini-3.1-flash-tts-preview"); k8.set("display", "Gemini Flash TTS"); k8.set("notes", "alt TTS - 24000 Hz"); $app.save(k8);
 var k9 = new Record(models); k9.set("kind", "tts"); k9.set("model", "hexgrad/kokoro-82m"); k9.set("display", "Kokoro 82M"); k9.set("notes", "alt TTS - open weights"); $app.save(k9);
 var k10 = new Record(models); k10.set("kind", "tts"); k10.set("model", "mistralai/voxtral-mini-tts-2603"); k10.set("display", "Voxtral Mini TTS"); k10.set("notes", "alt TTS"); $app.save(k10);
-var k11 = new Record(models); k11.set("kind", "tts"); k11.set("model", "deepgram/deepgram-multi-voice-tts"); k11.set("display", "Deepgram Multi Voice TTS"); k11.set("notes", "alt TTS"); $app.save(k11);
-var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "z-image"); k12.set("display", "z-image"); k12.set("notes", "primary image gen (5 credits/img)"); $app.save(k12);
-var k13 = new Record(models); k13.set("kind", "image"); k13.set("model", "p-image-ideogram-1k"); k13.set("display", "P-Image Ideogram 1K"); k13.set("notes", "fallback (may 404)"); $app.save(k13);
+var k11 = new Record(models); k11.set("kind", "image"); k11.set("model", "z-image"); k11.set("display", "z-image"); k11.set("notes", "primary image gen (5 credits/img)"); $app.save(k11);
+var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "p-image-ideogram-1k"); k12.set("display", "P-Image Ideogram 1K"); k12.set("notes", "fallback (may 404)"); $app.save(k12);
 
   }
 }
@@ -522,7 +519,7 @@ function ensureConfig(clientId) {
     var col = $app.findCollectionByNameOrId("mock_config")
     cfg = new Record(col)
     cfg.set("client", clientId)
-    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
+    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena:MAI-Voice-2"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
     $app.save(cfg)
   }
   return cfg
@@ -677,7 +674,7 @@ var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config
   try {
     // upsert missing default TTS model seeds (existing installs never got them)
     var mCol = $app.findCollectionByNameOrId("mock_models")
-    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"]]
     for (var si = 0; si < seedDefs.length; si++) {
       var exists = false
       try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
@@ -703,9 +700,8 @@ var k7 = new Record(models); k7.set("kind", "tts"); k7.set("model", "x-ai/grok-v
 var k8 = new Record(models); k8.set("kind", "tts"); k8.set("model", "google/gemini-3.1-flash-tts-preview"); k8.set("display", "Gemini Flash TTS"); k8.set("notes", "alt TTS - 24000 Hz"); $app.save(k8);
 var k9 = new Record(models); k9.set("kind", "tts"); k9.set("model", "hexgrad/kokoro-82m"); k9.set("display", "Kokoro 82M"); k9.set("notes", "alt TTS - open weights"); $app.save(k9);
 var k10 = new Record(models); k10.set("kind", "tts"); k10.set("model", "mistralai/voxtral-mini-tts-2603"); k10.set("display", "Voxtral Mini TTS"); k10.set("notes", "alt TTS"); $app.save(k10);
-var k11 = new Record(models); k11.set("kind", "tts"); k11.set("model", "deepgram/deepgram-multi-voice-tts"); k11.set("display", "Deepgram Multi Voice TTS"); k11.set("notes", "alt TTS"); $app.save(k11);
-var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "z-image"); k12.set("display", "z-image"); k12.set("notes", "primary image gen (5 credits/img)"); $app.save(k12);
-var k13 = new Record(models); k13.set("kind", "image"); k13.set("model", "p-image-ideogram-1k"); k13.set("display", "P-Image Ideogram 1K"); k13.set("notes", "fallback (may 404)"); $app.save(k13);
+var k11 = new Record(models); k11.set("kind", "image"); k11.set("model", "z-image"); k11.set("display", "z-image"); k11.set("notes", "primary image gen (5 credits/img)"); $app.save(k11);
+var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "p-image-ideogram-1k"); k12.set("display", "P-Image Ideogram 1K"); k12.set("notes", "fallback (may 404)"); $app.save(k12);
 
   }
 }
@@ -727,7 +723,7 @@ function ensureConfig(clientId) {
     var col = $app.findCollectionByNameOrId("mock_config")
     cfg = new Record(col)
     cfg.set("client", clientId)
-    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
+    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena:MAI-Voice-2"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
     $app.save(cfg)
   }
   return cfg
@@ -866,7 +862,7 @@ var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config
   try {
     // upsert missing default TTS model seeds (existing installs never got them)
     var mCol = $app.findCollectionByNameOrId("mock_models")
-    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"]]
     for (var si = 0; si < seedDefs.length; si++) {
       var exists = false
       try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
@@ -892,9 +888,8 @@ var k7 = new Record(models); k7.set("kind", "tts"); k7.set("model", "x-ai/grok-v
 var k8 = new Record(models); k8.set("kind", "tts"); k8.set("model", "google/gemini-3.1-flash-tts-preview"); k8.set("display", "Gemini Flash TTS"); k8.set("notes", "alt TTS - 24000 Hz"); $app.save(k8);
 var k9 = new Record(models); k9.set("kind", "tts"); k9.set("model", "hexgrad/kokoro-82m"); k9.set("display", "Kokoro 82M"); k9.set("notes", "alt TTS - open weights"); $app.save(k9);
 var k10 = new Record(models); k10.set("kind", "tts"); k10.set("model", "mistralai/voxtral-mini-tts-2603"); k10.set("display", "Voxtral Mini TTS"); k10.set("notes", "alt TTS"); $app.save(k10);
-var k11 = new Record(models); k11.set("kind", "tts"); k11.set("model", "deepgram/deepgram-multi-voice-tts"); k11.set("display", "Deepgram Multi Voice TTS"); k11.set("notes", "alt TTS"); $app.save(k11);
-var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "z-image"); k12.set("display", "z-image"); k12.set("notes", "primary image gen (5 credits/img)"); $app.save(k12);
-var k13 = new Record(models); k13.set("kind", "image"); k13.set("model", "p-image-ideogram-1k"); k13.set("display", "P-Image Ideogram 1K"); k13.set("notes", "fallback (may 404)"); $app.save(k13);
+var k11 = new Record(models); k11.set("kind", "image"); k11.set("model", "z-image"); k11.set("display", "z-image"); k11.set("notes", "primary image gen (5 credits/img)"); $app.save(k11);
+var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "p-image-ideogram-1k"); k12.set("display", "P-Image Ideogram 1K"); k12.set("notes", "fallback (may 404)"); $app.save(k12);
 
   }
 }
@@ -916,7 +911,7 @@ function ensureConfig(clientId) {
     var col = $app.findCollectionByNameOrId("mock_config")
     cfg = new Record(col)
     cfg.set("client", clientId)
-    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
+    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena:MAI-Voice-2"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
     $app.save(cfg)
   }
   return cfg
@@ -1053,7 +1048,7 @@ var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config
   try {
     // upsert missing default TTS model seeds (existing installs never got them)
     var mCol = $app.findCollectionByNameOrId("mock_models")
-    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"]]
     for (var si = 0; si < seedDefs.length; si++) {
       var exists = false
       try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
@@ -1079,9 +1074,8 @@ var k7 = new Record(models); k7.set("kind", "tts"); k7.set("model", "x-ai/grok-v
 var k8 = new Record(models); k8.set("kind", "tts"); k8.set("model", "google/gemini-3.1-flash-tts-preview"); k8.set("display", "Gemini Flash TTS"); k8.set("notes", "alt TTS - 24000 Hz"); $app.save(k8);
 var k9 = new Record(models); k9.set("kind", "tts"); k9.set("model", "hexgrad/kokoro-82m"); k9.set("display", "Kokoro 82M"); k9.set("notes", "alt TTS - open weights"); $app.save(k9);
 var k10 = new Record(models); k10.set("kind", "tts"); k10.set("model", "mistralai/voxtral-mini-tts-2603"); k10.set("display", "Voxtral Mini TTS"); k10.set("notes", "alt TTS"); $app.save(k10);
-var k11 = new Record(models); k11.set("kind", "tts"); k11.set("model", "deepgram/deepgram-multi-voice-tts"); k11.set("display", "Deepgram Multi Voice TTS"); k11.set("notes", "alt TTS"); $app.save(k11);
-var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "z-image"); k12.set("display", "z-image"); k12.set("notes", "primary image gen (5 credits/img)"); $app.save(k12);
-var k13 = new Record(models); k13.set("kind", "image"); k13.set("model", "p-image-ideogram-1k"); k13.set("display", "P-Image Ideogram 1K"); k13.set("notes", "fallback (may 404)"); $app.save(k13);
+var k11 = new Record(models); k11.set("kind", "image"); k11.set("model", "z-image"); k11.set("display", "z-image"); k11.set("notes", "primary image gen (5 credits/img)"); $app.save(k11);
+var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "p-image-ideogram-1k"); k12.set("display", "P-Image Ideogram 1K"); k12.set("notes", "fallback (may 404)"); $app.save(k12);
 
   }
 }
@@ -1103,7 +1097,7 @@ function ensureConfig(clientId) {
     var col = $app.findCollectionByNameOrId("mock_config")
     cfg = new Record(col)
     cfg.set("client", clientId)
-    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
+    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena:MAI-Voice-2"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
     $app.save(cfg)
   }
   return cfg
@@ -1277,7 +1271,7 @@ var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config
   try {
     // upsert missing default TTS model seeds (existing installs never got them)
     var mCol = $app.findCollectionByNameOrId("mock_models")
-    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"]]
     for (var si = 0; si < seedDefs.length; si++) {
       var exists = false
       try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
@@ -1303,9 +1297,8 @@ var k7 = new Record(models); k7.set("kind", "tts"); k7.set("model", "x-ai/grok-v
 var k8 = new Record(models); k8.set("kind", "tts"); k8.set("model", "google/gemini-3.1-flash-tts-preview"); k8.set("display", "Gemini Flash TTS"); k8.set("notes", "alt TTS - 24000 Hz"); $app.save(k8);
 var k9 = new Record(models); k9.set("kind", "tts"); k9.set("model", "hexgrad/kokoro-82m"); k9.set("display", "Kokoro 82M"); k9.set("notes", "alt TTS - open weights"); $app.save(k9);
 var k10 = new Record(models); k10.set("kind", "tts"); k10.set("model", "mistralai/voxtral-mini-tts-2603"); k10.set("display", "Voxtral Mini TTS"); k10.set("notes", "alt TTS"); $app.save(k10);
-var k11 = new Record(models); k11.set("kind", "tts"); k11.set("model", "deepgram/deepgram-multi-voice-tts"); k11.set("display", "Deepgram Multi Voice TTS"); k11.set("notes", "alt TTS"); $app.save(k11);
-var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "z-image"); k12.set("display", "z-image"); k12.set("notes", "primary image gen (5 credits/img)"); $app.save(k12);
-var k13 = new Record(models); k13.set("kind", "image"); k13.set("model", "p-image-ideogram-1k"); k13.set("display", "P-Image Ideogram 1K"); k13.set("notes", "fallback (may 404)"); $app.save(k13);
+var k11 = new Record(models); k11.set("kind", "image"); k11.set("model", "z-image"); k11.set("display", "z-image"); k11.set("notes", "primary image gen (5 credits/img)"); $app.save(k11);
+var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "p-image-ideogram-1k"); k12.set("display", "P-Image Ideogram 1K"); k12.set("notes", "fallback (may 404)"); $app.save(k12);
 
   }
 }
@@ -1327,7 +1320,7 @@ function ensureConfig(clientId) {
     var col = $app.findCollectionByNameOrId("mock_config")
     cfg = new Record(col)
     cfg.set("client", clientId)
-    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
+    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena:MAI-Voice-2"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
     $app.save(cfg)
   }
   return cfg
@@ -1466,7 +1459,7 @@ var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config
   try {
     // upsert missing default TTS model seeds (existing installs never got them)
     var mCol = $app.findCollectionByNameOrId("mock_models")
-    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"]]
     for (var si = 0; si < seedDefs.length; si++) {
       var exists = false
       try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
@@ -1492,9 +1485,8 @@ var k7 = new Record(models); k7.set("kind", "tts"); k7.set("model", "x-ai/grok-v
 var k8 = new Record(models); k8.set("kind", "tts"); k8.set("model", "google/gemini-3.1-flash-tts-preview"); k8.set("display", "Gemini Flash TTS"); k8.set("notes", "alt TTS - 24000 Hz"); $app.save(k8);
 var k9 = new Record(models); k9.set("kind", "tts"); k9.set("model", "hexgrad/kokoro-82m"); k9.set("display", "Kokoro 82M"); k9.set("notes", "alt TTS - open weights"); $app.save(k9);
 var k10 = new Record(models); k10.set("kind", "tts"); k10.set("model", "mistralai/voxtral-mini-tts-2603"); k10.set("display", "Voxtral Mini TTS"); k10.set("notes", "alt TTS"); $app.save(k10);
-var k11 = new Record(models); k11.set("kind", "tts"); k11.set("model", "deepgram/deepgram-multi-voice-tts"); k11.set("display", "Deepgram Multi Voice TTS"); k11.set("notes", "alt TTS"); $app.save(k11);
-var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "z-image"); k12.set("display", "z-image"); k12.set("notes", "primary image gen (5 credits/img)"); $app.save(k12);
-var k13 = new Record(models); k13.set("kind", "image"); k13.set("model", "p-image-ideogram-1k"); k13.set("display", "P-Image Ideogram 1K"); k13.set("notes", "fallback (may 404)"); $app.save(k13);
+var k11 = new Record(models); k11.set("kind", "image"); k11.set("model", "z-image"); k11.set("display", "z-image"); k11.set("notes", "primary image gen (5 credits/img)"); $app.save(k11);
+var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "p-image-ideogram-1k"); k12.set("display", "P-Image Ideogram 1K"); k12.set("notes", "fallback (may 404)"); $app.save(k12);
 
   }
 }
@@ -1516,7 +1508,7 @@ function ensureConfig(clientId) {
     var col = $app.findCollectionByNameOrId("mock_config")
     cfg = new Record(col)
     cfg.set("client", clientId)
-    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
+    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena:MAI-Voice-2"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
     $app.save(cfg)
   }
   return cfg
@@ -1692,7 +1684,7 @@ var m29 = new Record(meta); m29.set("field", "active"); m29.set("label", "Config
   try {
     // upsert missing default TTS model seeds (existing installs never got them)
     var mCol = $app.findCollectionByNameOrId("mock_models")
-    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"]]
     for (var si = 0; si < seedDefs.length; si++) {
       var exists = false
       try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
@@ -1718,9 +1710,8 @@ var k7 = new Record(models); k7.set("kind", "tts"); k7.set("model", "x-ai/grok-v
 var k8 = new Record(models); k8.set("kind", "tts"); k8.set("model", "google/gemini-3.1-flash-tts-preview"); k8.set("display", "Gemini Flash TTS"); k8.set("notes", "alt TTS - 24000 Hz"); $app.save(k8);
 var k9 = new Record(models); k9.set("kind", "tts"); k9.set("model", "hexgrad/kokoro-82m"); k9.set("display", "Kokoro 82M"); k9.set("notes", "alt TTS - open weights"); $app.save(k9);
 var k10 = new Record(models); k10.set("kind", "tts"); k10.set("model", "mistralai/voxtral-mini-tts-2603"); k10.set("display", "Voxtral Mini TTS"); k10.set("notes", "alt TTS"); $app.save(k10);
-var k11 = new Record(models); k11.set("kind", "tts"); k11.set("model", "deepgram/deepgram-multi-voice-tts"); k11.set("display", "Deepgram Multi Voice TTS"); k11.set("notes", "alt TTS"); $app.save(k11);
-var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "z-image"); k12.set("display", "z-image"); k12.set("notes", "primary image gen (5 credits/img)"); $app.save(k12);
-var k13 = new Record(models); k13.set("kind", "image"); k13.set("model", "p-image-ideogram-1k"); k13.set("display", "P-Image Ideogram 1K"); k13.set("notes", "fallback (may 404)"); $app.save(k13);
+var k11 = new Record(models); k11.set("kind", "image"); k11.set("model", "z-image"); k11.set("display", "z-image"); k11.set("notes", "primary image gen (5 credits/img)"); $app.save(k11);
+var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "p-image-ideogram-1k"); k12.set("display", "P-Image Ideogram 1K"); k12.set("notes", "fallback (may 404)"); $app.save(k12);
 
   }
 }
@@ -1742,7 +1733,7 @@ function ensureConfig(clientId) {
     var col = $app.findCollectionByNameOrId("mock_config")
     cfg = new Record(col)
     cfg.set("client", clientId)
-    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
+    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena:MAI-Voice-2"); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+difficult"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
     $app.save(cfg)
   }
   return cfg

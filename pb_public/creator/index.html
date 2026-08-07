@@ -459,7 +459,8 @@ th.sortable:hover{color:var(--amber2)}
                               <span class="tip" v-if="f.field==='push_pb_pass'">?<span class="ttip">Admin password of the teacher app PocketBase. Leave empty + toggle Upload off to generate exams locally.</span></span>
                             </label>
                             <template v-if="f.field==='tts_model'||f.field==='tts_fallback_model'">
-                              <select v-model="cfgData[f.field]" class="select"><option v-for="o in ttsOptions" :key="o" :value="o">{{ o }}</option></select>
+                              <input v-model.trim="cfgData[f.field]" class="input f-mono" list="ttsModelList" placeholder="Type a model or pick one…">
+                              <datalist id="ttsModelList"><option v-for="o in ttsOptions" :key="o" :value="o">{{ o }}</option></datalist>
                             </template>
                             <template v-else-if="f.ftype==='select'">
                               <select v-model="cfgData[f.field]" class="select" @change="hintText(f)"><option v-for="o in f.options" :key="o" :value="o">{{ o }}</option></select>

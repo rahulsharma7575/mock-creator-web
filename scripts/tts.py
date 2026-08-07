@@ -415,6 +415,10 @@ def main():
     if voices:
         match = [v for v in voices if v.lower() == voice.lower()]
         if not match:
+            # tolerate short ids that prefix a catalog voice (e.g. ko-KR-Haena
+            # -> ko-KR-Haena:MAI-Voice-2)
+            match = [v for v in voices if v.lower().startswith(voice.lower())]
+        if not match:
             sys.exit(f"ERROR: Voice '{voice}' not in {voices} for {args.model}")
         voice = match[0]  # canonical spelling
 

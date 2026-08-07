@@ -117,7 +117,7 @@ DEFAULTS = {
     # audio / TTS — OpenRouter
     "tts_model": "fish-audio/s2.1-pro-free:free",
     "tts_fallback_model": "microsoft/mai-voice-2-flash",
-    "tts_fallback_voice": "ko-KR-Haena",
+    "tts_fallback_voice": "ko-KR-Haena:MAI-Voice-2",
     "tts_rate": 44100,
     "tts_gap_ms": 400,
     "tts_voices": {},                          # optional speaker->voice map override

@@ -201,7 +201,7 @@ DEFAULT_CONFIG = {
     "image_fallback": "p-image-ideogram-1k",
     "tts_model": "fish-audio/s2.1-pro-free:free",
     "tts_fallback_model": "microsoft/mai-voice-2-flash",
-    "tts_fallback_voice": "ko-KR-Haena",
+    "tts_fallback_voice": "ko-KR-Haena:MAI-Voice-2",
     "question_count": 40,
     "reading_count": 20,
     "image_count": 22,
@@ -272,7 +272,7 @@ MODEL_SEEDS = [
     ("tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"),
     ("tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"),
     ("tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"),
-    ("tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"),
+    
     ("image", "z-image", "z-image", "primary image gen (5 credits/img)"),
     ("image", "p-image-ideogram-1k", "P-Image Ideogram 1K", "fallback (may 404)"),
 ]
@@ -378,7 +378,7 @@ function ensureCollections() {
   try {
     // upsert missing default TTS model seeds (existing installs never got them)
     var mCol = $app.findCollectionByNameOrId("mock_models")
-    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/deepgram-multi-voice-tts", "Deepgram Multi Voice TTS", "alt TTS"]]
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"]]
     for (var si = 0; si < seedDefs.length; si++) {
       var exists = false
       try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}

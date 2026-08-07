@@ -91,7 +91,7 @@ createApp({
       ];
     },
     groups(){const g=[...new Set(this.meta.map(m=>m.group))];return ['LLM','Exam','Images','Audio','Push','Advanced'].filter(x=>g.includes(x));},
-    ttsOptions(){const BASE=['fish-audio/s2.1-pro-free:free','microsoft/mai-voice-2-flash','x-ai/grok-voice-tts-1.0','google/gemini-3.1-flash-tts-preview','hexgrad/kokoro-82m','mistralai/voxtral-mini-tts-2603','deepgram/deepgram-multi-voice-tts'];const from=(this.models||[]).filter(m=>m&&m.kind==='tts').map(m=>m.model).filter(Boolean);for(const m of from){if(!BASE.includes(m))BASE.push(m);}const cur=this.cfgData?this.cfgData.tts_model:null;if(cur&&!BASE.includes(cur))BASE.unshift(cur);return BASE;},
+    ttsOptions(){const BASE=['fish-audio/s2.1-pro-free:free','microsoft/mai-voice-2-flash','x-ai/grok-voice-tts-1.0','google/gemini-3.1-flash-tts-preview','hexgrad/kokoro-82m','mistralai/voxtral-mini-tts-2603'];const from=(this.models||[]).filter(m=>m&&m.kind==='tts').map(m=>m.model).filter(Boolean);for(const m of from){if(!BASE.includes(m))BASE.push(m);}const cur=this.cfgData?this.cfgData.tts_model:null;if(cur&&!BASE.includes(cur))BASE.unshift(cur);return BASE;},
     listeningCount(){const c=this.cfgData.question_count||40;const r=this.cfgData.reading_count||20;return Math.max(0,c-r);},
     orCount(){return Object.keys(this.orModels).length;},
     costEst(){
