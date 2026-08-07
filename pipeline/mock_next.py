@@ -951,6 +951,86 @@ def _short(model):
     return model.split("/")[-1].split("-0")[0] if "/" in model else model
 
 
+def dry_images_pass(key, qs, base_dir):
+    """Dry-run images: generate for requiresImage questions, save locally, NO upload."""
+    from PIL import Image  # noqa: F401 — same import check as the real pass
+    primary = CFG.get("img_model") or "z-image"
+    chain = []
+    for m in (primary, CFG.get("img_fallback_model"), "z-image"):
+        if m and m not in chain:
+            chain.append(m)
+    out_dir = base_dir / "images" / "generated"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    jobs = [(q["number"], q.get("imagePrompt") or "") for q in qs
+            if q.get("requiresImage") and q.get("imagePrompt")]
+    if not jobs:
+        print("[dry][images] no image questions in this sample")
+        return 0, 0.0, 0
+    print(f"[dry][images] {len(jobs)} image(s) to generate locally via {chain[0]}")
+    ok = 0
+    cost = 0.0
+    credits = 0
+    for num, prompt in jobs:
+        fprompt = f"{CFG['image_style_prompt']}. Scene: {prompt}."
+        done = False
+        for model in chain:
+            try:
+                if model == "nano-banana":
+                    data, usage = gen_image_nano(key, fprompt)
+                    cost += usage.get("cost", 0)
+                else:
+                    url = gen_image_or(key, fprompt, model)
+                    data = httpx.get(url, timeout=120).content
+                    if model == "z-image":
+                        credits += magnific_mcp.ZIMAGE_COST
+                if not data or len(data) < 500:
+                    raise RuntimeError(f"image too small ({len(data) if data else 0} bytes)")
+                webp = to_webp(data, max_size=int(CFG.get("img_max_size", 1024)),
+                               quality=int(CFG.get("img_quality", 80)))
+                (out_dir / f"q{num}.webp").write_bytes(webp)
+                print(f"[dry][images] Q{num}: generated q{num}.webp via {model} (saved locally, not uploaded)")
+                ok += 1
+                done = True
+                break
+            except Exception as e:
+                print(f"[dry][images] Q{num} via {model} failed: {str(e)[:110]}")
+        if not done:
+            print(f"[dry][images] Q{num}: FAILED on all models")
+    print(f"[dry][images] {ok}/{len(jobs)} images generated locally "
+          f"({credits} Magnific credits, ${cost:.4f} OpenRouter)")
+    return ok, cost, credits
+
+
+def dry_audio_pass(mock, base_dir, qs):
+    """Dry-run audio: generate listening mp3s via mock_audio_builder, NO upload."""
+    if os.environ.get("MOCK_ROOT"):
+        cmd = [sys.executable, str(SRC / "mock_audio_builder.py"), "--mock", str(mock)]
+    else:
+        cmd = ["uv", "run", "--with", "httpx",
+               str(SRC / "mock_audio_builder.py"), "--mock", str(mock)]
+    env = dict(os.environ)
+    if CFG_PATH:
+        env["MOCK_CONFIG"] = CFG_PATH
+    env["MOCK_TMP"] = str(base_dir / "_tmp")
+    r = subprocess.run(cmd, capture_output=True, text=True, cwd=BASE, timeout=600, env=env)
+    out = (r.stdout or "") + (r.stderr or "")
+    print(out[-800:])
+    map_file = base_dir / "audio" / f"mock{mock}_audio_map.json"
+    if not map_file.exists():
+        print("[dry][audio] audio map not created - no listening questions in sample?")
+        return 0
+    audio_map = json.loads(map_file.read_text(encoding="utf-8"))
+    ok = 0
+    for q in qs:
+        if q.get("section") != "listening":
+            continue
+        name = audio_map.get(f"Q{q['number']}")
+        if name and (base_dir / "audio" / name).exists():
+            ok += 1
+    print(f"[dry][audio] {ok} mp3(s) generated locally (not uploaded)")
+    return ok
+
+
 def final_summary(stats):
     W = 40
 
@@ -983,21 +1063,35 @@ def final_summary(stats):
     line(repair_label, "auto")
     line(f"proofread ({_short(stats['proof_model'])})",
          f"auto, ${stats['proof_cost']:.4f}" if stats.get("proof_cost") else "auto")
+    st = stats.get("stage_times") or {}
+    if st:
+        parts = [f"{k} {v}s" for k, v in st.items() if k != "total"]
+        line("stage times", " · ".join(parts) + (f" · total {st['total']}s" if st.get("total") else ""))
     if stats.get("dry_run"):
+        dm = stats.get("dry_mode", "questions")
+        line("mode", f"dry-{dm} (sample)")
         line("PocketBase records", "skipped (dry-run)")
-        line("listening mp3s", "skipped (dry-run)")
-        line("TOPIK images", "skipped (dry-run)")
+        if dm == "audio":
+            line("listening mp3s", f"{stats.get('audio_ok', 0)} generated locally (no upload)")
+            line("TOPIK images", "skipped (dry-run)")
+        elif dm == "images":
+            line("TOPIK images", f"{stats.get('img_ok', 0)} generated locally (no upload), "
+                                  f"{stats.get('img_credits', 0)} credits, ${stats.get('img_cost', 0):.4f}")
+            line("listening mp3s", "skipped (dry-run)")
+        else:
+            line("listening mp3s", "skipped (dry-run)")
+            line("TOPIK images", "skipped (dry-run)")
         line("questions file", str(stats["qfile"]))
         line("total LLM cost", f"${stats['llm_cost']:.4f}")
         print("=" * 66)
-        print("  DRY RUN — nothing pushed, no audio/images. Re-run without --dry-run.")
+        print(f"  DRY RUN ({dm}) — nothing pushed. Re-run without --dry-run for the full mock.")
         print("=" * 66)
         return
     line(f"{stats['pb_count']} PocketBase records",
          "created" if stats["pb_created"] else "reused (resume)")
     line("exam + question links",
          "created" if stats.get("exam_created") else "reused (resume)")
-    line(f"{stats['audio_ok']}/20 listening mp3s", "fish-audio, uploaded")
+    line(f"{stats['audio_ok']}/{stats.get('audio_total', 0)} listening mp3s", "generated, uploaded")
     if stats["img_model"] == "nano-banana":
         line(f"{stats['img_ok']}/{stats['img_total']} TOPIK images",
              f"nano-banana (OpenRouter), ${stats['img_cost']:.2f}, uploaded")
@@ -1043,9 +1137,13 @@ def main():
         "author_attempt": 0, "author_cost": 0.0, "proof_model": "?",
         "proof_cost": 0.0, "repair": {"answers": 0, "scripts": 0, "images": 0},
         "pb_count": 0, "pb_created": False, "exam_created": False, "audio_ok": 0,
-        "img_ok": 0, "img_total": 0, "img_model": img_primary, "img_missing": [],
+        "audio_total": 0, "img_ok": 0, "img_total": 0, "img_model": img_primary, "img_missing": [],
         "img_cost": 0.0, "img_credits": 0, "qfile": qfile, "llm_cost": 0.0,
+        "stage_times": {},
     }
+    t_all = time.time()
+    def stage_secs():
+        return int(time.time() - t_all)
 
     if qfile.exists():
         print("[resume] questions file exists — skipping authoring/proofread")
@@ -1113,11 +1211,43 @@ def main():
             sys.exit("FAILED: exam still invalid after repair+proofread — " + "; ".join(errs[:12]))
         qfile.write_text(json.dumps(qs, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"[save] {qfile}")
+        stats["audio_total"] = sum(1 for q in qs if q.get("section") == "listening")
 
     if args.dry_run:
-        print("[dry-run] stopping after author+proofread (no PB/audio/images)")
         stats["dry_run"] = True
         stats["llm_cost"] = stats["author_cost"] + stats["proof_cost"]
+        dm = str(CFG.get("dry_mode") or "questions")
+        stats["dry_mode"] = dm
+        stats["stage_times"]["author"] = stage_secs()
+        stats["stage_times"]["repair"] = stage_secs()
+        if dm == "images":
+            print(f"[dry][images] generating sample images locally (no upload)...")
+            i_ok, i_cost, i_credits = dry_images_pass(key, qs, base_dir)
+            stats["img_ok"], stats["img_cost"], stats["img_credits"] = i_ok, i_cost, i_credits
+            stats["stage_times"]["images"] = stage_secs()
+        elif dm == "audio":
+            print(f"[dry][audio] generating sample listening audio locally (no upload)...")
+            stats["audio_ok"] = dry_audio_pass(mock, base_dir, qs)
+            stats["stage_times"]["audio"] = stage_secs()
+        else:
+            print("[dry][questions] sample authored and saved (no images/audio in questions mode)")
+        stats["stage_times"]["total"] = stage_secs()
+        report = {
+            "mock": mock, "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "dry_mode": dm, "questions": len(qs),
+            "author_attempt": stats["author_attempt"],
+            "author_cost_usd": round(stats["author_cost"], 4),
+            "proofread_model": stats["proof_model"], "proofread_cost_usd": round(stats["proof_cost"], 4),
+            "repair": stats["repair"], "exam_created": False,
+            "image_count": sum(1 for q in qs if q.get("requiresImage")),
+            "total_llm_cost_usd": round(stats["llm_cost"], 4),
+            "img_credits": stats["img_credits"],
+            "img_count": sum(1 for q in qs if q.get("requiresImage")),
+            "audio_uploaded": stats.get("audio_ok", 0),
+            "stage_times": stats["stage_times"],
+        }
+        (base_dir / "extra" / "run_report.json").write_text(
+            json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         final_summary(stats)
         return
 
@@ -1129,6 +1259,8 @@ def main():
         return
 
     # 3. PocketBase records
+    stats["stage_times"]["author"] = stage_secs()
+    stats["stage_times"]["repair"] = stage_secs()
     headers = pb_headers()
     missing = [q for q in qs if not q.get("pbId")]
     if missing:
@@ -1155,6 +1287,8 @@ def main():
     print("[audio] generating listening audio...")
     a_ok = run_audio(mock, qs, ids, headers)
     stats["audio_ok"] = a_ok
+    stats["audio_total"] = sum(1 for q in qs if q.get("section") == "listening")
+    stats["stage_times"]["audio"] = stage_secs()
 
     # 5. Images
     print(f"[images] generating TOPIK images ({img_primary})...")
@@ -1162,12 +1296,15 @@ def main():
     stats["img_ok"], stats["img_cost"], stats["img_credits"] = i_ok, i_cost, i_credits
     stats["img_missing"] = img_missing
     stats["img_total"] = sum(1 for q in qs if q.get("requiresImage"))
+    stats["stage_times"]["images"] = stage_secs()
     stats["llm_cost"] = stats["author_cost"] + stats["proof_cost"]
+    stats["stage_times"]["total"] = stage_secs()
 
     # 6. Report
     report = {
         "mock": mock, "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "questions": 40, "author_attempt": stats["author_attempt"],
+        "questions": stats["audio_total"] + sum(1 for q in qs if q.get("section") == "reading"),
+        "author_attempt": stats["author_attempt"],
         "author_cost_usd": round(stats["author_cost"], 4),
         "proofread_model": stats["proof_model"], "proofread_cost_usd": round(stats["proof_cost"], 4),
         "repair": stats["repair"], "exam_created": exam_created,
@@ -1179,6 +1316,9 @@ def main():
         "difficulty_profile": CFG.get("difficulty_profile", "creative+difficult"),
         "image_count": int(CFG.get("image_count", 22)),
         "total_llm_cost_usd": round(stats["llm_cost"], 4),
+        "img_credits": stats["img_credits"],
+        "img_count": stats["img_total"],
+        "stage_times": stats["stage_times"],
     }
     (base_dir / "extra" / "run_report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -39,16 +39,19 @@ const DRY_LABELS = {full:'Full Mock',dry_questions:'Dry Q',dry_images:'Dry Img',
 const DRY_ICONS = {dry_questions:'Q',dry_images:'I',dry_audio:'A',full:''};
 
 const ICON_MAP = {
-  chart: 'line-chart', users: 'users', sliders: 'sliders-horizontal', fileText: 'file-text',
-  plus: 'plus', key: 'key', copy: 'copy', check: 'check', x: 'x', alertTriangle: 'alert-triangle',
-  info: 'info', refresh: 'refresh-cw', trash: 'trash-2', play: 'play', zap: 'zap', image: 'image',
-  headphones: 'headphones', save: 'save', undo: 'undo-2', sparkles: 'sparkles', cpu: 'cpu',
-  mic: 'mic', upload: 'upload', download: 'download', eye: 'eye', eyeOff: 'eye-off',
-  settings: 'settings', clock: 'clock', dollar: 'dollar-sign', send: 'send', lock: 'lock',
-  mail: 'mail', clipboard: 'clipboard', bookOpen: 'book-open', activity: 'activity',
-  rocket: 'rocket', checkCircle: 'check-circle', circle: 'circle', chevronDown: 'chevron-down',
-  arrowRight: 'arrow-right', logOut: 'log-out', moon: 'moon', sun: 'sun', database: 'database',
-  terminal: 'terminal', gauge: 'gauge', wifi: 'wifi', help: 'help-circle'
+  chart: 'line-chart-line', users: 'group-line', sliders: 'equalizer-line', fileText: 'file-list-3-line',
+  plus: 'add-line', key: 'key-2-line', copy: 'file-copy-line', check: 'check-line', x: 'close-line',
+  alertTriangle: 'alert-line', info: 'information-line', refresh: 'refresh-line', trash: 'delete-bin-6-line',
+  play: 'play-circle-line', zap: 'flashlight-line', image: 'image-line', headphones: 'headphone-line',
+  save: 'save-line', undo: 'arrow-go-back-line', sparkles: 'magic-line', cpu: 'cpu-line',
+  mic: 'mic-line', upload: 'upload-2-line', download: 'download-2-line', eye: 'eye-line',
+  eyeOff: 'eye-off-line', settings: 'settings-3-line', clock: 'time-line', dollar: 'money-dollar-circle-line',
+  send: 'send-plane-line', lock: 'lock-line', mail: 'mail-line', clipboard: 'clipboard-line',
+  bookOpen: 'book-open-line', activity: 'heart-pulse-line', rocket: 'rocket-2-line',
+  checkCircle: 'checkbox-circle-line', circle: 'circle-line', chevronDown: 'arrow-down-s-line',
+  arrowRight: 'arrow-right-line', logOut: 'logout-box-r-line', moon: 'moon-line', sun: 'sun-line',
+  database: 'database-2-line', terminal: 'terminal-box-line', gauge: 'dashboard-3-line',
+  wifi: 'wifi-line', help: 'question-line'
 };
 
 const LOG_COLORS = {
@@ -86,7 +89,7 @@ createApp({
         {k:'failed · 24h',v:fail,c:'var(--red)',i:4,icon:'alertTriangle'},
       ];
     },
-    groups(){const g=[...new Set(this.meta.map(m=>m.group))];return ['LLM','Exam','Images','Audio','Push','Advanced','General'].filter(x=>g.includes(x));},
+    groups(){const g=[...new Set(this.meta.map(m=>m.group))];return ['LLM','Exam','Images','Audio','Push','Advanced'].filter(x=>g.includes(x));},
     listeningCount(){const c=this.cfgData.question_count||40;const r=this.cfgData.reading_count||20;return Math.max(0,c-r);},
     orCount(){return Object.keys(this.orModels).length;},
     costEst(){
@@ -141,9 +144,13 @@ createApp({
     short(s){return s?String(s).slice(0,8):'—';},
     sc(st){return st==='running'?'var(--amber)':st==='done'?'var(--green)':st==='failed'?'var(--red)':'var(--mut)';},
     jobCount(id){return this.jobs.filter(j=>j.client===id).length;},
+    jobRep(j){return (j&&j.report)||(j&&j._report)||null;},
+    jobTime(j){const r=this.jobRep(j);const st=(r&&r.stage_times)||{};const t=st.total;if(t==null)return'—';const b=Object.entries(st).filter(([k])=>k!=='total').map(([k,v])=>`${k} ${v}s`).join(' · ');return{label:`${t}s`,title:b||'no breakdown'};},
+    jobCost(j){const r=this.jobRep(j);const c=(r&&(r.total_llm_cost_usd!=null?r.total_llm_cost_usd:r.llm_cost))||0;return c?`$${c.toFixed(3)}`:'—';},
+    jobCredits(j){const r=this.jobRep(j);const c=(r&&r.img_credits)||0;const n=(r&&r.img_count!=null?r.img_count:r.image_count)||0;if(!c&&!n)return'—';return c?`${c}`+(n?` (${n} img × 5)`:'') : '—';},
     pretty(o){return o?JSON.stringify(o,null,2):'(no report yet)';},
-    ic(name,size){const body=(window.MC_ICONS||{})[ICON_MAP[name]||'circle']||'';return `<svg width="${size||18}" height="${size||18}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;},
-    toast(msg,type){const titles={ok:'Done',err:'Something went wrong',warn:'Heads up',info:'Note'};const id=Date.now()+Math.random();this.toasts.push({id,msg,type:type||'ok',title:titles[type||'ok']});setTimeout(()=>this.dismissToast(id),4200);this.$nextTick(()=>{if(window.anime){const el=document.querySelector('.toast-card:last-child');if(el)window.anime({targets:el,translateX:[46,0],opacity:[0,1],duration:420,easing:'easeOutCubic'});}});},
+    ic(name,size){const body=(window.MC_ICONS||{})[ICON_MAP[name]||'circle-line']||'';return `<svg width="${size||18}" height="${size||18}" viewBox="0 0 24 24" fill="currentColor">${body}</svg>`;},
+    toast(msg,type){const titles={ok:'Done',err:'Something went wrong',warn:'Heads up',info:'Note'};const id=Date.now()+Math.random();this.toasts.push({id,msg,type:type||'ok',title:titles[type||'ok']});setTimeout(()=>this.dismissToast(id),4200);this.$nextTick(()=>{if(window.anime){const el=document.querySelector('.toast-card:last-child');if(el)window.anime({targets:el,translateY:[28,0],opacity:[0,1],duration:420,easing:'easeOutCubic'});}});},
     dismissToast(id){this.toasts=this.toasts.filter(t=>t.id!==id);},
     async copy(txt){try{await navigator.clipboard.writeText(txt);this.toast('Copied to clipboard','ok');}catch(e){this.toast('Copy failed','err');}},
     sel(e){e.target.select();},

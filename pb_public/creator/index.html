@@ -157,7 +157,7 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
 @media (max-width:768px){.acc-grid{grid-template-columns:1fr}}
 
 /* ---- Toasts ---- */
-.toast-stack{position:fixed;top:18px;right:18px;z-index:80;display:flex;flex-direction:column;gap:10px;width:min(360px,calc(100vw - 36px))}
+.toast-stack{position:fixed;right:18px;bottom:18px;z-index:80;display:flex;flex-direction:column-reverse;gap:10px;width:min(360px,calc(100vw - 36px))}
 .toast-card{position:relative;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadowLg);padding:13px 14px 15px 46px;display:flex;flex-direction:column;gap:2px}
 .toast-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--tcol)}
 .toast-ico{position:absolute;left:16px;top:14px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;background:var(--tcol)}
@@ -171,6 +171,7 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
 .toast-card.t-err{--tcol:var(--red)}
 .toast-card.t-warn{--tcol:var(--amber2)}
 .toast-card.t-info{--tcol:var(--blue)}
+.tcell-num{font-family:'JetBrains Mono',monospace;font-size:12px}
 
 /* ---- Client wizard ---- */
 .keybox{position:relative;background:var(--panel2);border:1.5px dashed var(--line);border-radius:14px;padding:16px 18px;font-family:'JetBrains Mono',monospace;font-size:12.5px;word-break:break-all;color:var(--ink)}
@@ -313,11 +314,14 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
               </div>
               <div v-if="!jobs.length" class="text-sm py-10 text-center" style="color:var(--mut)">Nothing has run yet — your first exam awaits.</div>
               <table v-else class="w-full">
-                <thead><tr><th>Created</th><th>Client</th><th>Stage</th><th>Kind</th><th>Status</th></tr></thead>
+                <thead><tr><th>Created</th><th>Client</th><th>Stage</th><th>Kind</th><th>Time</th><th>LLM $</th><th>Img credits</th><th>Status</th></tr></thead>
                 <tbody><tr v-for="j in jobs.slice(0,6)" :key="j.id" class="cursor-pointer" @click="openJob(j)">
                   <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td class="font-semibold">{{ j.client_name }}</td>
                   <td><span class="stage-bar" v-html="stageFor(j)"></span></td>
                   <td><span class="text-xs f-mono px-2.5 py-1 rounded-lg" :style="{background:j.kind!=='full'?'rgba(53,104,156,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ dryLabel(j.kind) }}</span></td>
+                  <td class="tcell-num" :title="jobTime(j).title">{{ jobTime(j).label }}</td>
+                  <td class="tcell-num">{{ jobCost(j) }}</td>
+                  <td class="tcell-num" style="color:var(--amber2)">{{ jobCredits(j) }}</td>
                   <td>
                     <span class="pill-status" :style="{background:(j.status==='running'?'var(--soft)':j.status==='done'?'rgba(47,125,79,.1)':j.status==='failed'?'rgba(198,69,58,.1)':'transparent'),color:sc(j.status)}">
                       <span class="status-dot" :class="{pulse:j.status==='running'}" :style="{background:sc(j.status)}"></span>{{ j.status }}
@@ -527,15 +531,18 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
             <div class="panel">
               <div v-if="!filteredJobs.length" class="text-sm py-12 text-center" style="color:var(--mut)">Nothing here.</div>
               <table v-else class="w-full">
-                <thead><tr><th>Created</th><th>Client</th><th>Stage</th><th>Kind</th><th>Q</th><th>Status</th><th>Pushed</th><th>Error</th></tr></thead>
+                <thead><tr><th>Created</th><th>Client</th><th>Stage</th><th>Kind</th><th>Q</th><th>Time</th><th>LLM $</th><th>Img credits</th><th>Status</th><th>Pushed</th><th>Error</th></tr></thead>
                 <tbody><tr v-for="j in filteredJobs" :key="j.id" class="cursor-pointer" @click="openJob(j)">
                   <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td class="font-semibold">{{ j.client_name||j.client }}</td>
                   <td><span class="stage-bar" v-html="stageFor(j)"></span></td>
                   <td><span class="text-xs f-mono px-2.5 py-1 rounded-lg" :style="{background:j.kind!=='full'?'rgba(53,104,156,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ dryLabel(j.kind) }}</span></td>
                   <td class="f-mono">{{ j.count }}</td>
+                  <td class="tcell-num" :title="jobTime(j).title">{{ jobTime(j).label }}</td>
+                  <td class="tcell-num">{{ jobCost(j) }}</td>
+                  <td class="tcell-num" style="color:var(--amber2)">{{ jobCredits(j) }}</td>
                   <td><span class="pill-status" :style="{background:(j.status==='running'?'var(--soft)':j.status==='done'?'rgba(47,125,79,.1)':j.status==='failed'?'rgba(198,69,58,.1)':'transparent'),color:sc(j.status)}"><span class="status-dot" :class="{pulse:j.status==='running'}" :style="{background:sc(j.status)}"></span>{{ j.status }}</span></td>
                   <td class="f-mono text-xs">{{ j.pushed ? 'yes' : '—' }}</td>
-                  <td class="text-xs max-w-[220px] truncate" :style="{color:j.error?'var(--red)':''}">{{ j.error||'' }}</td>
+                  <td class="text-xs max-w-[200px] truncate" :style="{color:j.error?'var(--red)':''}">{{ j.error||'' }}</td>
                 </tr></tbody>
               </table>
             </div>
@@ -580,6 +587,16 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
                 <span class="dot"></span>{{ s }}
               </span>
               <span v-if="i<6" class="f-mono text-[10px]" style="color:var(--line)">→</span>
+            </template>
+          </div>
+        </div>
+
+        <div class="panel2 p-4 mb-4">
+          <div class="kv"><dt>created</dt><dd>{{ fmtTime(drawerJob.created) }}</dd><dt>updated</dt><dd>{{ fmtTime(drawerJob.updated) }}</dd><dt>duration</dt><dd>{{ jobDuration }}</dd>
+            <template v-if="jobRep(drawerJob)">
+              <dt>stage times</dt><dd>{{ jobTime(drawerJob).title }}<template v-if="jobTime(drawerJob).label !== '—'"> · total {{ jobTime(drawerJob).label }}</template></dd>
+              <dt>LLM cost</dt><dd>{{ jobCost(drawerJob) }}</dd>
+              <dt>image credits</dt><dd>{{ jobCredits(drawerJob) }}</dd>
             </template>
           </div>
         </div>

@@ -304,9 +304,10 @@ def run_job(job):
 
     if rc == 0:
         log(f"job {job_id}: DONE")
+        pushed = (not kind.startswith("dry_")) and bool(report and report.get("exam_created"))
         patch_job(job_id, {
             "status": "done", "log": log_tail or "[worker] finished (no output)",
-            "report": report, "pushed": True,
+            "report": report, "pushed": pushed,
         })
     else:
         err = log_tail.strip().splitlines()

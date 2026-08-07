@@ -479,6 +479,13 @@ try {
       difficulty: r.getString("difficulty"),
       log: (r.getString("log") || "").substring(0, 300),
       pushed: r.getBool("pushed"),
+      report: (function () {
+        try {
+          var rep = r.get("report")
+          if (rep && typeof rep === "string") { rep = JSON.parse(rep) }
+          return rep || null
+        } catch (errR) { return null }
+      })(),
       created: r.getString("created"),
       updated: r.getString("updated"),
       error: r.getString("error")
