@@ -19,6 +19,8 @@ services:
       # ---- REQUIRED: your API keys ----
       OPENROUTER_API_KEY: sk-or-YOUR_KEY_HERE
       MAGNIFIC_API_KEY: MS_YOUR_KEY_HERE
+      # Fal.ai key - used when the Image provider in /creator config is fal-ai/z-image/turbo
+      FAL_KEY: YOUR_FAL_KEY_HERE
 
       # ---- REQUIRED: PocketBase superuser (login for /creator) ----
       PB_SUPERUSER_EMAIL: admin@yourdomain.com

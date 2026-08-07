@@ -225,10 +225,11 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
       </div>
       <nav class="px-4 space-y-1.5 flex-1">
         <div v-for="n in nav" :key="n.id" class="nav-item" :class="{on:view===n.id}" @click="view=n.id">
-          <span v-html="ic(n.id==='overview'?'chart':n.id==='clients'?'users':n.id==='configs'?'sliders':'fileText',18)"></span>
+          <span v-html="ic(n.id==='overview'?'chart':n.id==='clients'?'users':n.id==='configs'?'sliders':n.id==='dryruns'?'database':'fileText',18)"></span>
           {{ n.label }}
           <span v-if="n.id==='jobs'&&failedCount" class="badge">{{ failedCount }}</span>
           <span v-if="n.id==='configs'&&cfgClient" class="badge" style="background:var(--green)">✓</span>
+          <span v-if="n.id==='dryruns'&&dryruns.length" class="badge" style="background:var(--blue)">{{ dryruns.length }}</span>
         </div>
       </nav>
       <div class="p-4 border-t" style="border-color:var(--line)">
@@ -500,7 +501,7 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
                       <div class="text-[10.5px] f-mono space-y-1" style="color:var(--mut)">
                         <div class="flex justify-between"><span><span v-html="ic('cpu',11)"></span> text</span><span>{{ costEst.known?'~$'+costEst.text.toFixed(3):'—' }}</span></div>
                         <div class="flex justify-between"><span><span v-html="ic('mic',11)"></span> audio</span><span>{{ costEst.known?'~$'+costEst.audio.toFixed(3):'—' }}</span></div>
-                        <div class="flex justify-between"><span><span v-html="ic('image',11)"></span> images</span><span>{{ costEst.magnific ? (cfgData.img_model==='z-image' ? 'Magnific credits' : '—') : (costEst.images!=null?'~$'+costEst.images.toFixed(3):'—') }}</span></div>
+                        <div class="flex justify-between"><span><span v-html="ic('image',11)"></span> images</span><span>{{ costEst.imgNote || (costEst.images!=null?'~$'+costEst.images.toFixed(3):'—') }}</span></div>
                       </div>
                       <div class="text-[10px] mt-2" style="color:var(--mut)">Live prices from OpenRouter API · token estimates only</div>
                     </div>
@@ -549,12 +550,38 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
           </section>
         </div>
 
+        <!-- ========== DRY RUNS ========== -->
+        <div v-if="view==='dryruns'" class="view-block">
+          <section class="ov-sec">
+            <div class="flex items-end justify-between">
+              <div><h1 class="f-disp text-3xl font-extrabold tracking-tight flex items-center gap-3"><span v-html="ic('database',26)" style="color:var(--amber2)"></span>Dry runs</h1><p class="text-sm mt-1.5" style="color:var(--mut)">Sample generations saved locally — preview the questions without touching the teacher app.</p></div>
+              <button class="btn btn-ghost px-4 py-2 text-sm flex items-center gap-1.5" @click="loadDryruns"><span v-if="dryrunsBusy" class="spinner"></span><span v-html="ic('refresh',14)"></span>Refresh</button>
+            </div>
+          </section>
+          <section class="ov-sec">
+            <div class="panel">
+              <div v-if="!dryruns.length" class="text-sm py-12 text-center" style="color:var(--mut)">No dry runs yet — hit a Quick test button first.</div>
+              <table v-else class="w-full">
+                <thead><tr><th>Created</th><th>Client</th><th>Kind</th><th>Q</th><th>Time</th><th>LLM $</th><th></th></tr></thead>
+                <tbody><tr v-for="d in dryruns" :key="d.id" class="cursor-pointer" @click="openDryPreview(d)">
+                  <td class="f-mono text-xs">{{ fmtTime(d.created) }}</td><td class="font-semibold">{{ d.client_name || '—' }}</td>
+                  <td><span class="text-xs f-mono px-2.5 py-1 rounded-lg" :style="{background:'rgba(53,104,156,.1)',color:'var(--blue)'}">{{ dryKindLabel(d.kind) }}</span></td>
+                  <td class="f-mono">{{ d.count || '—' }}</td>
+                  <td class="tcell-num">{{ dryTime(d) }}</td>
+                  <td class="tcell-num">{{ dryCost(d) }}</td>
+                  <td class="text-right"><button class="btn btn-ghost btn-sm flex items-center gap-1 ml-auto" @click.stop="openDryPreview(d)"><span v-html="ic('eye',13)"></span>Preview</button></td>
+                </tr></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
         <div class="text-center text-[11px] pt-9 pb-5 f-mono" style="color:var(--mut)">PocketBase v0.39.10 · pb_hooks + worker engine · studio v6</div>
       </div>
     </main>
 
     <!-- Job Drawer (log viewer) -->
-    <div v-if="drawerJob" class="fixed inset-0 z-50 flex justify-end" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)">
+    <div v-if="drawerJob" class="fixed inset-0 z-50 flex justify-end" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)" @click.self="drawerJob=null" :title="'Click outside to close'">
       <div class="w-full max-w-2xl h-full overflow-y-auto panel rounded-none drawer p-7" style="border:none;border-left:1px solid var(--line)">
         <div class="flex items-start justify-between mb-5">
           <div>
@@ -619,8 +646,66 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
       </div>
     </div>
 
+    <!-- Dry Run Preview -->
+    <div v-if="previewDry" class="fixed inset-0 z-50 flex justify-end" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)" @click.self="previewDry=null" :title="'Click outside to close'">
+      <div class="w-full max-w-2xl h-full overflow-y-auto panel rounded-none drawer p-7" style="border:none;border-left:1px solid var(--line)">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h2 class="f-disp text-xl font-extrabold flex items-center gap-2"><span v-html="ic('database',19)" style="color:var(--amber2)"></span>Dry run preview</h2>
+            <div class="text-xs f-mono mt-1.5" style="color:var(--mut)">{{ dryKindLabel(previewDry.kind) }} · {{ previewDry.count || 0 }} questions · {{ fmtTime(previewDry.created) }}</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" @click="previewDry=null"><span v-html="ic('x',13)"></span>Close</button>
+        </div>
+        <div class="panel2 p-3 mb-4 flex items-center gap-3 flex-wrap">
+          <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--soft);color:var(--amber2)">LLM cost {{ dryCost(previewDry) }}</span>
+          <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--soft);color:var(--amber2)">time {{ dryTime(previewDry) }}</span>
+          <span v-if="previewDry.images && previewDry.images.length" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(138,95,181,.12);color:var(--purple)">{{ previewDry.images.length }} image(s)</span>
+          <span v-if="previewDry.audio && previewDry.audio.length" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(47,143,143,.12);color:var(--cyan)">{{ previewDry.audio.length }} audio clip(s)</span>
+          <button class="btn btn-ghost btn-sm ml-auto flex items-center gap-1" @click="copy(JSON.stringify(previewDry.questions,null,2))"><span v-html="ic('copy',12)"></span>Copy JSON</button>
+        </div>
+        <div v-if="previewDry.images && previewDry.images.length" class="panel2 p-4 mb-3">
+          <div class="f-mono text-[10px] uppercase tracking-widest mb-2" style="color:var(--mut)">generated images (click to view full)</div>
+          <div class="grid grid-cols-3 gap-2">
+            <a v-for="f in previewDry.images" :key="f" :href="'/api/files/dryrun/'+previewDry.id+'/'+f" target="_blank">
+              <img :src="'/api/files/dryrun/'+previewDry.id+'/'+f" class="w-full rounded-lg" style="border:1px solid var(--line);background:var(--panel)" :alt="f">
+            </a>
+          </div>
+        </div>
+        <div v-if="previewDry.audio && previewDry.audio.length" class="panel2 p-4 mb-3">
+          <div class="f-mono text-[10px] uppercase tracking-widest mb-2" style="color:var(--mut)">generated audio</div>
+          <audio v-for="a in previewDry.audio" :key="a" :src="'/api/files/dryrun/'+previewDry.id+'/'+a" controls class="w-full mb-1" :style="{height:'36px'}"></audio>
+        </div>
+        <div v-if="!previewDry.questions || !previewDry.questions.length" class="text-sm py-10 text-center" style="color:var(--mut)">No questions stored for this dry run.</div>
+        <div v-else class="space-y-3">
+          <div v-for="q in previewDry.questions" :key="q.number" class="panel2 p-4">
+            <div class="flex items-center gap-2 mb-2 flex-wrap">
+              <span class="f-mono text-xs px-2 py-0.5 rounded-lg" style="background:var(--soft);color:var(--amber2)">Q{{ q.number }}</span>
+              <span class="text-[11px] uppercase tracking-widest" style="color:var(--mut)">{{ q.section }} · {{ q.type }} · {{ q.difficulty }}</span>
+              <span v-if="q.requiresImage" class="text-[10px] px-2 py-0.5 rounded-lg" style="background:rgba(138,95,181,.12);color:var(--purple)">image</span>
+            </div>
+            <div class="text-sm mb-2 whitespace-pre-wrap" style="color:var(--ink)">{{ q.question_text }}</div>
+            <div class="space-y-1">
+              <div v-for="(o,oi) in q.options" :key="oi" class="text-sm rounded-lg px-3 py-1.5 flex items-center gap-2"
+                   :style="String(q.correct_answer && q.correct_answer[0]) === String(oi) ? 'background:rgba(47,125,79,.12);color:var(--green);border:1px solid var(--green)' : 'background:var(--panel);border:1px solid var(--line);color:var(--mut)'">
+                <span class="f-mono text-[11px]">{{ '①②③④'[oi] }}</span><span>{{ o }}</span>
+                <span v-if="String(q.correct_answer && q.correct_answer[0]) === String(oi)" class="ml-auto" v-html="ic('check',14)"></span>
+              </div>
+            </div>
+            <div v-if="q.listening && q.listening.audioScript" class="mt-3">
+              <div class="f-mono text-[10px] uppercase tracking-widest mb-1" style="color:var(--mut)">listening script</div>
+              <div v-for="(t,ti) in q.listening.audioScript" :key="ti" class="flex gap-2 text-xs" style="color:var(--ink)">
+                <span class="f-mono shrink-0" style="color:var(--cyan)">{{ t.voice }}</span><span>{{ t.text }}</span>
+              </div>
+              <div v-if="q.listening.situation" class="f-serif text-xs mt-1" style="color:var(--mut)">situation: {{ q.listening.situation }}</div>
+            </div>
+            <div v-if="q.imagePrompt" class="mt-2 text-xs" style="color:var(--purple)">image: {{ q.imagePrompt }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Client Wizard (name first, then key) -->
-    <div v-if="clientModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)">
+    <div v-if="clientModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)" @click.self="clientModal=false;clientStep=0">
       <div class="panel p-7 w-full max-w-lg">
         <div class="flex items-center gap-2 mb-4">
           <div class="wizard-dot" :class="{on:clientStep>=0}"></div><div class="wizard-dot" :class="{on:clientStep>=1}"></div><div class="wizard-dot" :class="{on:clientStep>=2}"></div>
@@ -664,7 +749,7 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
     </div>
 
     <!-- Confirm Modal -->
-    <div v-if="confirmMsg" class="fixed inset-0 z-[60] flex items-center justify-center p-4" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)">
+    <div v-if="confirmMsg" class="fixed inset-0 z-[60] flex items-center justify-center p-4" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)" @click.self="confirmMsg=null">
       <div class="panel p-7 w-full max-w-sm"><h2 class="f-disp font-extrabold mb-2 flex items-center gap-2"><span v-html="ic('alertTriangle',17)" style="color:var(--amber2)"></span>Confirm</h2><p class="text-sm" style="color:var(--mut)">{{ confirmMsg }}</p><div class="flex gap-2 justify-end pt-4"><button class="btn btn-ghost px-4 py-2 text-sm" @click="confirmMsg=null">Cancel</button><button class="btn btn-danger px-4 py-2 text-sm" @click="confirmDo()">Confirm</button></div></div>
     </div>
 

@@ -39,6 +39,6 @@ ENV PB_URL=http://127.0.0.1:8090 \
 EXPOSE 8090
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/api/health', timeout=5)" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/api/creator/ping', timeout=5)" || exit 1
 
 CMD ["bash", "/app/entrypoint.sh"]

@@ -29,6 +29,7 @@ COLLECTION_IDS = {
     "mock_config_meta": "c_mock_config_meta",
     "mock_models": "c_mock_models",
     "mock_jobs": "c_mock_jobs",
+    "dryrun": "c_dryrun",
 }
 
 
@@ -135,6 +136,27 @@ SCHEMA = [
         f("created", "autodate", onCreate=True),
         f("updated", "autodate", onCreate=True, onUpdate=True),
     ]),
+    collection("dryrun", [
+        f("client", "relation",
+          collectionId=COLLECTION_IDS["mock_clients"], maxSelect=1, minSelect=0),
+        f("kind", "select", values=["dry_questions", "dry_images", "dry_audio"], maxSelect=1),
+        f("status", "select", values=["done", "failed"], maxSelect=1),
+        f("count", "number", min=1, max=200),
+        f("difficulty", "text", max=100),
+        f("questions", "json", maxSize=2097152),
+        f("report", "json", maxSize=2097152),
+        f("log", "editor"),
+        {"id": "f_images", "name": "images", "type": "file", "required": False,
+         "presentable": False, "hidden": False, "primaryKey": False,
+         "options": {"maxSelect": 10, "maxSize": 20971520,
+                     "mimeTypes": ["image/webp", "image/png", "image/jpeg"]}},
+        {"id": "f_audio", "name": "audio", "type": "file", "required": False,
+         "presentable": False, "hidden": False, "primaryKey": False,
+         "options": {"maxSelect": 10, "maxSize": 20971520,
+                     "mimeTypes": ["audio/mpeg", "audio/mp3", "audio/wav"]}},
+        f("created", "autodate", onCreate=True),
+        f("updated", "autodate", onCreate=True, onUpdate=True),
+    ]),
 ]
 
 DEFAULT_CONFIG = {
@@ -176,7 +198,7 @@ META_FIELDS = [
     ("llm_author_model", "Author LLM", "text", "LLM", "OpenRouter model for question authoring"),
     ("llm_proofread_model", "Proofread LLM", "text", "LLM", "OpenRouter model for proofreading"),
     ("llm_repair_model", "Repair LLM", "text", "LLM", "OpenRouter model for repair pass"),
-    ("image_primary", "Primary image model", "text", "Images", "Magnific model slug (z-image)"),
+    ("image_primary", "Image provider", "select", "Images", "fal-ai (Fal.ai) | z-image (Magnific) | nano-banana (OpenRouter)", ["fal-ai/z-image/turbo", "z-image", "nano-banana"]),
     ("image_fallback", "Fallback image model", "text", "Images", "Magnific fallback (p-image-ideogram-1k)"),
     ("tts_model", "TTS model", "text", "Audio", "OpenRouter TTS model"),
     ("tts_fallback_model", "TTS fallback model", "text", "Audio", "Fallback TTS model"),
@@ -252,7 +274,20 @@ function ensureCollections() {
             ("m{0}.set(\"options\", {1}); ".format(i, json.dumps(opts[0])) if opts else ""),
         )
         for i, (field, label, ftype, group, help_text, *opts) in enumerate(META_FIELDS)
-    ),
+    ) + """
+  try {
+    var mImg = $app.findFirstRecordByData("mock_config_meta", "field", "image_primary")
+    var cur = mImg.get("options") || []
+    if (typeof cur === "string") { try { cur = JSON.parse(cur) } catch (errP) { cur = [] } }
+    if (mImg.getString("ftype") !== "select" || cur.indexOf("fal-ai/z-image/turbo") === -1) {
+      mImg.set("label", "Image provider")
+      mImg.set("ftype", "select")
+      mImg.set("options", ["fal-ai/z-image/turbo", "z-image", "nano-banana"])
+      mImg.set("help", "fal-ai (Fal.ai) | z-image (Magnific) | nano-banana (OpenRouter)")
+      $app.save(mImg)
+    }
+  } catch (errM) {}
+""",
     "".join(
         "var k{0} = new Record(models); k{0}.set(\"kind\", \"{1}\"); k{0}.set(\"model\", \"{2}\"); k{0}.set(\"display\", \"{3}\"); k{0}.set(\"notes\", \"{4}\"); $app.save(k{0});\n".format(
             i, kind, model, display, notes)

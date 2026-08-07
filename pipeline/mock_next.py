@@ -76,6 +76,10 @@ DEFAULTS = {
     "exam_type": "mock",                     # exam_type of the auto-created exam record
     "exam_status": "draft",                  # draft = review-then-publish | published = immediate
     "push_enabled": True,                    # False = generate locally, never upload anywhere
+    "dry_mode": "questions",                 # questions | images | audio - set by worker for dry runs (MUST stay in DEFAULTS or load_config drops it)
+    # image provider - DYNAMIC: fal-ai/z-image/turbo (Fal.ai) | z-image (Magnific) | nano-banana (OpenRouter)
+    "fal_api": "https://queue.fal.run/fal-ai/z-image/turbo",
+    "img_size": 512,                         # Fal.ai square image size (1:1)
     # question creator (author) — OpenRouter
     "author_model": "google/gemini-2.5-flash",
     "author_retries": 3,
@@ -782,6 +786,41 @@ def gen_image_nano(key, prompt):
     return base64.b64decode(b64), j.get("usage", {})
 
 
+def gen_image_fal(prompt, size=None):
+    """Generate via Fal.ai (fal-ai/z-image/turbo, 1:1 square). Requires FAL_KEY env."""
+    key = os.environ.get("FAL_KEY") or ""
+    if not key:
+        raise RuntimeError("FAL_KEY is not set - add it to docker-compose / container env")
+    api = CFG.get("fal_api", "https://queue.fal.run/fal-ai/z-image/turbo")
+    sz = int(size or CFG.get("img_size", 512))
+    r = httpx.post(api, headers={"Authorization": "Key " + key, "Content-Type": "application/json"},
+                   json={"prompt": prompt, "image_size": {"width": sz, "height": sz}},
+                   timeout=int(CFG.get("img_timeout_s", 240)))
+    r.raise_for_status()
+    j = r.json()
+    status_url = j.get("status_url") or ""
+    response_url = j.get("response_url") or ""
+    if not status_url or not response_url:
+        raise RuntimeError("fal queue response missing status/response url: " + json.dumps(j, ensure_ascii=False)[:200])
+    deadline = time.time() + int(CFG.get("img_timeout_s", 240))
+    while time.time() < deadline:
+        s = httpx.get(status_url, headers={"Authorization": "Key " + key}, timeout=60)
+        sj = s.json()
+        st = sj.get("status") or ""
+        if st == "COMPLETED":
+            res = httpx.get(response_url, headers={"Authorization": "Key " + key}, timeout=60)
+            imgs = (res.json().get("images")) or []
+            if not imgs or not imgs[0].get("url"):
+                raise RuntimeError("fal result has no images")
+            data = httpx.get(imgs[0]["url"], timeout=120).content
+            return data
+        if st in ("FAILED", "CANCELLED", "ERROR"):
+            err = ((sj.get("error") or {}).get("message")) or sj.get("detail") or st
+            raise RuntimeError("fal generation failed: " + str(err)[:200])
+        time.sleep(3)
+    raise RuntimeError("fal generation timed out")
+
+
 def to_webp(data, max_size=1024, quality=80):
     from PIL import Image
     im = Image.open(io.BytesIO(data)).convert("RGB")
@@ -835,6 +874,9 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None):
         else:
             print(f"[images] z-image (API mode): {len(jobs)} images x {magnific_mcp.ZIMAGE_COST} credits "
                   "(live balance check not available via API)")
+    elif str(primary).startswith("fal-ai/"):
+        print(f"[images] fal.ai provider: {len(jobs)} image(s) x {CFG.get('img_size', 512)}x{CFG.get('img_size', 512)} "
+              "(FAL_KEY from env, no Magnific balance check)")
     else:
         print(f"[images] model chain: {chain}")
     ok, cost, credits = 0, 0.0, 0
@@ -851,6 +893,9 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None):
                     if model == "nano-banana":
                         data, usage = gen_image_nano(key, prompt)
                         used = usage.get("cost", 0)
+                    elif str(model).startswith("fal-ai/"):
+                        data = gen_image_fal(prompt)
+                        used = 0.0
                     else:
                         url = gen_image_or(key, prompt, model)
                         data = httpx.get(url, timeout=120).content
@@ -978,6 +1023,8 @@ def dry_images_pass(key, qs, base_dir):
                 if model == "nano-banana":
                     data, usage = gen_image_nano(key, fprompt)
                     cost += usage.get("cost", 0)
+                elif str(model).startswith("fal-ai/"):
+                    data = gen_image_fal(fprompt)
                 else:
                     url = gen_image_or(key, fprompt, model)
                     data = httpx.get(url, timeout=120).content
@@ -1038,7 +1085,10 @@ def final_summary(stats):
         print(f"  {label.ljust(W)} → {value}")
 
     print("=" * 66)
-    print(f"  MOCK {stats['mock']} — COMPLETE")
+    if stats.get("dry_run"):
+        print(f"  DRY RUN ({stats.get('dry_mode', 'questions')}) — COMPLETE")
+    else:
+        print(f"  MOCK {stats['mock']} — COMPLETE")
     print("-" * 66)
     q_n = int(CFG.get("question_count", 40))
     if stats.get("authored"):
@@ -1075,8 +1125,8 @@ def final_summary(stats):
             line("listening mp3s", f"{stats.get('audio_ok', 0)} generated locally (no upload)")
             line("TOPIK images", "skipped (dry-run)")
         elif dm == "images":
-            line("TOPIK images", f"{stats.get('img_ok', 0)} generated locally (no upload), "
-                                  f"{stats.get('img_credits', 0)} credits, ${stats.get('img_cost', 0):.4f}")
+            line("TOPIK images", f"{stats.get('img_ok', 0)} generated locally via {stats.get('img_model', '?')} "
+                                  f"(no upload), {stats.get('img_credits', 0)} credits, ${stats.get('img_cost', 0):.4f}")
             line("listening mp3s", "skipped (dry-run)")
         else:
             line("listening mp3s", "skipped (dry-run)")
@@ -1092,12 +1142,16 @@ def final_summary(stats):
     line("exam + question links",
          "created" if stats.get("exam_created") else "reused (resume)")
     line(f"{stats['audio_ok']}/{stats.get('audio_total', 0)} listening mp3s", "generated, uploaded")
-    if stats["img_model"] == "nano-banana":
+    im = str(stats["img_model"])
+    if im == "nano-banana":
         line(f"{stats['img_ok']}/{stats['img_total']} TOPIK images",
              f"nano-banana (OpenRouter), ${stats['img_cost']:.2f}, uploaded")
+    elif im.startswith("fal-ai/"):
+        line(f"{stats['img_ok']}/{stats['img_total']} TOPIK images",
+             f"fal.ai ({im}), {CFG.get('img_size', 512)}x{CFG.get('img_size', 512)}, uploaded")
     else:
         line(f"{stats['img_ok']}/{stats['img_total']} TOPIK images",
-             f"{stats['img_model']} (Magnific), {stats['img_credits']} credits, uploaded")
+             f"{im} (Magnific), {stats['img_credits']} credits, uploaded")
     if stats.get("img_missing"):
         line(f"IMAGES MISSING ({len(stats['img_missing'])})",
              "Q" + ", Q".join(map(str, stats["img_missing"])) + " — see run_report.json")
@@ -1126,7 +1180,11 @@ def main():
 
     key = api_key()
     mock = args.mock or next_mock_number()
-    print(f"=== Creating Mock {mock} ===")
+    dm = str(CFG.get("dry_mode") or "questions")
+    if args.dry_run:
+        print(f"=== DRY RUN ({dm}) - sample mock {mock} ===")
+    else:
+        print(f"=== Creating Mock {mock} ===")
     base_dir = BASE / f"mock{mock}"
     for sub in ("questions", "audio", "images", "extra"):
         (base_dir / sub).mkdir(parents=True, exist_ok=True)
@@ -1181,6 +1239,7 @@ def main():
         if not qs or validate_exam(qs, stage="author"):
             errs = validate_exam(qs, stage="author") if qs else ["no questions returned"]
             sys.exit("FAILED: could not author a valid exam after 3 attempts — " + "; ".join(errs[:12]))
+        stats["stage_times"]["author"] = stage_secs()
 
         # 1b. Choose proofreading model (config-driven when --config/$MOCK_CONFIG, else interactive)
         proof_cfg = slug_cfg(args.proof_slug, PROOF_MODELS) if args.proof_slug \
@@ -1212,14 +1271,13 @@ def main():
         qfile.write_text(json.dumps(qs, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"[save] {qfile}")
         stats["audio_total"] = sum(1 for q in qs if q.get("section") == "listening")
+        stats["stage_times"]["repair"] = stage_secs()
 
     if args.dry_run:
         stats["dry_run"] = True
         stats["llm_cost"] = stats["author_cost"] + stats["proof_cost"]
         dm = str(CFG.get("dry_mode") or "questions")
         stats["dry_mode"] = dm
-        stats["stage_times"]["author"] = stage_secs()
-        stats["stage_times"]["repair"] = stage_secs()
         if dm == "images":
             print(f"[dry][images] generating sample images locally (no upload)...")
             i_ok, i_cost, i_credits = dry_images_pass(key, qs, base_dir)
@@ -1259,8 +1317,6 @@ def main():
         return
 
     # 3. PocketBase records
-    stats["stage_times"]["author"] = stage_secs()
-    stats["stage_times"]["repair"] = stage_secs()
     headers = pb_headers()
     missing = [q for q in qs if not q.get("pbId")]
     if missing:

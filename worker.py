@@ -224,6 +224,64 @@ def read_report(workdir):
     return None
 
 
+def find_questions_file(workdir):
+    """Newest mock*/questions/mock*_questions.json under the job workdir."""
+    mocks_dir = workdir / "mocks"
+    if not mocks_dir.is_dir():
+        return None
+    dirs = sorted(mocks_dir.glob("mock*"),
+                  key=lambda p: p.stat().st_mtime if p.is_dir() else 0, reverse=True)
+    for d in dirs:
+        hits = sorted(d.glob("questions/mock*_questions.json"))
+        if hits:
+            return hits[0]
+    return None
+
+
+def collect_dryrun_assets(workdir):
+    """Collect generated images (webp) + audio (mp3) from the newest mock dir."""
+    mocks_dir = workdir / "mocks"
+    images, audios = [], []
+    if not mocks_dir.is_dir():
+        return images, audios
+    dirs = sorted(mocks_dir.glob("mock*"),
+                  key=lambda p: p.stat().st_mtime if p.is_dir() else 0, reverse=True)
+    for d in dirs:
+        for p in sorted((d / "images" / "generated").glob("*.webp")) if (d / "images" / "generated").is_dir() else []:
+            images.append(p)
+        for p in sorted(d.glob("audio/*.mp3")) if (d / "audio").is_dir() else []:
+            audios.append(p)
+        if images or audios:
+            break
+    return images, audios
+
+
+def multipart_patch_dryrun(record_id, image_paths, audio_paths):
+    """Append generated files to a dryrun record via multipart PATCH (images+/audio+)."""
+    global _token, _token_at
+    boundary = "----mc" + format(time.time_ns(), "x") + os.urandom(4).hex()
+    parts = []
+    for field, paths, ctype in (("images+", image_paths, "image/webp"),
+                                ("audio+", audio_paths, "audio/mpeg")):
+        for p in paths:
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{field}"; '
+                         f'filename="{p.name}"\r\nContent-Type: {ctype}\r\n\r\n'.encode("utf-8"))
+            parts.append(p.read_bytes())
+            parts.append(b"\r\n")
+    parts.append(f"--{boundary}--\r\n".encode("utf-8"))
+    body = b"".join(parts)
+    if not _token or time.time() - _token_at > 3500:
+        _token = auth()
+        _token_at = time.time()
+    req = urllib.request.Request(
+        PB_URL + f"/api/collections/dryrun/records/{record_id}",
+        data=body, method="PATCH",
+        headers={"Authorization": "Bearer " + _token,
+                 "Content-Type": "multipart/form-data; boundary=" + boundary})
+    with urllib.request.urlopen(req, timeout=180) as r:
+        r.read()
+
+
 def run_job(job):
     job_id = job["id"]
     client_id = job.get("client") or ""
@@ -251,6 +309,11 @@ def run_job(job):
         cfg["dry_mode"] = dry_mode
         cfg["question_count"] = 2
         cfg["reading_count"] = 1
+        if dry_mode == "images":
+            # guarantee the sample actually contains image questions to generate
+            cfg["image_count"] = 1
+            cfg["image_count_min"] = 1
+            cfg["image_count_max"] = 1
         log(f"job {job_id}: dry run mode={dry_mode}, sample_size=2")
 
     if cfg.get("push_enabled", True) and not cfg.get("pb_pass") and not os.environ.get("MOCK_PB_PASS"):
@@ -309,6 +372,27 @@ def run_job(job):
             "status": "done", "log": log_tail or "[worker] finished (no output)",
             "report": report, "pushed": pushed,
         })
+        if kind.startswith("dry_"):
+            try:
+                qs_file = find_questions_file(workdir)
+                questions = None
+                if qs_file:
+                    questions = json.loads(qs_file.read_text(encoding="utf-8"))
+                dry = api("POST", "/api/collections/dryrun/records", {
+                    "client": client_id, "kind": kind, "status": "done",
+                    "count": len(questions) if questions else 0,
+                    "difficulty": str(cfg.get("difficulty_profile") or ""),
+                    "questions": questions, "report": report,
+                    "log": (log_tail or "")[-8000:],
+                })
+                dry_id = dry.get("id") if isinstance(dry, dict) else None
+                imgs, auds = collect_dryrun_assets(workdir)
+                if dry_id and (imgs or auds):
+                    multipart_patch_dryrun(dry_id, imgs, auds)
+                    log(f"job {job_id}: dryrun assets uploaded ({len(imgs)} images, {len(auds)} audio)")
+                log(f"job {job_id}: dry run saved to dryrun collection ({len(questions) if questions else 0} questions)")
+            except Exception as e:
+                log(f"job {job_id}: dryrun save failed: {e}")
     else:
         err = log_tail.strip().splitlines()
         tail = "\n".join(err[-12:]) if err else "pipeline exited " + str(rc)

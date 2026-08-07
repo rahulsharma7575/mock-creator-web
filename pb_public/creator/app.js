@@ -66,8 +66,9 @@ createApp({
     authed:!!localStorage.getItem(LS_TK),who:localStorage.getItem(LS_EM)||'',
     loginEmail:'',loginPass:'',loginErr:'',loginBusy:false,clientBusy:false,newKeyHash:'',togglingId:'',
     theme:localStorage.getItem(LS_TH)||'light',view:'overview',
-    nav:[{id:'overview',label:'Overview'},{id:'clients',label:'Clients'},{id:'configs',label:'Configs'},{id:'jobs',label:'Jobs'}],
+    nav:[{id:'overview',label:'Overview'},{id:'clients',label:'Clients'},{id:'configs',label:'Configs'},{id:'jobs',label:'Jobs'},{id:'dryruns',label:'Dry runs'}],
     clients:[],jobs:[],configs:[],meta:[],models:[],jobsBusy:false,startBusy:false,
+    dryruns:[],dryrunsBusy:false,previewDry:null,
     qs:{client:'',count:40,difficulty:'creative+difficult'},jobFilter:'all',
     drawerJob:null,drawerTimer:null,drawerLastUpd:'',clientModal:false,clientStep:0,newClientName:'',newKey:'',clientErr:'',
     confirmMsg:null,confirmFn:null,toasts:[],
@@ -101,9 +102,13 @@ createApp({
                 +stage(this.cfgData.llm_repair_model,2400,2000)*2;
       const audio=stage(this.cfgData.tts_model,0,list*90);
       const nano=price('google/gemini-2.5-flash-image');
-      const images=this.cfgData.img_model==='nano-banana'&&nano?img*1320*nano.c:null;
+      const im=String(this.cfgData.image_primary||this.cfgData.img_model||'z-image');
+      let images=null,imgNote=null;
+      if(im==='nano-banana'&&nano)images=img*1320*nano.c;
+      else if(im==='z-image')imgNote='Magnific credits';
+      else if(im.startsWith('fal-ai/'))imgNote='Fal.ai (512x512)';
       const known=this.orStatus==='live';
-      return{text,audio,images,total:text+audio+(images||0),magnific:this.cfgData.img_model!=='nano-banana',known};
+      return{text,audio,images,total:text+audio+(images||0),imgNote,known};
     },
     costPct(){const t=this.costEst;const m=t.total||0.0001;return{text:(t.text/m*100).toFixed(1),images:((t.images||0)/m*100).toFixed(1),audio:(t.audio/m*100).toFixed(1)};},
     failedCount(){return this.jobs.filter(j=>j.status==='failed').length;},
@@ -135,7 +140,7 @@ createApp({
     },
   },
   watch:{
-    view(v){if(v==='jobs')this.loadJobs();if(v==='clients')this.loadClients();this.$nextTick(()=>this.viewEnter());},
+    view(v){if(v==='jobs')this.loadJobs();if(v==='clients')this.loadClients();if(v==='dryruns')this.loadDryruns();this.$nextTick(()=>this.viewEnter());},
     drawerJob(j){clearInterval(this.drawerTimer);this.drawerTimer=null;if(j&&(j.status==='queued'||j.status==='running')){this.drawerTimer=setInterval(()=>this.refreshDrawer(),4000);}},
   },
   methods:{
@@ -147,7 +152,7 @@ createApp({
     jobRep(j){return (j&&j.report)||(j&&j._report)||null;},
     jobTime(j){const r=this.jobRep(j);const st=(r&&r.stage_times)||{};const t=st.total;if(t==null)return'—';const b=Object.entries(st).filter(([k])=>k!=='total').map(([k,v])=>`${k} ${v}s`).join(' · ');return{label:`${t}s`,title:b||'no breakdown'};},
     jobCost(j){const r=this.jobRep(j);const c=(r&&(r.total_llm_cost_usd!=null?r.total_llm_cost_usd:r.llm_cost))||0;return c?`$${c.toFixed(3)}`:'—';},
-    jobCredits(j){const r=this.jobRep(j);const c=(r&&r.img_credits)||0;const n=(r&&r.img_count!=null?r.img_count:r.image_count)||0;if(!c&&!n)return'—';return c?`${c}`+(n?` (${n} img × 5)`:'') : '—';},
+    jobCredits(j){const r=this.jobRep(j);if(!r)return'—';const c=r.img_credits||0;const n=r.img_count!=null?r.img_count:r.image_count;if(!c&&!n)return'—';return c?`${c}`+(n?` (${n} img × 5)`:'') : '—';},
     pretty(o){return o?JSON.stringify(o,null,2):'(no report yet)';},
     ic(name,size){const body=(window.MC_ICONS||{})[ICON_MAP[name]||'circle-line']||'';return `<svg width="${size||18}" height="${size||18}" viewBox="0 0 24 24" fill="currentColor">${body}</svg>`;},
     toast(msg,type){const titles={ok:'Done',err:'Something went wrong',warn:'Heads up',info:'Note'};const id=Date.now()+Math.random();this.toasts.push({id,msg,type:type||'ok',title:titles[type||'ok']});setTimeout(()=>this.dismissToast(id),4200);this.$nextTick(()=>{if(window.anime){const el=document.querySelector('.toast-card:last-child');if(el)window.anime({targets:el,translateY:[28,0],opacity:[0,1],duration:420,easing:'easeOutCubic'});}});},
@@ -163,7 +168,8 @@ createApp({
     grpIcon(g){return{LLM:'cpu',Images:'image',Exam:'bookOpen',Audio:'headphones',Push:'send',Advanced:'settings',General:'sliders'}[g]||'sliders';},
     hintText(f){if(!f||!this.cfgData)return'';
       if(f.field==='image_count'){const n=this.cfgData.image_count||18;return`${n} questions will have pictures, spread randomly across reading & listening`;}
-      if(f.field==='reading_count'){const t=this.cfgData.question_count||0;const v=this.cfgData[f.field]||0;return t?`${t-v} listening questions remaining (Q${v+1}–Q${t})`:'Set total questions first';}
+      if(f.field==='image_primary'){const im=String(this.cfgData.image_primary||'');if(im.startsWith('fal-ai/'))return'Runs via Fal.ai (512x512, 1:1) - FAL_KEY must be in the container env';if(im==='z-image')return'Runs via Magnific (5 credits per image)';if(im==='nano-banana')return'Runs via OpenRouter (billed per image)';return'';}
+      if(f.field==='reading_count'){const t=this.cfgData.question_count||0;const v=this.cfgData[f.field]||0;return t?`${t-v} listening questions remaining (Q${v+1}-Q${t})`:'Set total questions first';}
       if(f.field==='llm_author_model'&&this.cfgData[f.field]){const m=this.orModels[this.cfgData[f.field]];return m?`OpenRouter: ${m.name}`:this.orStatus==='live'?`Model not found on OpenRouter`:'';
       }
       return'';},
@@ -204,12 +210,17 @@ createApp({
         }
       }
       if(!scope||scope.has('Images')){
-        if(c.img_model==='nano-banana'){
+        const im=String(c.image_primary||c.img_model||'');
+        if(im==='nano-banana'){
           const r=await this.verifyModel('google/gemini-2.5-flash-image');
           if(r.exists===false)add('Images','err','Image model gemini-2.5-flash-image not found on OpenRouter');
           else if(r.exists===null)add('Images','warn','Cannot verify image model right now: '+(r.message||'unknown'));
-        }else if(c.img_model==='z-image'){
+        }else if(im==='z-image'){
           add('Images','info','z-image runs via Magnific (credits) - verified at generation time');
+        }else if(im.startsWith('fal-ai/')){
+          add('Images','info','Fal.ai provider - verified at generation time (FAL_KEY from container env)');
+        }else if(im){
+          add('Images','warn',`Unknown image provider "${im}" - the run will attempt it and fall back`);
         }
       }
       if(c.push_enabled!==false){
@@ -268,6 +279,11 @@ createApp({
     async loadConfigs(){try{const r=await api('/api/collections/mock_config/records?perPage=200');this.configs=r.items||[];}catch(e){this.toast('configs: '+e.message,'err');}},
     async loadMeta(){try{const r=await api('/api/collections/mock_config_meta/records?perPage=200&sort=group,order');this.meta=r.items||[];}catch(e){}},
     async loadModels(){try{const r=await api('/api/collections/mock_models/records?perPage=200');this.models=r.items||[];}catch(e){}},
+    async loadDryruns(){this.dryrunsBusy=true;try{const r=await api('/api/collections/dryrun/records?perPage=50&sort=-created');this.dryruns=r.items||[];}catch(e){this.toast('dry runs: '+e.message,'err');}this.dryrunsBusy=false;},
+    dryKindLabel(k){return k==='dry_questions'?'Questions':k==='dry_images'?'Images':k==='dry_audio'?'Audio':(k||'—');},
+    dryCost(d){const r=(d&&d.report)||{};const c=r.total_llm_cost_usd!=null?r.total_llm_cost_usd:r.llm_cost;return c?`$${Number(c).toFixed(3)}`:'—';},
+    dryTime(d){const st=((d&&d.report)||{}).stage_times||{};return st.total!=null?`${st.total}s`:'—';},
+    openDryPreview(d){this.previewDry=d;},
     async loadJobs(){this.jobsBusy=true;try{const r=await api('/api/creator/jobs');this.jobs=r.jobs||[];}catch(e){this.toast('jobs: '+e.message,'err');}this.jobsBusy=false;},
     startJob(params){const q=new URLSearchParams(params);return api('/api/creator/start?'+q.toString(),{method:'POST'});},
     async quickStart(kind){this.startBusy=true;try{const params={client:this.qs.client,count:this.qs.count,difficulty:this.qs.difficulty};if(kind&&kind!=='full'){params.kind=kind;params.count=2;}const r=await this.startJob(params);this.toast('Job '+r.job_id.slice(0,8)+' queued ('+(r.kind||kind)+')','ok');this.loadJobs();}catch(e){this.toast('start: '+e.message,'err');}this.startBusy=false;},
