@@ -1,12 +1,17 @@
-# Mock Creator — Docker Compose v4
+# Mock Creator — Docker Compose v5 (bind mounts = data survives every pull/deploy)
 # Paste into Dockge / Dokploy or run: docker compose up -d
 #
 #   GUI:     http://HOST:PORT/creator
 #   Admin:   http://HOST:PORT/_/
 #   Update:  docker compose pull && docker compose up -d
 #
-# Data persists in mock-state (PB DB + files) and mock-work (job artifacts).
-# All config is inline-env — no .env file needed. Fill in your real keys below.
+# DATA IS PERSISTENT: pb_data/ and data/ are real folders next to this file
+# (bind mounts). They survive image updates, stack renames and even
+# `docker compose down -v`. Backup = copy these two folders.
+# Do NOT delete these folders; that is the only way data is lost.
+#
+# One-time migration from the OLD named volumes (only if you had data there):
+#   docker run --rm -v <oldstack>_mock-state:/from -v "$PWD/pb_data":/to alpine sh -c "cp -a /from/. /to/"
 
 services:
   mock-creator:
@@ -44,9 +49,5 @@ services:
       PB_PORT: "8090"
       WORK_ROOT: /app/data
     volumes:
-      - mock-state:/app/pb_data
-      - mock-work:/app/data
-
-volumes:
-  mock-state:
-  mock-work:
+      - ./pb_data:/app/pb_data      # PocketBase DB + files (PERMANENT)
+      - ./data:/app/data            # job artifacts (PERMANENT)

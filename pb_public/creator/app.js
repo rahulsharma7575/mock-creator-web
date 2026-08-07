@@ -51,7 +51,7 @@ const ICON_MAP = {
   checkCircle: 'checkbox-circle-line', circle: 'circle-line', chevronDown: 'arrow-down-s-line',
   arrowRight: 'arrow-right-line', logOut: 'logout-box-r-line', moon: 'moon-line', sun: 'sun-line',
   database: 'database-2-line', terminal: 'terminal-box-line', gauge: 'dashboard-3-line',
-  wifi: 'wifi-line', help: 'question-line'
+  wifi: 'wifi-line', help: 'question-line', search: 'search-line'
 };
 
 const LOG_COLORS = {
@@ -69,7 +69,7 @@ createApp({
     nav:[{id:'overview',label:'Overview'},{id:'clients',label:'Clients'},{id:'configs',label:'Configs'},{id:'jobs',label:'Jobs'},{id:'fullruns',label:'Full runs'},{id:'dryruns',label:'Dry runs'}],
     clients:[],jobs:[],configs:[],meta:[],models:[],jobsBusy:false,startBusy:false,
     dryruns:[],dryrunsBusy:false,fullruns:[],fullrunsBusy:false,previewRun:null,falStatus:null,orBalance:null,cfgByClient:{},
-    qs:{client:'',count:40,difficulty:'creative+difficult'},jobFilter:'all',
+    qs:{client:'',count:40,difficulty:'creative+difficult'},jobFilter:'all',searchQ:'',sortKey:'created',sortDir:-1,
     drawerJob:null,drawerTimer:null,drawerLastUpd:'',clientModal:false,clientStep:0,newClientName:'',newKey:'',clientErr:'',
     confirmMsg:null,confirmFn:null,toasts:[],
     cfgClient:'',cfg:null,cfgLoading:false,cfgSaving:false,cfgSavedAt:'',cfgRaw:false,cfgRawText:'',cfgRawErr:'',
@@ -78,7 +78,10 @@ createApp({
     orModels:{},orStatus:'loading',
   }},
   computed:{
-    filteredJobs(){return this.jobFilter==='all'?this.jobs:this.jobs.filter(j=>j.status===this.jobFilter);},
+    filteredJobs(){let l=this.jobs;if(this.jobFilter!=='all')l=l.filter(j=>j.status===this.jobFilter);const q=this.searchQ.trim().toLowerCase();if(q){l=l.filter(j=>[j.client_name,j.client,j.difficulty,j.focus,j.status,j.kind,String(j.id)].join(' ').toLowerCase().includes(q));}const k=this.sortKey,dir=this.sortDir;return[...l].sort((a,b)=>{let x=this.sortVal(a,k),y=this.sortVal(b,k);if(typeof x==='string'){x=x.toLowerCase();y=String(y).toLowerCase();}if(x<y)return-1*dir;if(x>y)return1*dir;return 0;});},
+    sortVal(j,k){if(k==='cost'){const r=this.jobRep(j);return r?(r.total_llm_cost_usd!=null?r.total_llm_cost_usd:r.llm_cost)||0:0;}if(k==='time'){const st=(this.jobRep(j)||{}).stage_times||{};return st.total||0;}if(k==='created')return this.fixT(j.created)||'';return j[k]!=null?j[k]:'';},
+    sortBy(k){if(this.sortKey===k){this.sortDir=-this.sortDir;}else{this.sortKey=k;this.sortDir=k==='created'?-1:1;}},
+    sortIcon(k){return this.sortKey===k?(this.sortDir<0?'▼':'▲'):'↕';},
     stats(){
       const now=Date.now(),day=864e5,t=this.jobs.filter(j=>now-new Date(this.fixT(j.created)).getTime()<day).length;
       const run=this.jobs.filter(j=>j.status==='running').length,fail=this.jobs.filter(j=>j.status==='failed'&&now-new Date(this.fixT(j.created)).getTime()<day).length;
@@ -295,20 +298,26 @@ createApp({
     runFiles(d,field){const v=d&&d[field];if(Array.isArray(v))return v.filter(x=>x&&typeof x==='string');if(typeof v==='string'&&v)return[v];return[];},
     parseObj(v){if(v==null)return null;if(typeof v==='object')return v;try{const p=JSON.parse(v);return p&&typeof p==='object'?p:null;}catch(e){return null;}},
     previewSafe(d){
-      if(!d||typeof d!=='object')return null;
-      let qs=d.questions;
-      if(typeof qs==='string'){try{qs=JSON.parse(qs);}catch(e){qs=null;}}
-      if(!Array.isArray(qs))qs=[];
-      const rep=this.parseObj(d.report)||{};
-      const amap=this.parseObj(d.audio_map)||{};
-      return{
-        id:String(d.id||''),collectionName:String(d.collectionName||'dryrun'),kind:String(d.kind||''),
-        count:d.count!=null?d.count:qs.length,created:d.created||'',
-        questions:qs.filter(q=>q&&typeof q==='object'),
-        report:rep,audio_map:amap,
-        images:this.runFiles(d,'images'),audio:this.runFiles(d,'audio'),
-        summary:typeof d.summary==='string'?d.summary:''
-      };
+      try{
+        if(!d||typeof d!=='object')return null;
+        let qs=d.questions;
+        if(typeof qs==='string'){try{qs=JSON.parse(qs);}catch(e){qs=null;}}
+        if(qs&&typeof qs==='object'&&!Array.isArray(qs)){for(const k of ['items','questions','data']){if(Array.isArray(qs[k])){qs=qs[k];break;}}}
+        if(!Array.isArray(qs))qs=[];
+        const rep=this.parseObj(d.report)||{};
+        const amap=this.parseObj(d.audio_map)||{};
+        return{
+          id:String(d.id||''),collectionName:String(d.collectionName||'dryrun'),kind:String(d.kind||''),
+          count:d.count!=null?d.count:qs.length,created:d.created||'',
+          questions:qs.filter(q=>q&&typeof q==='object'),
+          report:rep,audio_map:amap,
+          images:this.runFiles(d,'images'),audio:this.runFiles(d,'audio'),
+          summary:typeof d.summary==='string'?d.summary:''
+        };
+      }catch(e){
+        console.error('preview normalize failed', e);
+        return {id:'',collectionName:'dryrun',kind:'',count:0,created:'',questions:[],report:{},audio_map:{},images:[],audio:[],summary:''};
+      }
     },
     pushReadyFor(clientId){
       const cfg=this.cfgByClient[clientId];

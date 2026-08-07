@@ -182,6 +182,13 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
 .term-prompt{color:#28c840;font-weight:700;margin-right:6px}
 .term-out{white-space:pre-wrap;color:#c9d1de;margin-top:8px;padding-left:14px;border-left:2px solid #2a2f3a}
 
+/* ---- hover tooltip popup (keeps long text out of table width) ---- */
+.tip-cell{position:relative;display:block;max-width:100%;cursor:default}
+.tip-cell .tip-pop{position:absolute;bottom:calc(100% + 8px);left:0;z-index:30;background:var(--panel);border:1px solid var(--amber);border-radius:10px;padding:9px 13px;font-size:12px;line-height:1.55;box-shadow:var(--shadowLg);opacity:0;visibility:hidden;transition:opacity .18s,visibility .18s;white-space:pre-wrap;max-width:min(360px,70vw);pointer-events:none;text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink)}
+.tip-cell:hover .tip-pop{opacity:1;visibility:visible}
+th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+th.sortable:hover{color:var(--amber2)}
+
 /* ---- Client wizard ---- */
 .keybox{position:relative;background:var(--panel2);border:1.5px dashed var(--line);border-radius:14px;padding:16px 18px;font-family:'JetBrains Mono',monospace;font-size:12.5px;word-break:break-all;color:var(--ink)}
 .keybox .key-label{position:absolute;top:-9px;left:14px;background:var(--panel);padding:0 8px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--amber2)}
@@ -330,7 +337,7 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
                 <tbody><tr v-for="j in jobs.slice(0,6)" :key="j.id" class="cursor-pointer" @click="openJob(j)">
                   <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td class="font-semibold">{{ j.client_name }}</td>
                   <td class="text-xs">{{ j.difficulty || '—' }}</td>
-                  <td class="text-xs max-w-[140px] truncate" :title="j.focus || ''">{{ j.focus || '—' }}</td>
+                  <td class="text-xs max-w-[140px]"><span v-if="j.focus" class="tip-cell truncate">{{ j.focus }}<span class="tip-pop">{{ j.focus }}</span></span><span v-else style="color:var(--mut)">—</span></td>
                   <td><span class="stage-bar" v-html="stageFor(j)"></span></td>
                   <td><span class="text-xs f-mono px-2.5 py-1 rounded-lg" :style="{background:j.kind!=='full'?'rgba(53,104,156,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ dryLabel(j.kind) }}</span></td>
                   <td class="tcell-num" :title="jobTime(j).title">{{ jobTime(j).label }}</td>
@@ -556,14 +563,36 @@ html[data-theme="dark"] .logpre{color:#c9bfa6}
             </div>
           </section>
           <section class="ov-sec">
+            <div class="panel p-3 flex items-center gap-3">
+              <span v-html="ic('search',16)" style="color:var(--mut)"></span>
+              <input v-model.trim="searchQ" class="input flex-1" placeholder="Search client, difficulty, focus, status, id...">
+              <span v-if="searchQ || jobFilter!=='all'" class="f-mono text-[11px] shrink-0" style="color:var(--mut)">{{ filteredJobs.length }} of {{ jobs.length }}</span>
+              <button v-if="searchQ" class="btn btn-ghost btn-sm shrink-0" @click="searchQ=''"><span v-html="ic('x',12)"></span>Clear</button>
+            </div>
+          </section>
+          <section class="ov-sec">
             <div class="panel">
               <div v-if="!filteredJobs.length" class="text-sm py-12 text-center" style="color:var(--mut)">Nothing here.</div>
               <table v-else class="w-full">
-                <thead><tr><th>Created</th><th>Client</th><th>Difficulty</th><th>Focus</th><th>Stage</th><th>Kind</th><th>Q</th><th>Time</th><th>LLM $</th><th>Img credits</th><th>Status</th><th>Pushed</th><th>Error</th></tr></thead>
+                <thead><tr>
+                  <th class="sortable" @click="sortBy('created')">Created {{ sortIcon('created') }}</th>
+                  <th class="sortable" @click="sortBy('client_name')">Client {{ sortIcon('client_name') }}</th>
+                  <th class="sortable" @click="sortBy('difficulty')">Difficulty {{ sortIcon('difficulty') }}</th>
+                  <th>Focus</th>
+                  <th>Stage</th>
+                  <th>Kind</th>
+                  <th class="sortable" @click="sortBy('count')">Q {{ sortIcon('count') }}</th>
+                  <th class="sortable" @click="sortBy('time')">Time {{ sortIcon('time') }}</th>
+                  <th class="sortable" @click="sortBy('cost')">LLM $ {{ sortIcon('cost') }}</th>
+                  <th>Img credits</th>
+                  <th class="sortable" @click="sortBy('status')">Status {{ sortIcon('status') }}</th>
+                  <th>Pushed</th>
+                  <th>Error</th>
+                </tr></thead>
                 <tbody><tr v-for="j in filteredJobs" :key="j.id" class="cursor-pointer" @click="openJob(j)">
                   <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td class="font-semibold">{{ j.client_name||j.client }}</td>
                   <td class="text-xs">{{ j.difficulty || '—' }}</td>
-                  <td class="text-xs max-w-[160px] truncate" :title="j.focus || ''">{{ j.focus || '—' }}</td>
+                  <td class="text-xs max-w-[160px]"><span v-if="j.focus" class="tip-cell truncate">{{ j.focus }}<span class="tip-pop">{{ j.focus }}</span></span><span v-else style="color:var(--mut)">—</span></td>
                   <td><span class="stage-bar" v-html="stageFor(j)"></span></td>
                   <td><span class="text-xs f-mono px-2.5 py-1 rounded-lg" :style="{background:j.kind!=='full'?'rgba(53,104,156,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ dryLabel(j.kind) }}</span></td>
                   <td class="f-mono">{{ j.count }}</td>
