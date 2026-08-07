@@ -114,7 +114,12 @@ createApp({
     costPct(){const t=this.costEst;const m=t.total||0.0001;return{text:(t.text/m*100).toFixed(1),images:((t.images||0)/m*100).toFixed(1),audio:(t.audio/m*100).toFixed(1)};},
     failedCount(){return this.jobs.filter(j=>j.status==='failed').length;},
     totalCost(){
-      let t=0;for(const j of this.jobs){const r=j._report;if(r){t+=(r.llm_cost||0)+(r.img_cost||0);}}return t;
+      let t=0;for(const j of this.jobs){const r=this.jobRep(j);if(!r)continue;
+        const hasTotal=r.total_llm_cost_usd!=null;
+        const llm=hasTotal?Number(r.total_llm_cost_usd)||0:Number(r.llm_cost)||0;
+        const img=hasTotal?Number(r.fal_cost)||0:Number(r.img_cost)||0;
+        t+=llm+img;
+      }return t;
     },
     jobDuration(){
       if(!this.drawerJob)return'—';const c=new Date(this.fixT(this.drawerJob.created)),u=new Date(this.fixT(this.drawerJob.updated));
