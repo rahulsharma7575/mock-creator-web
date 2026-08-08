@@ -59,6 +59,8 @@ RUNNING_STALE_SECS = 20 * 60
 # keys like tts_workers are safe to include.
 CONFIG_MAP = {
     "llm_author_model": "author_model",
+    "author_provider": "author_provider",
+    "gemini_model": "gemini_model",
     "llm_proofread_model": "proof_model",
     "llm_repair_model": "repair_model",
     "image_primary": "img_model",

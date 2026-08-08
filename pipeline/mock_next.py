@@ -81,8 +81,11 @@ DEFAULTS = {
     # image provider - DYNAMIC: fal-ai/z-image/turbo (Fal.ai) | z-image (Magnific) | nano-banana (OpenRouter)
     "fal_api": "https://queue.fal.run/fal-ai/z-image/turbo",
     "fal_size": 512,                         # Fal.ai square image size (1:1)
-    # question creator (author) — OpenRouter
-    "author_model": "google/gemini-2.5-flash",
+    # question creator (author) — dual provider: Gemini primary, OpenRouter fallback
+    "author_provider": "gemini",             # gemini | openrouter (gemini tried first, auto-fallback on quota/error)
+    "gemini_model": "gemini-3.5-flash",      # Gemini author model (gemini-3.6-flash / gemini-3.5-flash / gemini-3.5-flash-lite / gemini-2.5-pro)
+    "gemini_api": "https://generativelanguage.googleapis.com/v1beta",
+    "author_model": "google/gemini-2.5-flash",   # OpenRouter author (fallback when Gemini fails/quota exceeded)
     "author_retries": 3,
     "author_max_tokens": 32000,
     "author_timeout_s": 600,
@@ -263,6 +266,83 @@ def api_key():
             if line.strip().startswith("OPENROUTER_API_KEY="):
                 return line.split("=", 1)[1].strip().strip('"').strip("'")
     sys.exit("ERROR: OPENROUTER_API_KEY not found in .env")
+
+
+def gemini_api_key():
+    """Google Gemini API key (direct Google API, not OpenRouter)."""
+    key = os.environ.get("GEMINI_API_KEY") or ""
+    return key.strip()
+
+
+class GeminiQuotaError(RuntimeError):
+    """429 / RESOURCE_EXHAUSTED - quota exceeded, switch to OpenRouter."""
+
+
+class GeminiAuthError(RuntimeError):
+    """Invalid / missing API key."""
+
+
+class GeminiModelError(RuntimeError):
+    """Model not found or disabled for the key."""
+
+
+def gemini_status():
+    """Check Gemini key validity + available models (with token limits)."""
+    key = gemini_api_key()
+    if not key:
+        return {"ok": False, "valid": False, "models": [], "message": "GEMINI_API_KEY is not set in the container env"}
+    try:
+        r = httpx.get(CFG.get("gemini_api", "https://generativelanguage.googleapis.com/v1beta") + "/models",
+                      params={"key": key}, timeout=30)
+    except Exception as e:
+        return {"ok": False, "valid": False, "models": [], "message": f"Gemini API unreachable: {str(e)[:120]}"}
+    if r.status_code != 200:
+        return {"ok": False, "valid": False, "models": [], "message": f"Gemini key rejected (HTTP {r.status_code})"}
+    j = r.json()
+    models = []
+    for m in (j.get("models") or []):
+        if "generateContent" in (m.get("supportedGenerationMethods") or []):
+            models.append({
+                "name": m.get("name", "").replace("models/", ""),
+                "input_limit": m.get("inputTokenLimit"),
+                "output_limit": m.get("outputTokenLimit"),
+            })
+    return {"ok": True, "valid": True, "models": models, "message": ""}
+
+
+def gemini_author(system, user, model):
+    """Author via the DIRECT Google Gemini API. Raises GeminiQuotaError on quota,
+    GeminiAuthError on bad key, GeminiModelError on bad model."""
+    key = gemini_api_key()
+    if not key:
+        raise GeminiAuthError("GEMINI_API_KEY is not set")
+    api = CFG.get("gemini_api", "https://generativelanguage.googleapis.com/v1beta")
+    body = {
+        "systemInstruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": [{"text": user}]}],
+        "generationConfig": {
+            "maxOutputTokens": int(CFG.get("author_max_tokens", 32000)),
+            "temperature": 0.7,
+            "responseMimeType": "application/json",
+        },
+    }
+    r = httpx.post(f"{api}/models/{model}:generateContent", params={"key": key},
+                   json=body, timeout=int(CFG.get("llm_timeout_s", 600)))
+    if r.status_code == 429 or "RESOURCE_EXHAUSTED" in r.text:
+        raise GeminiQuotaError("Gemini quota exceeded (429)")
+    if r.status_code == 404:
+        raise GeminiModelError(f"Gemini model '{model}' not found")
+    if r.status_code in (400, 401, 403):
+        raise GeminiAuthError(f"Gemini key rejected (HTTP {r.status_code}): {r.text[:200]}")
+    if r.status_code != 200:
+        raise RuntimeError(f"Gemini HTTP {r.status_code}: {r.text[:200]}")
+    j = r.json()
+    cands = j.get("candidates") or []
+    if not cands or not (cands[0].get("content") or {}).get("parts"):
+        raise RuntimeError("Gemini returned no candidates: " + json.dumps(j, ensure_ascii=False)[:200])
+    text = "".join(p.get("text", "") for p in cands[0]["content"]["parts"])
+    usage = j.get("usageMetadata") or {}
+    return text, usage
 
 
 def next_mock_number() -> int:
@@ -1185,7 +1265,8 @@ def final_summary(stats):
     print("-" * 66)
     q_n = int(CFG.get("question_count", 40))
     if stats.get("authored"):
-        line(f"author {q_n} questions ({_short(stats['author_model'])})",
+        via = "Gemini" if stats.get("author_via") == "gemini" else "OpenRouter"
+        line(f"author {q_n} questions via {via} ({_short(stats['author_model'])})",
              f"${stats['author_cost']:.3f}, attempt {stats['author_attempt']}")
     else:
         line(f"author {q_n} questions", "resumed (existing file)")
@@ -1284,7 +1365,7 @@ def main():
     qfile = base_dir / "questions" / f"mock{mock}_questions.json"
 
     stats = {
-        "mock": mock, "authored": True, "author_model": "?",
+        "mock": mock, "authored": True, "author_model": "?", "author_via": "openrouter",
         "author_attempt": 0, "author_cost": 0.0, "proof_model": "?",
         "proof_cost": 0.0, "repair": {"answers": 0, "scripts": 0, "images": 0},
         "pb_count": 0, "pb_created": False, "exam_created": False, "audio_ok": 0,
@@ -1303,35 +1384,77 @@ def main():
             sys.exit("FAILED: existing questions file is invalid — delete it and re-run")
         stats["authored"] = False
     else:
-        # 0. Choose authoring model (config-driven when --config/$MOCK_CONFIG, else interactive)
-        author_cfg = slug_cfg(args.author_slug, AUTHOR_MODELS) if args.author_slug \
-            else (slug_cfg(CFG["author_model"], AUTHOR_MODELS)
-                  if (CONFIG_LOADED or CFG["author_model"] != DEFAULTS["author_model"])
-                  else pick_model(AUTHOR_MODELS, "Questions generation model"))
-        stats["author_model"] = author_cfg["name"]
-
-        # 1. Author (config-driven attempts; structure-only check — repair pass fixes the rest)
-        qs, last_err = None, None
-        for attempt in range(int(CFG.get("author_retries", 3))):
-            print(f"[author] {author_cfg['name']} attempt {attempt + 1}...")
-            try:
-                qs, usage = llm_author(key, last_err, author_cfg)
-            except Exception as e:
-                print(f"[author] generation error: {str(e)[:120]}")
-                last_err = "previous generation failed or returned broken JSON — return complete valid JSON"
-                continue
-            qs = normalize_exam(qs)
-            errs = validate_exam(qs, stage="author")
-            if not errs:
-                stats["author_attempt"] = attempt + 1
-                stats["author_cost"] = usage.get("cost", 0.0)
-                print(f"[author] OK — cost ${stats['author_cost']:.4f}")
-                break
-            last_err = "; ".join(errs)
-            print(f"[author] validation failed: {last_err}")
+        # 1. Author - DUAL PROVIDER: Gemini (direct Google API) first, OpenRouter fallback
+        qs, last_err, author_via = None, None, ""
+        sys_prompt = AUTHOR_SYSTEM
+        user_prompt = render_prompt(AUTHOR_USER)
+        gmodel = str(CFG.get("gemini_model") or "gemini-3.5-flash").strip()
+        gkey = gemini_api_key()
+        gretries = int(CFG.get("author_retries", 3))
+        if str(CFG.get("author_provider", "gemini")) == "gemini" and gkey:
+            for attempt in range(gretries):
+                print(f"[author] gemini ({gmodel}) attempt {attempt + 1}...")
+                try:
+                    raw, _usage = gemini_author(sys_prompt, user_prompt, gmodel)
+                    gqs = json.loads(raw.strip(), strict=False)
+                    if isinstance(gqs, dict):
+                        for k in ("questions", "items", "results", "data", "exam"):
+                            if isinstance(gqs.get(k), list):
+                                gqs = gqs[k]
+                                break
+                    if isinstance(gqs, list):
+                        gqs = [q for q in gqs if isinstance(q, dict)]
+                    gqs = sanitize_exam(gqs)
+                    gerrs = validate_exam(gqs, stage="author")
+                    if not gerrs:
+                        qs = gqs
+                        author_via = "gemini"
+                        stats["author_attempt"] = attempt + 1
+                        stats["author_model"] = "gemini:" + gmodel
+                        print(f"[author] via GEMINI ({gmodel}) OK — attempt {attempt + 1}")
+                        break
+                    last_err = "; ".join(gerrs)
+                    print(f"[author] gemini validation failed: {last_err}")
+                except GeminiQuotaError as e:
+                    print(f"[author] {e} — switching to OpenRouter author")
+                    break
+                except GeminiAuthError as e:
+                    print(f"[author] {e} — switching to OpenRouter author")
+                    break
+                except GeminiModelError as e:
+                    print(f"[author] {e} — switching to OpenRouter author")
+                    break
+                except Exception as e:
+                    print(f"[author] gemini error: {str(e)[:120]} — switching to OpenRouter author")
+                    break
+        if author_via != "gemini":
+            author_cfg = slug_cfg(args.author_slug, AUTHOR_MODELS) if args.author_slug \
+                else (slug_cfg(CFG["author_model"], AUTHOR_MODELS)
+                      if (CONFIG_LOADED or CFG["author_model"] != DEFAULTS["author_model"])
+                      else pick_model(AUTHOR_MODELS, "Questions generation model"))
+            stats["author_model"] = author_cfg["name"]
+            for attempt in range(gretries):
+                print(f"[author] openrouter {author_cfg['name']} attempt {attempt + 1}...")
+                try:
+                    qs, usage = llm_author(key, last_err, author_cfg)
+                except Exception as e:
+                    print(f"[author] generation error: {str(e)[:120]}")
+                    last_err = "previous generation failed or returned broken JSON — return complete valid JSON"
+                    continue
+                qs = normalize_exam(qs)
+                errs = validate_exam(qs, stage="author")
+                if not errs:
+                    stats["author_attempt"] = attempt + 1
+                    stats["author_cost"] = usage.get("cost", 0.0)
+                    author_via = "openrouter"
+                    print(f"[author] via OPENROUTER ({author_cfg['name']}) OK — cost ${stats['author_cost']:.4f}")
+                    break
+                last_err = "; ".join(errs)
+                print(f"[author] validation failed: {last_err}")
+        stats["author_via"] = author_via or "openrouter"
         if not qs or validate_exam(qs, stage="author"):
             errs = validate_exam(qs, stage="author") if qs else ["no questions returned"]
-            sys.exit("FAILED: could not author a valid exam after 3 attempts — " + "; ".join(errs[:12]))
+            sys.exit("FAILED: could not author a valid exam after attempts — " + "; ".join(errs[:12]))
         stats["stage_times"]["author"] = stage_secs()
 
         # 1b. Choose proofreading model (config-driven when --config/$MOCK_CONFIG, else interactive)
@@ -1393,6 +1516,8 @@ def main():
             "image_count": sum(1 for q in qs if q.get("requiresImage")),
             "total_llm_cost_usd": round(stats["llm_cost"], 4),
             "img_model": stats["img_model"],
+        "author_via": stats.get("author_via", "openrouter"),
+        "gemini_model": str(CFG.get("gemini_model", "")),
             "img_credits": stats["img_credits"],
             "img_count": sum(1 for q in qs if q.get("requiresImage")),
             "fal_cost": round(stats["img_cost"], 4) if str(stats["img_model"]).startswith("fal-ai/") else 0.0,
@@ -1473,6 +1598,8 @@ def main():
         "image_count": int(CFG.get("image_count", 22)),
         "total_llm_cost_usd": round(stats["llm_cost"], 4),
         "img_model": stats["img_model"],
+        "author_via": stats.get("author_via", "openrouter"),
+        "gemini_model": str(CFG.get("gemini_model", "")),
         "img_credits": stats["img_credits"],
         "img_count": stats["img_total"],
         "fal_cost": round(stats["img_cost"], 4) if str(stats["img_model"]).startswith("fal-ai/") else 0.0,

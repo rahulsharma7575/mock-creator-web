@@ -79,6 +79,8 @@ SCHEMA = [
           collectionId=COLLECTION_IDS["mock_clients"], maxSelect=1, minSelect=0),
         f("name", "text", max=100),
         f("llm_author_model", "text", max=200),
+        f("author_provider", "select", values=["gemini", "openrouter"], maxSelect=1),
+        f("gemini_model", "text", max=200),
         f("llm_proofread_model", "text", max=200),
         f("llm_repair_model", "text", max=200),
         f("image_primary", "text", max=200),
@@ -195,6 +197,8 @@ SCHEMA = [
 DEFAULT_CONFIG = {
     "name": "default",
     "llm_author_model": "google/gemini-2.5-flash",
+    "author_provider": "gemini",
+    "gemini_model": "gemini-3.5-flash",
     "llm_proofread_model": "qwen/qwen3.5-flash-02-23",
     "llm_repair_model": "google/gemini-2.5-flash",
     "image_primary": "z-image",
@@ -228,8 +232,10 @@ DEFAULT_CONFIG = {
 }
 
 META_FIELDS = [
-    ("llm_author_model", "Author LLM", "text", "LLM", "OpenRouter model for question authoring"),
-    ("llm_proofread_model", "Proofread LLM", "text", "LLM", "OpenRouter model for proofreading"),
+    ("llm_author_model", "OpenRouter fallback author", "text", "LLM", "OpenRouter model used ONLY when the Gemini author fails or quota is exceeded"),
+    ("author_provider", "Author provider", "select", "LLM", "gemini = Gemini API first (primary) with OpenRouter auto-fallback | openrouter = skip Gemini", ["gemini", "openrouter"]),
+    ("gemini_model", "Gemini author model", "text", "LLM", "Direct Google Gemini model for authoring: gemini-3.6-flash, gemini-3.5-flash, gemini-3.5-flash-lite, gemini-2.5-pro"),
+    ("llm_proofread_model", "Proofread LLM", "text", "LLM", "OpenRouter model for proofreading (always via OpenRouter)"),
     ("llm_repair_model", "Repair LLM", "text", "LLM", "OpenRouter model for repair pass"),
     ("image_primary", "Image provider", "select", "Images", "fal-ai (Fal.ai) | z-image (Magnific) | black-forest-labs/flux.2-klein-4b (OpenRouter)", ["fal-ai/z-image/turbo", "z-image", "black-forest-labs/flux.2-klein-4b"]),
     ("image_fallback", "Fallback image model", "text", "Images", "Deprecated - providers fall back automatically, keep empty"),
@@ -372,6 +378,42 @@ function ensureCollections() {
     }
   } catch (errV) {}
   try {
+    var cfgCol2 = $app.findCollectionByNameOrId("mock_config")
+    var hasProv = false, hasGem = false
+    for (var fi4 = 0; fi4 < cfgCol2.fields.items().length; fi4++) {
+      var nm = cfgCol2.fields.items()[fi4].name
+      if (nm === "author_provider") hasProv = true
+      if (nm === "gemini_model") hasGem = true
+    }
+    var changed2 = false
+    if (!hasProv) { cfgCol2.fields.add({"name": "author_provider", "type": "select", "required": false, "values": ["gemini", "openrouter"], "maxSelect": 1}); changed2 = true }
+    if (!hasGem) { cfgCol2.fields.add({"name": "gemini_model", "type": "text", "required": false, "max": 200}); changed2 = true }
+    if (changed2) $app.save(cfgCol2)
+  } catch (errG) {}
+  try {
+    var mProv = $app.findFirstRecordByData("mock_config_meta", "field", "author_provider")
+    mProv.set("label", "Author provider")
+    mProv.set("ftype", "select")
+    mProv.set("options", ["gemini", "openrouter"])
+    mProv.set("help", "gemini = Gemini API first (primary) with OpenRouter auto-fallback | openrouter = skip Gemini")
+    mProv.set("group", "LLM")
+    $app.save(mProv)
+  } catch (errP) {}
+  try {
+    var mGem = $app.findFirstRecordByData("mock_config_meta", "field", "gemini_model")
+    mGem.set("label", "Gemini author model")
+    mGem.set("ftype", "text")
+    mGem.set("help", "Direct Google Gemini model for authoring: gemini-3.6-flash, gemini-3.5-flash, gemini-3.5-flash-lite, gemini-2.5-pro")
+    mGem.set("group", "LLM")
+    $app.save(mGem)
+  } catch (errQ) {}
+  try {
+    var mAuth = $app.findFirstRecordByData("mock_config_meta", "field", "llm_author_model")
+    mAuth.set("label", "OpenRouter fallback author")
+    mAuth.set("help", "OpenRouter model used ONLY when the Gemini author fails or quota is exceeded")
+    $app.save(mAuth)
+  } catch (errR) {}
+  try {
     var mT = $app.findFirstRecordByData("mock_config_meta", "field", "tts_model")
     if (mT.getString("ftype") !== "select") { mT.set("ftype", "select"); mT.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); mT.set("label", "TTS model"); mT.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); $app.save(mT) }
   } catch (errT) {}
@@ -501,6 +543,33 @@ try {
   else if (status === 404 || invalid) exists = false
   else exists = true
   return e.json(200, { exists: exists, status: status, message: String(msg).slice(0, 200) })
+} catch (err) {
+  return e.json(500, { error: String(err) })
+}
+""",
+)
+
+# GET /api/creator/gemini-status - superuser only - Gemini key validity + models (real API call)
+route(
+    "gemini-status", "GET", "/api/creator/gemini-status", "$apis.requireSuperuserAuth()",
+    """
+try {
+  var key = $os.getenv("GEMINI_API_KEY") || ""
+  if (!key) return e.json(200, { ok: false, valid: false, models: [], message: "GEMINI_API_KEY is not set in the container env" })
+  var res = $http.send({ url: "https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent(key), method: "GET", timeout: 30 })
+  if (res.statusCode !== 200) return e.json(200, { ok: false, valid: false, models: [], message: "Gemini key rejected (HTTP " + (res.statusCode || 0) + ")" })
+  var j = {}
+  try { j = JSON.parse(res.raw || "{}") } catch (err) {}
+  var models = []
+  var list = j.models || []
+  for (var i = 0; i < list.length; i++) {
+    var m = list[i]
+    var methods = m.supportedGenerationMethods || []
+    var okGen = false
+    for (var mm = 0; mm < methods.length; mm++) { if (methods[mm] === "generateContent") okGen = true }
+    if (okGen) models.push({ name: String(m.name || "").replace("models/", ""), input_limit: m.inputTokenLimit, output_limit: m.outputTokenLimit })
+  }
+  return e.json(200, { ok: true, valid: true, models: models, message: "" })
 } catch (err) {
   return e.json(500, { error: String(err) })
 }

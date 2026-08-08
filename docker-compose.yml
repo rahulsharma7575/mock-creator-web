@@ -24,6 +24,10 @@ services:
       # ---- REQUIRED: your API keys ----
       OPENROUTER_API_KEY: sk-or-YOUR_KEY_HERE
       MAGNIFIC_API_KEY: MS_YOUR_KEY_HERE
+      # Google Gemini API key - PRIMARY author (direct Gemini API, no OpenRouter).
+      # Get it from https://aistudio.google.com/apikey. When quota fails/exceeds,
+      # authoring auto-falls back to OpenRouter (llm_author_model).
+      GEMINI_API_KEY: YOUR_GEMINI_KEY_HERE
       # Fal.ai key - used when the Image provider in /creator config is fal-ai/z-image/turbo.
       # Get it from https://fal.ai/dashboard/keys. Used for: image generation,
       # balance checks and wrong-model verification.

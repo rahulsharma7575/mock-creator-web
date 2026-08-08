@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Fraunces:ital,opsz,wght@1,9..144,500;1,9..144,600&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/tailwind.css?v=13">
+<link rel="stylesheet" href="lib/tailwind.css?v=14">
 <style>
 :root{
   --bg:#f7f2e8; --panel:#fffdf8; --panel2:#f0e9d9; --line:#e3d9c1; --ink:#262218; --mut:#7f7866;
@@ -437,6 +437,14 @@ th.sortable:hover{color:var(--amber2)}
                       </div>
                     </div>
                     <div v-show="openGroup===g" class="acc-body">
+                      <div v-if="g==='LLM'" class="mb-3 flex items-center gap-2 flex-wrap">
+                        <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1.5" :style="geminiStatus && geminiStatus.valid ? 'background:rgba(47,125,79,.1);color:var(--green)' : 'background:var(--panel2);color:var(--mut)'">
+                          <span v-html="ic(geminiStatus && geminiStatus.valid ? 'check' : 'info',12)"></span>
+                          Gemini API: {{ geminiStatus ? (geminiStatus.valid ? 'key valid · '+geminiStatus.models.length+' models' : (geminiStatus.message||'invalid')) : 'checking…' }}
+                        </span>
+                        <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(53,104,156,.1);color:var(--blue)">Author: Gemini first → OpenRouter fallback</span>
+                        <button class="btn btn-ghost btn-sm" @click="loadGeminiStatus"><span v-html="ic('refresh',11)"></span>Check</button>
+                      </div>
                       <div v-if="g==='Images'" class="mb-3 flex items-center gap-2 flex-wrap">
                         <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1.5" :style="falStatus && falStatus.ok ? 'background:rgba(47,125,79,.1);color:var(--green)' : 'background:var(--panel2);color:var(--mut)'">
                           <span v-html="ic(falStatus && falStatus.ok ? 'check' : 'info',12)"></span>
@@ -458,7 +466,11 @@ th.sortable:hover{color:var(--amber2)}
                               <span class="tip" v-if="f.field==='image_count'">?<span class="ttip">How many questions carry a picture — spread randomly across reading AND listening. Default 18.</span></span>
                               <span class="tip" v-if="f.field==='push_pb_pass'">?<span class="ttip">Admin password of the teacher app PocketBase. Leave empty + toggle Upload off to generate exams locally.</span></span>
                             </label>
-                            <template v-if="f.field==='tts_model'||f.field==='tts_fallback_model'">
+                            <template v-if="f.field==='gemini_model'">
+                              <input v-model.trim="cfgData[f.field]" class="input f-mono" list="geminiModelList" placeholder="gemini-3.5-flash">
+                              <datalist id="geminiModelList"><option v-for="o in geminiModels()" :key="o" :value="o">{{ o }}</option></datalist>
+                            </template>
+                            <template v-else-if="f.field==='tts_model'||f.field==='tts_fallback_model'">
                               <input v-model.trim="cfgData[f.field]" class="input f-mono" list="ttsModelList" placeholder="Type a model or pick one…">
                               <datalist id="ttsModelList"><option v-for="o in ttsOptions" :key="o" :value="o">{{ o }}</option></datalist>
                             </template>
@@ -724,6 +736,7 @@ th.sortable:hover{color:var(--amber2)}
               <dt>stage times</dt><dd>{{ jobTime(drawerJob).title }}<template v-if="jobTime(drawerJob).label !== '—'"> · total {{ jobTime(drawerJob).label }}</template></dd>
               <dt>LLM cost</dt><dd>{{ jobCost(drawerJob) }}</dd>
               <dt>image credits</dt><dd>{{ jobCredits(drawerJob) }}</dd>
+              <template v-if="jobRep(drawerJob) && jobRep(drawerJob).author_via"><dt>author</dt><dd>{{ jobRep(drawerJob).author_via==='gemini' ? 'Gemini ('+(jobRep(drawerJob).gemini_model||'')+')' : 'OpenRouter' }}</dd></template>
             </template>
           </div>
         </div>
@@ -770,6 +783,7 @@ th.sortable:hover{color:var(--amber2)}
           </div>
         </div>
         <div class="panel2 p-3 mb-4 flex items-center gap-3 flex-wrap">
+          <span v-if="previewData.report && previewData.report.author_via" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" :style="previewData.report.author_via==='gemini' ? 'background:rgba(58,110,165,.12);color:var(--blue)' : 'background:rgba(138,95,181,.12);color:var(--purple)'">Author: {{ previewData.report.author_via==='gemini' ? 'Gemini ('+(previewData.report.gemini_model||'')+')' : 'OpenRouter' }}</span>
           <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--soft);color:var(--amber2)">LLM cost {{ dryCost(previewData) }}</span>
           <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--soft);color:var(--amber2)">time {{ dryTime(previewData) }}</span>
           <span v-if="dryFalCost(previewData) !== '—'" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(226,114,63,.12);color:var(--amber2)">Fal.ai cost {{ dryFalCost(previewData) }}</span>
@@ -889,7 +903,7 @@ th.sortable:hover{color:var(--amber2)}
 
 <script src="lib/vue.global.prod.js"></script>
 <script src="lib/anime.min.js"></script>
-<script src="lib/icons.js?v=13"></script>
-<script src="app.min.js?v=13"></script>
+<script src="lib/icons.js?v=14"></script>
+<script src="app.min.js?v=14"></script>
 </body>
 </html>
