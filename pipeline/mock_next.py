@@ -985,25 +985,6 @@ def fal_balance():
             "username": j.get("username", "")}
 
 
-def fal_usage_total(endpoint=None, start_iso=None, end_iso=None):
-    """Total billed cost (USD) for an endpoint in a window via the usage API."""
-    params = {"expand": "summary", "limit": 100}
-    if endpoint:
-        params["endpoint_id"] = endpoint
-    if start_iso:
-        params["start"] = start_iso
-    if end_iso:
-        params["end"] = end_iso
-    r = httpx.get("https://api.fal.ai/v1/models/usage", params=params,
-                  headers=_fal_headers(), timeout=30)
-    r.raise_for_status()
-    j = r.json()
-    total = 0.0
-    for item in (j.get("summary") or []):
-        total += float(item.get("cost_total") or 0.0)
-    return total
-
-
 def or_balance():
     """OpenRouter credit balance (USD remaining) via the credits API."""
     key = os.environ.get("OPENROUTER_API_KEY") or ""
@@ -1034,16 +1015,15 @@ def fal_model_exists(slug):
 def gen_image_fal(prompt, size=None):
     """Generate via Fal.ai (fal-ai/z-image/turbo, 1:1 square). Requires FAL_KEY env.
 
-    Returns (image_bytes, cost_usd) - cost measured as the billed usage delta
-    for the endpoint across the generation window."""
-    endpoint = CFG.get("fal_api", "https://queue.fal.run/fal-ai/z-image/turbo").replace("https://queue.fal.run/", "")
+    Returns (image_bytes, cost_usd) - cost is not metered per-image anymore:
+    the /v1/models/usage billing API is aggressively rate-limited (429 storms
+    used to kill generation before it started). On-demand balance checks stay
+    available via fal_balance() (account/billing)."""
     key = os.environ.get("FAL_KEY") or ""
     if not key:
         raise RuntimeError("FAL_KEY is not set - add it to docker-compose / container env")
     api = CFG.get("fal_api", "https://queue.fal.run/fal-ai/z-image/turbo")
     sz = int(size or CFG.get("fal_size", 512))
-    t_start = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    cost_before = fal_usage_total(endpoint, start_iso="2025-01-01", end_iso=t_start)
     r = httpx.post(api, headers={"Authorization": "Key " + key, "Content-Type": "application/json"},
                    json={"prompt": prompt, "image_size": {"width": sz, "height": sz}},
                    timeout=int(CFG.get("img_timeout_s", 240)))
@@ -1064,12 +1044,7 @@ def gen_image_fal(prompt, size=None):
             if not imgs or not imgs[0].get("url"):
                 raise RuntimeError("fal result has no images")
             data = httpx.get(imgs[0]["url"], timeout=120).content
-            t_end = datetime.datetime.now(datetime.timezone.utc).isoformat()
-            try:
-                cost = max(0.0, fal_usage_total(endpoint, start_iso="2025-01-01", end_iso=t_end) - cost_before)
-            except Exception:
-                cost = 0.0
-            return data, cost
+            return data, 0.0
         if st in ("FAILED", "CANCELLED", "ERROR"):
             err = ((sj.get("error") or {}).get("message")) or sj.get("detail") or st
             raise RuntimeError("fal generation failed: " + str(err)[:200])
@@ -1141,6 +1116,7 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None):
         num, rid, prompt = job
         for mi, model in enumerate(chain):
             tries = img_retries if mi == 0 else fb_retries
+            gave_up = False
             for attempt in range(tries):
                 try:
                     if model == "nano-banana" or model == "black-forest-labs/flux.2-klein-4b":
@@ -1167,7 +1143,25 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None):
                     raise RuntimeError("upload failed or not verified on server")
                 except Exception as e:
                     print(f"    q{num} {model} attempt {attempt + 1}: {str(e)[:140]}")
+                    resp = getattr(e, "response", None)
+                    is_429 = bool(resp is not None and getattr(resp, "status_code", 0) == 429)
+                    retry_after = 0
+                    if is_429:
+                        ra = resp.headers.get("retry-after", "") if resp.headers else ""
+                        try:
+                            retry_after = max(0, min(120, int(float(ra))))
+                        except Exception:
+                            retry_after = 0
+                    if is_429 and attempt == 0 and retry_after <= 10:
+                        time.sleep(retry_after if retry_after > 0 else 2)
+                        continue
+                    if is_429:
+                        gave_up = True
+                        break
                     time.sleep(2)
+            if mi < len(chain) - 1:
+                why = "429 rate limit" if gave_up else "all attempts failed"
+                print(f"    q{num} {model} {why} -> falling back to {chain[mi + 1]}")
         return (num, False, 0, None)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=CFG["img_workers"]) as ex:
