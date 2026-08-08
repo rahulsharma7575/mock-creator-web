@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Fraunces:ital,opsz,wght@1,9..144,500;1,9..144,600&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/tailwind.css?v=15">
+<link rel="stylesheet" href="lib/tailwind.css?v=16">
 <style>
 :root{
   --bg:#f7f2e8; --panel:#fffdf8; --panel2:#f0e9d9; --line:#e3d9c1; --ink:#262218; --mut:#7f7866;
@@ -448,9 +448,12 @@ th.sortable:hover{color:var(--amber2)}
                       <div v-if="g==='Push'" class="mb-3 flex items-center gap-2 flex-wrap">
                         <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1.5" :style="pushStatus && pushStatus.connected ? 'background:rgba(47,125,79,.1);color:var(--green)' : 'background:var(--panel2);color:var(--mut)'">
                           <span v-html="ic(pushStatus && pushStatus.connected ? 'check' : 'alertTriangle',12)"></span>
-                          {{ pushStatus ? (pushStatus.connected ? 'Connected to ' + pushStatus.url.replace('https://','').replace('http://','') + ' with ' + pushStatus.total_exams + ' mockups' : (pushStatus.message||'not verified')) : 'not verified yet - save the Push settings' }}
+                          {{ pushStatus ? (pushStatus.connected ? pushSummary() : (pushStatus.message||'not verified')) : 'not verified yet - save the Push settings' }}
                         </span>
                         <button class="btn btn-ghost btn-sm" @click="testPush"><span v-html="ic('refresh',11)"></span>Test</button>
+                      </div>
+                      <div v-if="g==='Push' && pushStatus && pushStatus.connected && pushStatus.mocks && pushStatus.mocks.length" class="mb-3 max-h-28 overflow-y-auto flex flex-wrap gap-1.5">
+                        <span v-for="m in pushStatus.mocks" :key="m.title" class="f-mono text-[10px] px-1.5 py-0.5 rounded" :style="m.status==='published'?'background:rgba(47,125,79,.12);color:var(--green)':m.status==='draft'?'background:rgba(185,139,35,.12);color:var(--amber2)':'background:var(--panel2);color:var(--mut)'" :title="m.title + ' — ' + (m.status||'unknown')">{{ m.serial>0?'#'+m.serial:'…' }}</span>
                       </div>
                       <div v-if="g==='Images'" class="mb-3 flex items-center gap-2 flex-wrap">
                         <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1.5" :style="falStatus && falStatus.ok ? 'background:rgba(47,125,79,.1);color:var(--green)' : 'background:var(--panel2);color:var(--mut)'">
@@ -465,11 +468,12 @@ th.sortable:hover{color:var(--amber2)}
                       </div>
                       <div class="acc-grid">
                         <template v-for="f in metaByGroup(g)" :key="f.field">
-                          <div v-if="!hiddenField(f)" class="acc-field" :class="f.field==='prompts_json'?'full':''">
+                          <div v-if="!hiddenField(f) && f.field!=='dedup_sets'" class="acc-field" :class="f.field==='prompts_json'?'full':''">
                             <label class="lbl">
                               {{ f.label }}
                               <span class="tip" v-if="f.help">?<span class="ttip">{{ f.help }}</span></span>
-                              <span class="tip" v-if="f.field==='llm_author_model'">?<span class="ttip">The LLM that writes the mock exam questions. Checked live against OpenRouter.</span></span>
+                              <span class="tip" v-if="f.field==='gemini_model'">?<span class="ttip">Primary author model via the direct Google Gemini API. Needs GEMINI_API_KEY set in the container.</span></span>
+                              <span class="tip" v-if="f.field==='llm_author_model'">?<span class="ttip">Fallback author model via OpenRouter — used only when the Gemini author fails or quota is exceeded.</span></span>
                               <span class="tip" v-if="f.field==='image_count'">?<span class="ttip">How many questions carry a picture — spread randomly across reading AND listening. Default 18.</span></span>
                               <span class="tip" v-if="f.field==='push_pb_pass'">?<span class="ttip">Admin password of the teacher app PocketBase. Leave empty + toggle Upload off to generate exams locally.</span></span>
                             </label>
@@ -488,6 +492,12 @@ th.sortable:hover{color:var(--amber2)}
                               <div v-if="f.field==='push_enabled'" class="flex items-center gap-3">
                                 <div class="toggle" :class="{on:!!cfgData[f.field]}" @click="cfgData[f.field]=!cfgData[f.field]"></div>
                                 <span class="text-xs" style="color:var(--mut)">{{ cfgData[f.field] ? 'Exams are uploaded to the teacher app after generation' : 'Exams are saved locally only — nothing is uploaded' }}</span>
+                              </div>
+                              <div v-else-if="f.field==='dedup_enabled'" class="flex items-center gap-2.5">
+                                <div class="toggle" :class="{on:!!cfgData[f.field]}" @click="cfgData[f.field]=!cfgData[f.field]"></div>
+                                <span class="text-xs" style="color:var(--mut)">check last</span>
+                                <input v-model.number="cfgData.dedup_sets" type="number" min="0" max="20" class="input f-mono w-16" :disabled="!cfgData[f.field]">
+                                <span class="text-xs" style="color:var(--mut)">mock exams</span>
                               </div>
                               <div v-else class="toggle" :class="{on:!!cfgData[f.field]}" @click="cfgData[f.field]=!cfgData[f.field]"></div>
                             </template>
@@ -911,7 +921,7 @@ th.sortable:hover{color:var(--amber2)}
 
 <script src="lib/vue.global.prod.js"></script>
 <script src="lib/anime.min.js"></script>
-<script src="lib/icons.js?v=15"></script>
-<script src="app.min.js?v=15"></script>
+<script src="lib/icons.js?v=16"></script>
+<script src="app.min.js?v=16"></script>
 </body>
 </html>

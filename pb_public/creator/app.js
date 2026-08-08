@@ -297,6 +297,7 @@ createApp({
     async loadOrBalance(){try{const r=await api('/api/creator/or-status');this.orBalance=r;}catch(e){this.orBalance=null;}},
     async loadGeminiStatus(){try{const r=await api('/api/creator/gemini-status');this.geminiStatus=r;}catch(e){this.geminiStatus=null;}},
     async testPush(){try{const r=await api('/api/creator/push-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base:this.cfgData?this.cfgData.push_pb_base:'',email:this.cfgData?this.cfgData.push_pb_email:'',pass:this.cfgData?this.cfgData.push_pb_pass:''})});this.pushStatus=r;}catch(e){this.pushStatus={connected:false,message:'verify call failed: '+e.message};}},
+    pushSummary(){const p=this.pushStatus;if(!p)return '';let s='Connected to '+String(p.url||'').replace('https://','').replace('http://','')+' with '+p.total_exams+' mockups';if(p.published!==undefined)s+=' ('+p.published+' published, '+p.draft+' draft)';return s;},
     geminiModels(){return['gemini-3.6-flash','gemini-3.5-flash','gemini-3.5-flash-lite','gemini-2.5-pro'];},
     dryKindLabel(k){return k==='dry_questions'?'Questions':k==='dry_images'?'Images':k==='dry_audio'?'Audio':(k||'—');},
     dryCost(d){const r=(d&&d.report)||{};const c=r.total_llm_cost_usd!=null?r.total_llm_cost_usd:r.llm_cost;return c?`$${Number(c).toFixed(3)}`:'—';},
@@ -370,7 +371,7 @@ createApp({
       this.dryBusy=null;this.toast('Dry run still running - check the Jobs page','info');
     },
     async loadConfig(){if(!this.cfgClient){this.cfg=null;return;}this.cfgLoading=true;this.cfgSavedAt='';try{const r=await api('/api/creator/config?client='+encodeURIComponent(this.cfgClient));this.cfg=r;const rest=Object.assign({},r.record);delete rest.id;delete rest.created;delete rest.updated;this.cfgData=rest;this.cfgData.prompts_json=JSON.stringify((r.record&&r.record.prompts_json)||{},null,2);this.cfgRawText=JSON.stringify(r.record,null,2);this.cfgRawErr='';this.valChecked=false;this.valIssues=[];this.groupIssues={};this.verified={};this.cfgSnapshot=JSON.stringify(this.cfgData);this.testPush();this.$nextTick(()=>this.deckEnter());}catch(e){this.toast('config: '+e.message,'err');this.cfg=null;}this.cfgLoading=false;},
-    metaByGroup(g){return this.meta.filter(m=>m.group===g);},
+    metaByGroup(g){const order={gemini_model:0,author_provider:1,llm_author_model:2,llm_proofread_model:3,llm_repair_model:4,dedup_enabled:5,dedup_sets:6};return this.meta.filter(m=>m.group===g).sort((a,b)=>((order[a.field]!==undefined?order[a.field]:99)-(order[b.field]!==undefined?order[b.field]:99)));},
     validateRaw(){try{JSON.parse(this.cfgRawText);this.cfgRawErr='';this.toast('JSON is valid','ok');}catch(e){this.cfgRawErr='Invalid JSON: '+e.message;}},
     buildConfigBody(){
       const n=Number(this.cfgData.image_count)||18;

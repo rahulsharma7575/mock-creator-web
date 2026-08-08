@@ -236,11 +236,13 @@ DEFAULT_CONFIG = {
 }
 
 META_FIELDS = [
-    ("llm_author_model", "OpenRouter fallback author", "text", "LLM", "OpenRouter model used ONLY when the Gemini author fails or quota is exceeded"),
+    ("gemini_model", "Gemini author model", "text", "LLM", "Primary author model - direct Google Gemini API (needs GEMINI_API_KEY in the container): gemini-3.6-flash, gemini-3.5-flash, gemini-3.5-flash-lite, gemini-2.5-pro"),
     ("author_provider", "Author provider", "select", "LLM", "gemini = Gemini API first (primary) with OpenRouter auto-fallback | openrouter = skip Gemini", ["gemini", "openrouter"]),
-    ("gemini_model", "Gemini author model", "text", "LLM", "Direct Google Gemini model for authoring: gemini-3.6-flash, gemini-3.5-flash, gemini-3.5-flash-lite, gemini-2.5-pro"),
+    ("llm_author_model", "OpenRouter fallback author", "text", "LLM", "OpenRouter model used ONLY when the Gemini author fails or quota is exceeded"),
     ("llm_proofread_model", "Proofread LLM", "text", "LLM", "OpenRouter model for proofreading (always via OpenRouter)"),
     ("llm_repair_model", "Repair LLM", "text", "LLM", "OpenRouter model for repair pass"),
+    ("dedup_enabled", "Check duplicates against previous mockups", "bool", "LLM", "Compares new questions against the last N mock exams in the end-user app and steers the author away from repeats"),
+    ("dedup_sets", "Check last N mockups", "number", "LLM", "How many of the latest mock exams to check for duplicates (default 5)"),
     ("image_primary", "Image provider", "select", "Images", "fal-ai (Fal.ai) | z-image (Magnific) | black-forest-labs/flux.2-klein-4b (OpenRouter)", ["fal-ai/z-image/turbo", "z-image", "black-forest-labs/flux.2-klein-4b"]),
     ("image_fallback", "Fallback image model", "text", "Images", "Deprecated - providers fall back automatically, keep empty"),
     ("tts_model", "TTS model", "select", "Audio", "Model that reads the listening scripts aloud. Options load from the models API.", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]),
@@ -264,8 +266,6 @@ META_FIELDS = [
     ("push_subject_id", "Subject id", "text", "Push", "Subject record id on client PB"),
     ("push_exam_type", "Exam type on push", "text", "Push", "exam_type for the auto-created exam (mock/ubt/practice/official)"),
     ("push_exam_status", "Exam status on push", "select", "Push", "draft = review-then-publish | published = immediate", ["draft", "published"]),
-    ("dedup_enabled", "Check duplicates against previous mockups", "bool", "LLM", "Compares new questions against the last N mock exams in the end-user app and steers the author away from repeats"),
-    ("dedup_sets", "Check last N mockups", "number", "LLM", "How many of the latest mock exams to check for duplicates (default 5)"),
     ("audio_gap_ms", "Gap between clips (ms)", "number", "Audio", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."),
     ("sample_rate", "Sample rate (Hz)", "number", "Audio", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."),
     ("audio_workers", "Parallel audio workers", "number", "Audio", "How many clips are synthesized at the same time. 4 is safe for most machines."),
@@ -422,7 +422,7 @@ function ensureCollections() {
     var mGem = $app.findFirstRecordByData("mock_config_meta", "field", "gemini_model")
     mGem.set("label", "Gemini author model")
     mGem.set("ftype", "text")
-    mGem.set("help", "Direct Google Gemini model for authoring: gemini-3.6-flash, gemini-3.5-flash, gemini-3.5-flash-lite, gemini-2.5-pro")
+    mGem.set("help", "Primary author model - direct Google Gemini API (needs GEMINI_API_KEY in the container): gemini-3.6-flash, gemini-3.5-flash, gemini-3.5-flash-lite, gemini-2.5-pro")
     mGem.set("group", "LLM")
     $app.save(mGem)
   } catch (errQ) {}
@@ -595,39 +595,54 @@ try {
 """,
 )
 
-# GET /api/creator/push-status - superuser only - verify end-user app credentials + count mock exams
+# POST /api/creator/push-status - superuser only - verify end-user app credentials + list mock exams
 route(
     "push-status", "POST", "/api/creator/push-status", "$apis.requireSuperuserAuth()",
     """
 try {
   var req = {}
-  try { req = JSON.parse(e.request.bodyString || "{}") } catch (err) {}
+  try { req = e.requestInfo().body || {} } catch (err) {}
   var base = String(req.base || "").trim().replace(/\\/+$/, "")
   var email = String(req.email || "").trim()
   var pass = String(req.pass || "")
   if (!pass) { pass = $os.getenv("MOCK_PB_PASS") || "" }
-  if (!base) return e.json(200, { ok: true, connected: false, total_exams: 0, url: "", message: "base URL missing" })
-  if (!email || !pass) return e.json(200, { ok: true, connected: false, total_exams: 0, url: base, message: "email/password missing - set them in Push or MOCK_PB_PASS" })
+  if (!base) return e.json(200, { ok: true, connected: false, total_exams: 0, url: "", mocks: [], message: "base URL missing" })
+  if (!email || !pass) return e.json(200, { ok: true, connected: false, total_exams: 0, url: base, mocks: [], message: "email/password missing - set them in Push or MOCK_PB_PASS" })
   var res = $http.send({
     url: base + "/api/collections/_superusers/auth-with-password",
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ identity: email, password: pass }), timeout: 10
   })
   if (res.statusCode !== 200) {
-    return e.json(200, { ok: true, connected: false, total_exams: 0, url: base, message: "auth failed (HTTP " + (res.statusCode || 0) + ") - check email/password" })
+    return e.json(200, { ok: true, connected: false, total_exams: 0, url: base, mocks: [], message: "auth failed (HTTP " + (res.statusCode || 0) + ") - check email/password" })
   }
   var tok = ""
   try { tok = JSON.parse(res.raw || "{}").token || "" } catch (err) {}
-  if (!tok) return e.json(200, { ok: true, connected: false, total_exams: 0, url: base, message: "auth returned no token" })
+  if (!tok) return e.json(200, { ok: true, connected: false, total_exams: 0, url: base, mocks: [], message: "auth returned no token" })
   var ex = $http.send({
-    url: base + "/api/collections/exams/records?perPage=1&fields=id",
-    method: "GET", headers: { "Authorization": "Bearer " + tok }, timeout: 10
+    url: base + "/api/collections/exams/records?perPage=200&fields=id,title,status",
+    method: "GET", headers: { "Authorization": "Bearer " + tok }, timeout: 15
   })
-  var total = 0
-  try { total = Number((JSON.parse(ex.raw || "{}")).totalItems) || 0 } catch (err) {}
-  return e.json(200, { ok: true, connected: true, total_exams: total, url: base, message: "" })
+  var mocks = [], total = 0, published = 0, draft = 0
+  try {
+    var exj = JSON.parse(ex.raw || "{}")
+    var items = exj.items || []
+    total = Number(exj.totalItems) || items.length || 0
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i]
+      var t = String(it.title || "")
+      var st = String(it.status || "")
+      var mm = t.match(/Mock Test ?\\(?(\\d+)\\)?/i)
+      var serial = mm ? Number(mm[1]) : -1
+      if (st === "published") published++
+      else if (st === "draft") draft++
+      mocks.push({ title: t, status: st, serial: serial })
+    }
+    mocks.sort(function (a, b) { return a.serial - b.serial })
+  } catch (err) {}
+  return e.json(200, { ok: true, connected: true, total_exams: total, published: published, draft: draft, mocks: mocks, url: base, message: "" })
 } catch (err) {
-  return e.json(200, { ok: true, connected: false, total_exams: 0, url: "", message: "unreachable: " + String(err).slice(0, 80) })
+  return e.json(200, { ok: true, connected: false, total_exams: 0, url: "", mocks: [], message: "unreachable: " + String(err).slice(0, 80) })
 }
 """,
 )
