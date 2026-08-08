@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Fraunces:ital,opsz,wght@1,9..144,500;1,9..144,600&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/tailwind.css?v=14">
+<link rel="stylesheet" href="lib/tailwind.css?v=15">
 <style>
 :root{
   --bg:#f7f2e8; --panel:#fffdf8; --panel2:#f0e9d9; --line:#e3d9c1; --ink:#262218; --mut:#7f7866;
@@ -445,6 +445,13 @@ th.sortable:hover{color:var(--amber2)}
                         <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(53,104,156,.1);color:var(--blue)">Author: Gemini first → OpenRouter fallback</span>
                         <button class="btn btn-ghost btn-sm" @click="loadGeminiStatus"><span v-html="ic('refresh',11)"></span>Check</button>
                       </div>
+                      <div v-if="g==='Push'" class="mb-3 flex items-center gap-2 flex-wrap">
+                        <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1.5" :style="pushStatus && pushStatus.connected ? 'background:rgba(47,125,79,.1);color:var(--green)' : 'background:var(--panel2);color:var(--mut)'">
+                          <span v-html="ic(pushStatus && pushStatus.connected ? 'check' : 'alertTriangle',12)"></span>
+                          {{ pushStatus ? (pushStatus.connected ? 'Connected to ' + pushStatus.url.replace('https://','').replace('http://','') + ' with ' + pushStatus.total_exams + ' mockups' : (pushStatus.message||'not verified')) : 'not verified yet - save the Push settings' }}
+                        </span>
+                        <button class="btn btn-ghost btn-sm" @click="testPush"><span v-html="ic('refresh',11)"></span>Test</button>
+                      </div>
                       <div v-if="g==='Images'" class="mb-3 flex items-center gap-2 flex-wrap">
                         <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1.5" :style="falStatus && falStatus.ok ? 'background:rgba(47,125,79,.1);color:var(--green)' : 'background:var(--panel2);color:var(--mut)'">
                           <span v-html="ic(falStatus && falStatus.ok ? 'check' : 'info',12)"></span>
@@ -784,6 +791,7 @@ th.sortable:hover{color:var(--amber2)}
         </div>
         <div class="panel2 p-3 mb-4 flex items-center gap-3 flex-wrap">
           <span v-if="previewData.report && previewData.report.author_via" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" :style="previewData.report.author_via==='gemini' ? 'background:rgba(58,110,165,.12);color:var(--blue)' : 'background:rgba(138,95,181,.12);color:var(--purple)'">Author: {{ previewData.report.author_via==='gemini' ? 'Gemini ('+(previewData.report.gemini_model||'')+')' : 'OpenRouter' }}</span>
+          <span v-if="previewData.report && previewData.report.dedup_checked" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" :style="previewData.report.dedup_repeats ? 'background:rgba(226,114,63,.12);color:var(--amber2)' : 'background:rgba(47,125,79,.1);color:var(--green)'">Dup check vs last {{ (previewData.report.dedup_sets_checked||[]).length }}: {{ previewData.report.dedup_repeats }} repeats</span>
           <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--soft);color:var(--amber2)">LLM cost {{ dryCost(previewData) }}</span>
           <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--soft);color:var(--amber2)">time {{ dryTime(previewData) }}</span>
           <span v-if="dryFalCost(previewData) !== '—'" class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:rgba(226,114,63,.12);color:var(--amber2)">Fal.ai cost {{ dryFalCost(previewData) }}</span>
@@ -903,7 +911,7 @@ th.sortable:hover{color:var(--amber2)}
 
 <script src="lib/vue.global.prod.js"></script>
 <script src="lib/anime.min.js"></script>
-<script src="lib/icons.js?v=14"></script>
-<script src="app.min.js?v=14"></script>
+<script src="lib/icons.js?v=15"></script>
+<script src="app.min.js?v=15"></script>
 </body>
 </html>

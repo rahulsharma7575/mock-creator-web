@@ -107,6 +107,8 @@ SCHEMA = [
         f("push_subject_id", "text", max=100),
         f("push_exam_type", "text", max=20),
         f("push_exam_status", "text", max=20),
+        f("dedup_enabled", "bool"),
+        f("dedup_sets", "number", min=0, max=20),
         f("audio_gap_ms", "number", min=0, max=5000),
         f("sample_rate", "number", min=8000, max=48000),
         f("audio_workers", "number", min=1, max=16),
@@ -199,6 +201,8 @@ DEFAULT_CONFIG = {
     "llm_author_model": "google/gemini-2.5-flash",
     "author_provider": "gemini",
     "gemini_model": "gemini-3.5-flash",
+    "dedup_enabled": True,
+    "dedup_sets": 5,
     "llm_proofread_model": "qwen/qwen3.5-flash-02-23",
     "llm_repair_model": "google/gemini-2.5-flash",
     "image_primary": "z-image",
@@ -260,6 +264,8 @@ META_FIELDS = [
     ("push_subject_id", "Subject id", "text", "Push", "Subject record id on client PB"),
     ("push_exam_type", "Exam type on push", "text", "Push", "exam_type for the auto-created exam (mock/ubt/practice/official)"),
     ("push_exam_status", "Exam status on push", "select", "Push", "draft = review-then-publish | published = immediate", ["draft", "published"]),
+    ("dedup_enabled", "Check duplicates against previous mockups", "bool", "LLM", "Compares new questions against the last N mock exams in the end-user app and steers the author away from repeats"),
+    ("dedup_sets", "Check last N mockups", "number", "LLM", "How many of the latest mock exams to check for duplicates (default 5)"),
     ("audio_gap_ms", "Gap between clips (ms)", "number", "Audio", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."),
     ("sample_rate", "Sample rate (Hz)", "number", "Audio", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."),
     ("audio_workers", "Parallel audio workers", "number", "Audio", "How many clips are synthesized at the same time. 4 is safe for most machines."),
@@ -377,6 +383,19 @@ function ensureCollections() {
       $app.save(cfgCol)
     }
   } catch (errV) {}
+  try {
+    var cfgCol3 = $app.findCollectionByNameOrId("mock_config")
+    var hasDup = false, hasSets = false
+    for (var fi5 = 0; fi5 < cfgCol3.fields.items().length; fi5++) {
+      var nm2 = cfgCol3.fields.items()[fi5].name
+      if (nm2 === "dedup_enabled") hasDup = true
+      if (nm2 === "dedup_sets") hasSets = true
+    }
+    var changed3 = false
+    if (!hasDup) { cfgCol3.fields.add({"name": "dedup_enabled", "type": "bool", "required": false}); changed3 = true }
+    if (!hasSets) { cfgCol3.fields.add({"name": "dedup_sets", "type": "number", "required": false, "min": 0, "max": 20}); changed3 = true }
+    if (changed3) $app.save(cfgCol3)
+  } catch (errD) {}
   try {
     var cfgCol2 = $app.findCollectionByNameOrId("mock_config")
     var hasProv = false, hasGem = false
@@ -572,6 +591,43 @@ try {
   return e.json(200, { ok: true, valid: true, models: models, message: "" })
 } catch (err) {
   return e.json(500, { error: String(err) })
+}
+""",
+)
+
+# GET /api/creator/push-status - superuser only - verify end-user app credentials + count mock exams
+route(
+    "push-status", "POST", "/api/creator/push-status", "$apis.requireSuperuserAuth()",
+    """
+try {
+  var req = {}
+  try { req = JSON.parse(e.request.bodyString || "{}") } catch (err) {}
+  var base = String(req.base || "").trim().replace(/\\/+$/, "")
+  var email = String(req.email || "").trim()
+  var pass = String(req.pass || "")
+  if (!pass) { pass = $os.getenv("MOCK_PB_PASS") || "" }
+  if (!base) return e.json(200, { ok: true, connected: false, total_exams: 0, url: "", message: "base URL missing" })
+  if (!email || !pass) return e.json(200, { ok: true, connected: false, total_exams: 0, url: base, message: "email/password missing - set them in Push or MOCK_PB_PASS" })
+  var res = $http.send({
+    url: base + "/api/collections/_superusers/auth-with-password",
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identity: email, password: pass }), timeout: 10
+  })
+  if (res.statusCode !== 200) {
+    return e.json(200, { ok: true, connected: false, total_exams: 0, url: base, message: "auth failed (HTTP " + (res.statusCode || 0) + ") - check email/password" })
+  }
+  var tok = ""
+  try { tok = JSON.parse(res.raw || "{}").token || "" } catch (err) {}
+  if (!tok) return e.json(200, { ok: true, connected: false, total_exams: 0, url: base, message: "auth returned no token" })
+  var ex = $http.send({
+    url: base + "/api/collections/exams/records?perPage=1&fields=id",
+    method: "GET", headers: { "Authorization": "Bearer " + tok }, timeout: 10
+  })
+  var total = 0
+  try { total = Number((JSON.parse(ex.raw || "{}")).totalItems) || 0 } catch (err) {}
+  return e.json(200, { ok: true, connected: true, total_exams: total, url: base, message: "" })
+} catch (err) {
+  return e.json(200, { ok: true, connected: false, total_exams: 0, url: "", message: "unreachable: " + String(err).slice(0, 80) })
 }
 """,
 )

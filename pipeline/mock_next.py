@@ -78,6 +78,9 @@ DEFAULTS = {
     "exam_status": "draft",                  # draft = review-then-publish | published = immediate
     "push_enabled": True,                    # False = generate locally, never upload anywhere
     "dry_mode": "questions",                 # questions | images | audio - set by worker for dry runs (MUST stay in DEFAULTS or load_config drops it)
+    # duplicate avoidance against previous mocks (end-user app library)
+    "dedup_enabled": True,                   # check last N mock exams and steer the author away from repeats
+    "dedup_sets": 5,                         # how many of the latest mock exams to check
     # image provider - DYNAMIC: fal-ai/z-image/turbo (Fal.ai) | z-image (Magnific) | nano-banana (OpenRouter)
     "fal_api": "https://queue.fal.run/fal-ai/z-image/turbo",
     "fal_size": 512,                         # Fal.ai square image size (1:1)
@@ -683,8 +686,8 @@ def validate_exam(qs, stage="final"):
     return errs
 
 
-def llm_author(key, attempt, model_cfg):
-    user = render_prompt(AUTHOR_USER)
+def llm_author(key, attempt, model_cfg, extra_user=""):
+    user = render_prompt(AUTHOR_USER) + extra_user
     if attempt:
         user += f"\n\nPREVIOUS ATTEMPT FAILED VALIDATION:\n{attempt}"
     qs, usage = chat_json(key, model_cfg["slug"], AUTHOR_SYSTEM, user,
@@ -731,6 +734,80 @@ def pb_headers():
                    json={"identity": CFG["pb_email"], "password": CFG["pb_pass"]}, timeout=30)
     r.raise_for_status()
     return {"Authorization": "Bearer " + r.json()["token"]}
+
+
+def fetch_last_sets():
+    """Pull question texts from the LAST N mock exams in the end-user app library.
+
+    Resolution (same source as create_exam): list exams -> parse 'Mock Test (N)'
+    serials -> take the top N by serial -> collect their question texts via
+    exam_questions?expand=question.
+
+    Returns (serials, texts) or (None, None) on ANY failure (fail-soft - the run
+    continues exactly as before when the library is unreachable or creds are
+    missing)."""
+    try:
+        headers = pb_headers()
+    except Exception as e:
+        print(f"[dedup] skipped: push credentials unavailable ({str(e)[:80]})")
+        return None, None
+    n = max(1, int(CFG.get("dedup_sets", 5)))
+    try:
+        r = httpx.get(CFG["pb_base"] + "/api/collections/exams/records", headers=headers,
+                      params={"perPage": 200, "fields": "id,title"}, timeout=10)
+        r.raise_for_status()
+        exams = r.json().get("items", [])
+        if not exams:
+            print("[dedup] no exams in the library - skipping")
+            return None, None
+        pairs = []
+        for e in exams:
+            m = re.search(r"Mock Test (\d+)", e.get("title") or "")
+            if m:
+                pairs.append((int(m.group(1)), e.get("id")))
+        pairs.sort(key=lambda x: x[0], reverse=True)
+        top = pairs[:n]
+        if not top:
+            print("[dedup] no serialed exams - skipping")
+            return None, None
+        serials = [s for s, _ in top]
+        texts = []
+        for _, eid in top:
+            q = httpx.get(CFG["pb_base"] + "/api/collections/exam_questions/records",
+                          headers=headers,
+                          params={"filter": f'exam="{eid}"', "perPage": 200,
+                                  "expand": "question", "fields": "expand.question.question_text"},
+                          timeout=10)
+            if q.status_code != 200:
+                continue
+            for item in q.json().get("items", []):
+                ex = item.get("expand") or {}
+                t = ((ex.get("question") or {}).get("question_text")) or ""
+                if t:
+                    texts.append(t)
+        return serials, texts
+    except Exception as e:
+        print(f"[dedup] skipped: could not read library ({str(e)[:80]})")
+        return None, None
+
+
+def dedup_prompt_block(serials, texts):
+    """Build the 'never repeat' block appended to the author prompt."""
+    if not texts:
+        return ""
+    shown = [t.replace("\n", " ").strip()[:60] for t in texts]
+    shown = list(dict.fromkeys(shown))[:200]
+    return ("\n\nDEDUPLICATION - NEVER repeat or closely rephrase any of these questions. "
+            f"They already exist in mock exams {serials}:\n" + "\n".join("- " + s for s in shown))
+
+
+def dedup_repeats(qs, texts):
+    """Exact-match repeats of generated questions against the library set."""
+    if not texts or not qs:
+        return []
+    lib = set(t.replace("\n", " ").strip() for t in texts)
+    return [q.get("question_text") for q in qs
+            if q and q.get("question_text") and q["question_text"].replace("\n", " ").strip() in lib]
 
 
 DIFF_MAP = {"medium": "medium", "hard": "hard", "very hard": "hard"}
@@ -1270,6 +1347,9 @@ def final_summary(stats):
              f"${stats['author_cost']:.3f}, attempt {stats['author_attempt']}")
     else:
         line(f"author {q_n} questions", "resumed (existing file)")
+    if stats.get("dedup_checked"):
+        line(f"dedup vs last {len(stats.get('dedup_sets_checked') or [])} mocks",
+             f"{stats.get('dedup_repeats', 0)} repeats")
     parts = []
     if stats["repair"]["answers"]:
         parts.append(f"{stats['repair']['answers']} answers fixed")
@@ -1366,6 +1446,7 @@ def main():
 
     stats = {
         "mock": mock, "authored": True, "author_model": "?", "author_via": "openrouter",
+        "dedup_enabled": bool(CFG.get("dedup_enabled", True)), "dedup_sets_checked": None, "dedup_checked": False, "dedup_repeats": 0,
         "author_attempt": 0, "author_cost": 0.0, "proof_model": "?",
         "proof_cost": 0.0, "repair": {"answers": 0, "scripts": 0, "images": 0},
         "pb_count": 0, "pb_created": False, "exam_created": False, "audio_ok": 0,
@@ -1388,6 +1469,17 @@ def main():
         qs, last_err, author_via = None, None, ""
         sys_prompt = AUTHOR_SYSTEM
         user_prompt = render_prompt(AUTHOR_USER)
+        dedup_serials, dedup_texts = (None, None)
+        if CFG.get("dedup_enabled", True):
+            dedup_serials, dedup_texts = fetch_last_sets()
+        if dedup_texts:
+            dedup_block = dedup_prompt_block(dedup_serials, dedup_texts)
+            user_prompt += dedup_block
+        else:
+            dedup_block = ""
+        stats["dedup_sets_checked"] = dedup_serials
+        stats["dedup_checked"] = bool(dedup_texts)
+        stats["dedup_repeats"] = 0
         gmodel = str(CFG.get("gemini_model") or "gemini-3.5-flash").strip()
         gkey = gemini_api_key()
         gretries = int(CFG.get("author_retries", 3))
@@ -1406,6 +1498,15 @@ def main():
                         gqs = [q for q in gqs if isinstance(q, dict)]
                     gqs = sanitize_exam(gqs)
                     gerrs = validate_exam(gqs, stage="author")
+                    if not gerrs and dedup_texts:
+                        reps = dedup_repeats(gqs, dedup_texts)
+                        if reps:
+                            stats["dedup_repeats"] += len(reps)
+                            print(f"[dedup] gemini repeated {len(reps)} existing questions — retrying")
+                            last_err = ("you repeated questions that already exist in earlier mocks: " +
+                                        "; ".join(r.replace("\n", " ")[:60] for r in reps) +
+                                        " — write DIFFERENT questions")
+                            continue
                     if not gerrs:
                         qs = gqs
                         author_via = "gemini"
@@ -1436,13 +1537,22 @@ def main():
             for attempt in range(gretries):
                 print(f"[author] openrouter {author_cfg['name']} attempt {attempt + 1}...")
                 try:
-                    qs, usage = llm_author(key, last_err, author_cfg)
+                    qs, usage = llm_author(key, last_err, author_cfg, dedup_block)
                 except Exception as e:
                     print(f"[author] generation error: {str(e)[:120]}")
                     last_err = "previous generation failed or returned broken JSON — return complete valid JSON"
                     continue
                 qs = normalize_exam(qs)
                 errs = validate_exam(qs, stage="author")
+                if not errs and dedup_texts:
+                    reps = dedup_repeats(qs, dedup_texts)
+                    if reps:
+                        stats["dedup_repeats"] += len(reps)
+                        print(f"[dedup] openrouter repeated {len(reps)} existing questions — retrying")
+                        last_err = ("you repeated questions that already exist in earlier mocks: " +
+                                    "; ".join(r.replace("\n", " ")[:60] for r in reps) +
+                                    " — write DIFFERENT questions")
+                        continue
                 if not errs:
                     stats["author_attempt"] = attempt + 1
                     stats["author_cost"] = usage.get("cost", 0.0)
@@ -1518,6 +1628,10 @@ def main():
             "img_model": stats["img_model"],
         "author_via": stats.get("author_via", "openrouter"),
         "gemini_model": str(CFG.get("gemini_model", "")),
+        "dedup_enabled": bool(CFG.get("dedup_enabled", True)),
+        "dedup_sets_checked": stats.get("dedup_sets_checked"),
+        "dedup_checked": bool(stats.get("dedup_checked")),
+        "dedup_repeats": stats.get("dedup_repeats", 0),
             "img_credits": stats["img_credits"],
             "img_count": sum(1 for q in qs if q.get("requiresImage")),
             "fal_cost": round(stats["img_cost"], 4) if str(stats["img_model"]).startswith("fal-ai/") else 0.0,
@@ -1600,6 +1714,10 @@ def main():
         "img_model": stats["img_model"],
         "author_via": stats.get("author_via", "openrouter"),
         "gemini_model": str(CFG.get("gemini_model", "")),
+        "dedup_enabled": bool(CFG.get("dedup_enabled", True)),
+        "dedup_sets_checked": stats.get("dedup_sets_checked"),
+        "dedup_checked": bool(stats.get("dedup_checked")),
+        "dedup_repeats": stats.get("dedup_repeats", 0),
         "img_credits": stats["img_credits"],
         "img_count": stats["img_total"],
         "fal_cost": round(stats["img_cost"], 4) if str(stats["img_model"]).startswith("fal-ai/") else 0.0,

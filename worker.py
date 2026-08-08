@@ -87,6 +87,8 @@ CONFIG_MAP = {
     "push_exam_type": "exam_type",
     "push_exam_status": "exam_status",
     "push_enabled": "push_enabled",
+    "dedup_enabled": "dedup_enabled",
+    "dedup_sets": "dedup_sets",
     "audio_gap_ms": "tts_gap_ms",
     "sample_rate": "tts_rate",
     "audio_workers": "tts_workers",

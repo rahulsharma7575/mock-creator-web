@@ -68,7 +68,7 @@ createApp({
     theme:localStorage.getItem(LS_TH)||'light',view:'overview',
     nav:[{id:'overview',label:'Overview'},{id:'clients',label:'Clients'},{id:'configs',label:'Configs'},{id:'jobs',label:'Jobs'},{id:'fullruns',label:'Full runs'},{id:'dryruns',label:'Dry runs'}],
     clients:[],jobs:[],configs:[],meta:[],models:[],jobsBusy:false,startBusy:false,
-    dryruns:[],dryrunsBusy:false,fullruns:[],fullrunsBusy:false,previewRun:null,falStatus:null,orBalance:null,geminiStatus:null,cfgByClient:{},
+    dryruns:[],dryrunsBusy:false,fullruns:[],fullrunsBusy:false,previewRun:null,falStatus:null,orBalance:null,geminiStatus:null,pushStatus:null,cfgByClient:{},
     qs:{client:'',count:40,difficulty:'creative+difficult'},jobFilter:'all',searchQ:'',sortKey:'created',sortDir:-1,
     drawerJob:null,drawerTimer:null,drawerLastUpd:'',clientModal:false,clientStep:0,newClientName:'',newKey:'',clientErr:'',
     confirmMsg:null,confirmFn:null,toasts:[],
@@ -296,6 +296,7 @@ createApp({
     async loadFalStatus(){try{const r=await api('/api/creator/fal-status');this.falStatus=r;}catch(e){this.falStatus=null;}},
     async loadOrBalance(){try{const r=await api('/api/creator/or-status');this.orBalance=r;}catch(e){this.orBalance=null;}},
     async loadGeminiStatus(){try{const r=await api('/api/creator/gemini-status');this.geminiStatus=r;}catch(e){this.geminiStatus=null;}},
+    async testPush(){try{const r=await api('/api/creator/push-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base:this.cfgData?this.cfgData.push_pb_base:'',email:this.cfgData?this.cfgData.push_pb_email:'',pass:this.cfgData?this.cfgData.push_pb_pass:''})});this.pushStatus=r;}catch(e){this.pushStatus={connected:false,message:'verify call failed: '+e.message};}},
     geminiModels(){return['gemini-3.6-flash','gemini-3.5-flash','gemini-3.5-flash-lite','gemini-2.5-pro'];},
     dryKindLabel(k){return k==='dry_questions'?'Questions':k==='dry_images'?'Images':k==='dry_audio'?'Audio':(k||'—');},
     dryCost(d){const r=(d&&d.report)||{};const c=r.total_llm_cost_usd!=null?r.total_llm_cost_usd:r.llm_cost;return c?`$${Number(c).toFixed(3)}`:'—';},
@@ -368,7 +369,7 @@ createApp({
       }
       this.dryBusy=null;this.toast('Dry run still running - check the Jobs page','info');
     },
-    async loadConfig(){if(!this.cfgClient){this.cfg=null;return;}this.cfgLoading=true;this.cfgSavedAt='';try{const r=await api('/api/creator/config?client='+encodeURIComponent(this.cfgClient));this.cfg=r;const rest=Object.assign({},r.record);delete rest.id;delete rest.created;delete rest.updated;this.cfgData=rest;this.cfgData.prompts_json=JSON.stringify((r.record&&r.record.prompts_json)||{},null,2);this.cfgRawText=JSON.stringify(r.record,null,2);this.cfgRawErr='';this.valChecked=false;this.valIssues=[];this.groupIssues={};this.verified={};this.cfgSnapshot=JSON.stringify(this.cfgData);this.$nextTick(()=>this.deckEnter());}catch(e){this.toast('config: '+e.message,'err');this.cfg=null;}this.cfgLoading=false;},
+    async loadConfig(){if(!this.cfgClient){this.cfg=null;return;}this.cfgLoading=true;this.cfgSavedAt='';try{const r=await api('/api/creator/config?client='+encodeURIComponent(this.cfgClient));this.cfg=r;const rest=Object.assign({},r.record);delete rest.id;delete rest.created;delete rest.updated;this.cfgData=rest;this.cfgData.prompts_json=JSON.stringify((r.record&&r.record.prompts_json)||{},null,2);this.cfgRawText=JSON.stringify(r.record,null,2);this.cfgRawErr='';this.valChecked=false;this.valIssues=[];this.groupIssues={};this.verified={};this.cfgSnapshot=JSON.stringify(this.cfgData);this.testPush();this.$nextTick(()=>this.deckEnter());}catch(e){this.toast('config: '+e.message,'err');this.cfg=null;}this.cfgLoading=false;},
     metaByGroup(g){return this.meta.filter(m=>m.group===g);},
     validateRaw(){try{JSON.parse(this.cfgRawText);this.cfgRawErr='';this.toast('JSON is valid','ok');}catch(e){this.cfgRawErr='Invalid JSON: '+e.message;}},
     buildConfigBody(){
@@ -392,12 +393,12 @@ createApp({
       this.cfgSaving=true;
       try{let body;if(this.cfgRaw){body=JSON.parse(this.cfgRawText);}else{body=this.buildConfigBody();}
         await api('/api/collections/mock_config/records/'+this.cfg.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-        this.updateSnapshotFor(g);this.toast(g+' saved','ok');
+        this.updateSnapshotFor(g);this.toast(g+' saved','ok');if(g==='Push'){this.testPush();}
       }catch(e){this.toast('save: '+e.message,'err');}
       this.cfgSaving=false;
     },
     async saveConfig(){this.cfgSaving=true;try{let body;if(this.cfgRaw){body=JSON.parse(this.cfgRawText);}else{body=this.buildConfigBody();}
-    await api('/api/collections/mock_config/records/'+this.cfg.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});this.toast('Config saved','ok');this.cfgSavedAt=new Date().toISOString();this.cfgSnapshot=JSON.stringify(this.cfgData);}catch(e){this.toast('save: '+e.message,'err');}this.cfgSaving=false;},
+    await api('/api/collections/mock_config/records/'+this.cfg.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});this.toast('Config saved','ok');this.cfgSavedAt=new Date().toISOString();this.cfgSnapshot=JSON.stringify(this.cfgData);this.testPush();}catch(e){this.toast('save: '+e.message,'err');}this.cfgSaving=false;},
     async openJob(j){try{const r=await api('/api/creator/jobs/'+j.id);this.drawerJob=r;this.drawerLastUpd=Date.now();if(r.report){j._report=r.report;}}catch(e){this.toast('job: '+e.message,'err');}},
     async refreshDrawer(){if(!this.drawerJob)return;try{const r=await api('/api/creator/jobs/'+this.drawerJob.id);Object.assign(this.drawerJob,r);this.drawerLastUpd=Date.now();const j=this.jobs.find(x=>x.id===r.id);if(j)Object.assign(j,{status:r.status,error:r.error,pushed:r.pushed});if(r.status!=='queued'&&r.status!=='running')clearInterval(this.drawerTimer);}catch(e){}},
     retryJob(){const j=this.drawerJob;const k=j.kind||'full';this.confirmMsg='Re-queue '+k+' job for "'+j.client_name+'" ('+j.count+'q)?';this.confirmFn=async()=>{try{await this.startJob({client:j.client,count:j.count,difficulty:j.difficulty||'',kind:k});this.toast('Re-queued','ok');this.drawerJob=null;this.loadJobs();}catch(e){this.toast('requeue: '+e.message,'err');}};},
