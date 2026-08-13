@@ -3552,6 +3552,303 @@ try {
 
 }, $apis.requireSuperuserAuth())
 
+routerAdd("POST", "/api/creator/delete-client", (e) => {
+
+function ensureCollections() {
+  var need = ["mock_clients", "mock_config", "mock_config_meta", "mock_models", "mock_jobs", "dryrun", "fullrun"]
+  var missing = []
+  for (var i = 0; i < need.length; i++) {
+    try { $app.findCollectionByNameOrId(need[i]) } catch (err) { missing.push(need[i]) }
+  }
+  if (missing.length > 0) {
+    $app.importCollections([{"id": "c_mock_clients", "name": "mock_clients", "type": "base", "system": false, "fields": [{"id": "f_name", "name": "name", "type": "text", "required": true, "presentable": false, "hidden": false, "primaryKey": false, "max": 100}, {"id": "f_api_key_hash", "name": "api_key_hash", "type": "text", "required": true, "presentable": false, "hidden": false, "primaryKey": false, "max": 100}, {"id": "f_active", "name": "active", "type": "bool", "required": false, "presentable": false, "hidden": false, "primaryKey": false}, {"id": "f_created", "name": "created", "type": "autodate", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "onCreate": true}, {"id": "f_updated", "name": "updated", "type": "autodate", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "onCreate": true, "onUpdate": true}], "indexes": [], "listRule": null, "viewRule": null, "createRule": null, "updateRule": null, "deleteRule": null, "options": {}}, {"id": "c_mock_config", "name": "mock_config", "type": "base", "system": false, "fields": [{"id": "f_client", "name": "client", "type": "relation", "required": true, "presentable": false, "hidden": false, "primaryKey": false, "collectionId": "c_mock_clients", "maxSelect": 1, "minSelect": 0}, {"id": "f_name", "name": "name", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 100}, {"id": "f_llm_author_model", "name": "llm_author_model", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_author_provider", "name": "author_provider", "type": "select", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "values": ["gemini", "openrouter"], "maxSelect": 1}, {"id": "f_gemini_model", "name": "gemini_model", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_llm_proofread_model", "name": "llm_proofread_model", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_llm_repair_model", "name": "llm_repair_model", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_image_primary", "name": "image_primary", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_image_fallback", "name": "image_fallback", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_tts_model", "name": "tts_model", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_tts_fallback_model", "name": "tts_fallback_model", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_tts_fallback_voice", "name": "tts_fallback_voice", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_tts_voices", "name": "tts_voices", "type": "json", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "maxSize": 65536}, {"id": "f_tts_male_voice", "name": "tts_male_voice", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_tts_female_voice", "name": "tts_female_voice", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_tts_fallback_male_voice", "name": "tts_fallback_male_voice", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_tts_fallback_female_voice", "name": "tts_fallback_female_voice", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_pdf_parser", "name": "pdf_parser", "type": "select", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "values": ["auto", "local"], "maxSelect": 1}, {"id": "f_upscale_pdf_images", "name": "upscale_pdf_images", "type": "bool", "required": false, "presentable": false, "hidden": false, "primaryKey": false}, {"id": "f_question_count", "name": "question_count", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 1, "max": 200}, {"id": "f_reading_count", "name": "reading_count", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 0, "max": 50}, {"id": "f_image_count", "name": "image_count", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 0, "max": 40}, {"id": "f_image_count_min", "name": "image_count_min", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 0, "max": 40}, {"id": "f_image_count_max", "name": "image_count_max", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 0, "max": 40}, {"id": "f_difficulty_profile", "name": "difficulty_profile", "type": "select", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "values": ["creative+difficult", "creative+medium", "hard"], "maxSelect": 1}, {"id": "f_marks_per_question", "name": "marks_per_question", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 1, "max": 20}, {"id": "f_max_tokens", "name": "max_tokens", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 0, "max": 100000}, {"id": "f_temperature", "name": "temperature", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 0, "max": 2}, {"id": "f_timeout_s", "name": "timeout_s", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 10, "max": 3600}, {"id": "f_retries", "name": "retries", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 0, "max": 20}, {"id": "f_img_retries", "name": "img_retries", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 0, "max": 20}, {"id": "f_push_pb_base", "name": "push_pb_base", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 300}, {"id": "f_push_pb_email", "name": "push_pb_email", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_push_pb_pass", "name": "push_pb_pass", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_push_subject_id", "name": "push_subject_id", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 100}, {"id": "f_push_exam_type", "name": "push_exam_type", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 20}, {"id": "f_push_exam_status", "name": "push_exam_status", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 20}, {"id": "f_dedup_enabled", "name": "dedup_enabled", "type": "bool", "required": false, "presentable": false, "hidden": false, "primaryKey": false}, {"id": "f_dedup_sets", "name": "dedup_sets", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 0, "max": 20}, {"id": "f_audio_gap_ms", "name": "audio_gap_ms", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 0, "max": 5000}, {"id": "f_sample_rate", "name": "sample_rate", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 8000, "max": 48000}, {"id": "f_audio_workers", "name": "audio_workers", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 1, "max": 16}, {"id": "f_prompts_json", "name": "prompts_json", "type": "json", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "maxSize": 2097152}, {"id": "f_active", "name": "active", "type": "bool", "required": false, "presentable": false, "hidden": false, "primaryKey": false}, {"id": "f_created", "name": "created", "type": "autodate", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "onCreate": true}, {"id": "f_updated", "name": "updated", "type": "autodate", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "onCreate": true, "onUpdate": true}], "indexes": [], "listRule": null, "viewRule": null, "createRule": null, "updateRule": null, "deleteRule": null, "options": {}}, {"id": "c_mock_config_meta", "name": "mock_config_meta", "type": "base", "system": false, "fields": [{"id": "f_field", "name": "field", "type": "text", "required": true, "presentable": false, "hidden": false, "primaryKey": false, "max": 100}, {"id": "f_label", "name": "label", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_ftype", "name": "ftype", "type": "select", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "values": ["text", "number", "select", "bool", "json"], "maxSelect": 1}, {"id": "f_options", "name": "options", "type": "json", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "maxSize": 65536}, {"id": "f_group", "name": "group", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 100}, {"id": "f_help", "name": "help", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 1000}, {"id": "f_order", "name": "order", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 0, "max": 1000}, {"id": "f_created", "name": "created", "type": "autodate", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "onCreate": true}], "indexes": [], "listRule": null, "viewRule": null, "createRule": null, "updateRule": null, "deleteRule": null, "options": {}}, {"id": "c_mock_models", "name": "mock_models", "type": "base", "system": false, "fields": [{"id": "f_kind", "name": "kind", "type": "select", "required": true, "presentable": false, "hidden": false, "primaryKey": false, "values": ["llm", "tts", "image"], "maxSelect": 1}, {"id": "f_model", "name": "model", "type": "text", "required": true, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_display", "name": "display", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 200}, {"id": "f_notes", "name": "notes", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 1000}, {"id": "f_created", "name": "created", "type": "autodate", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "onCreate": true}], "indexes": [], "listRule": null, "viewRule": null, "createRule": null, "updateRule": null, "deleteRule": null, "options": {}}, {"id": "c_mock_jobs", "name": "mock_jobs", "type": "base", "system": false, "fields": [{"id": "f_client", "name": "client", "type": "relation", "required": true, "presentable": false, "hidden": false, "primaryKey": false, "collectionId": "c_mock_clients", "maxSelect": 1, "minSelect": 0}, {"id": "f_status", "name": "status", "type": "select", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "values": ["queued", "running", "done", "failed"], "maxSelect": 1}, {"id": "f_kind", "name": "kind", "type": "select", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "values": ["full", "dry_questions", "dry_images", "dry_audio"], "maxSelect": 1}, {"id": "f_gen_type", "name": "gen_type", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 1, "max": 3}, {"id": "f_pdf", "name": "pdf", "type": "file", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "options": {"maxSelect": 1, "maxSize": 10485760, "mimeTypes": ["application/pdf", "application/x-pdf"]}}, {"id": "f_count", "name": "count", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 1, "max": 200}, {"id": "f_difficulty", "name": "difficulty", "type": "select", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "values": ["creative+difficult", "creative+medium", "hard", ""], "maxSelect": 1}, {"id": "f_overrides", "name": "overrides", "type": "json", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "maxSize": 65536}, {"id": "f_log", "name": "log", "type": "editor", "required": false, "presentable": false, "hidden": false, "primaryKey": false}, {"id": "f_report", "name": "report", "type": "json", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "maxSize": 2097152}, {"id": "f_summary", "name": "summary", "type": "editor", "required": false, "presentable": false, "hidden": false, "primaryKey": false}, {"id": "f_pushed", "name": "pushed", "type": "bool", "required": false, "presentable": false, "hidden": false, "primaryKey": false}, {"id": "f_error", "name": "error", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 2000}, {"id": "f_created", "name": "created", "type": "autodate", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "onCreate": true}, {"id": "f_updated", "name": "updated", "type": "autodate", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "onCreate": true, "onUpdate": true}], "indexes": [], "listRule": null, "viewRule": null, "createRule": null, "updateRule": null, "deleteRule": null, "options": {}}, {"id": "c_dryrun", "name": "dryrun", "type": "base", "system": false, "fields": [{"id": "f_client", "name": "client", "type": "relation", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "collectionId": "c_mock_clients", "maxSelect": 1, "minSelect": 0}, {"id": "f_kind", "name": "kind", "type": "select", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "values": ["dry_questions", "dry_images", "dry_audio"], "maxSelect": 1}, {"id": "f_status", "name": "status", "type": "select", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "values": ["done", "failed"], "maxSelect": 1}, {"id": "f_count", "name": "count", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 1, "max": 200}, {"id": "f_difficulty", "name": "difficulty", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 100}, {"id": "f_questions", "name": "questions", "type": "json", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "maxSize": 2097152}, {"id": "f_report", "name": "report", "type": "json", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "maxSize": 2097152}, {"id": "f_log", "name": "log", "type": "editor", "required": false, "presentable": false, "hidden": false, "primaryKey": false}, {"id": "f_images", "name": "images", "type": "file", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "options": {"maxSelect": 10, "maxSize": 20971520, "mimeTypes": ["image/webp", "image/png", "image/jpeg"]}}, {"id": "f_audio", "name": "audio", "type": "file", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "options": {"maxSelect": 10, "maxSize": 20971520, "mimeTypes": ["audio/mpeg", "audio/mp3", "audio/wav"]}}, {"id": "f_summary", "name": "summary", "type": "editor", "required": false, "presentable": false, "hidden": false, "primaryKey": false}, {"id": "f_created", "name": "created", "type": "autodate", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "onCreate": true}, {"id": "f_updated", "name": "updated", "type": "autodate", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "onCreate": true, "onUpdate": true}], "indexes": [], "listRule": null, "viewRule": null, "createRule": null, "updateRule": null, "deleteRule": null, "options": {}}, {"id": "c_fullrun", "name": "fullrun", "type": "base", "system": false, "fields": [{"id": "f_client", "name": "client", "type": "relation", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "collectionId": "c_mock_clients", "maxSelect": 1, "minSelect": 0}, {"id": "f_kind", "name": "kind", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 50}, {"id": "f_status", "name": "status", "type": "select", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "values": ["done", "failed"], "maxSelect": 1}, {"id": "f_count", "name": "count", "type": "number", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "min": 1, "max": 200}, {"id": "f_difficulty", "name": "difficulty", "type": "text", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "max": 100}, {"id": "f_questions", "name": "questions", "type": "json", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "maxSize": 2097152}, {"id": "f_report", "name": "report", "type": "json", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "maxSize": 2097152}, {"id": "f_log", "name": "log", "type": "editor", "required": false, "presentable": false, "hidden": false, "primaryKey": false}, {"id": "f_images", "name": "images", "type": "file", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "options": {"maxSelect": 20, "maxSize": 20971520, "mimeTypes": ["image/webp", "image/png", "image/jpeg"]}}, {"id": "f_audio", "name": "audio", "type": "file", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "options": {"maxSelect": 20, "maxSize": 20971520, "mimeTypes": ["audio/mpeg", "audio/mp3", "audio/wav"]}}, {"id": "f_summary", "name": "summary", "type": "editor", "required": false, "presentable": false, "hidden": false, "primaryKey": false}, {"id": "f_created", "name": "created", "type": "autodate", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "onCreate": true}, {"id": "f_updated", "name": "updated", "type": "autodate", "required": false, "presentable": false, "hidden": false, "primaryKey": false, "onCreate": true, "onUpdate": true}], "indexes": [], "listRule": null, "viewRule": null, "createRule": null, "updateRule": null, "deleteRule": null, "options": {}}], false)
+  }
+  if ($app.countRecords("mock_config_meta") === 0) {
+    var meta = $app.findCollectionByNameOrId("mock_config_meta")
+    var m0 = new Record(meta); m0.set("field", "gemini_model"); m0.set("label", "Gemini author model"); m0.set("ftype", "text"); m0.set("group", "LLM"); m0.set("help", "Primary author model - direct Google Gemini API (needs GEMINI_API_KEY in the container): gemini-3.6-flash, gemini-3.5-flash, gemini-3.5-flash-lite, gemini-2.5-pro"); $app.save(m0);
+var m1 = new Record(meta); m1.set("field", "author_provider"); m1.set("label", "Author provider"); m1.set("ftype", "select"); m1.set("group", "LLM"); m1.set("help", "gemini = Gemini API first (primary) with OpenRouter auto-fallback | openrouter = skip Gemini"); m1.set("options", ["gemini", "openrouter"]); $app.save(m1);
+var m2 = new Record(meta); m2.set("field", "llm_author_model"); m2.set("label", "OpenRouter fallback author"); m2.set("ftype", "text"); m2.set("group", "LLM"); m2.set("help", "OpenRouter model used ONLY when the Gemini author fails or quota is exceeded"); $app.save(m2);
+var m3 = new Record(meta); m3.set("field", "llm_proofread_model"); m3.set("label", "Proofread LLM"); m3.set("ftype", "text"); m3.set("group", "LLM"); m3.set("help", "OpenRouter model for proofreading (always via OpenRouter)"); $app.save(m3);
+var m4 = new Record(meta); m4.set("field", "llm_repair_model"); m4.set("label", "Repair LLM"); m4.set("ftype", "text"); m4.set("group", "LLM"); m4.set("help", "OpenRouter model for repair pass"); $app.save(m4);
+var m5 = new Record(meta); m5.set("field", "dedup_enabled"); m5.set("label", "Check duplicates against previous mockups"); m5.set("ftype", "bool"); m5.set("group", "LLM"); m5.set("help", "Compares new questions against the last N mock exams in the end-user app and steers the author away from repeats"); $app.save(m5);
+var m6 = new Record(meta); m6.set("field", "dedup_sets"); m6.set("label", "Check last N mockups"); m6.set("ftype", "number"); m6.set("group", "LLM"); m6.set("help", "How many of the latest mock exams to check for duplicates (default 5)"); $app.save(m6);
+var m7 = new Record(meta); m7.set("field", "image_primary"); m7.set("label", "Image provider"); m7.set("ftype", "select"); m7.set("group", "Images"); m7.set("help", "fal-ai (Fal.ai) | z-image (Magnific) | black-forest-labs/flux.2-klein-4b (OpenRouter)"); m7.set("options", ["fal-ai/z-image/turbo", "z-image", "black-forest-labs/flux.2-klein-4b"]); $app.save(m7);
+var m8 = new Record(meta); m8.set("field", "image_fallback"); m8.set("label", "Fallback image model"); m8.set("ftype", "text"); m8.set("group", "Images"); m8.set("help", "Deprecated - providers fall back automatically, keep empty"); $app.save(m8);
+var m9 = new Record(meta); m9.set("field", "image_count"); m9.set("label", "Image questions target"); m9.set("ftype", "number"); m9.set("group", "Images"); m9.set("help", "How many questions carry a picture, spread randomly across reading AND listening. Applies to RANDOM generation only - Paper PDF mode follows the paper."); $app.save(m9);
+var m10 = new Record(meta); m10.set("field", "image_count_min"); m10.set("label", "Image questions min"); m10.set("ftype", "number"); m10.set("group", "Images"); m10.set("help", "Minimum (18)"); $app.save(m10);
+var m11 = new Record(meta); m11.set("field", "image_count_max"); m11.set("label", "Image questions max"); m11.set("ftype", "number"); m11.set("group", "Images"); m11.set("help", "Maximum (26)"); $app.save(m11);
+var m12 = new Record(meta); m12.set("field", "tts_model"); m12.set("label", "TTS model"); m12.set("ftype", "select"); m12.set("group", "Audio"); m12.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); m12.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); $app.save(m12);
+var m13 = new Record(meta); m13.set("field", "tts_male_voice"); m13.set("label", "Male listening voice"); m13.set("ftype", "text"); m13.set("group", "Audio"); m13.set("help", "Voice for the male speaker (V1) in listening dialogues. Leave empty to auto-pick per TTS model (fish-audio free male / MAI ko-KR-InJoon). Use the speaker icon to hear a sample."); $app.save(m13);
+var m14 = new Record(meta); m14.set("field", "tts_female_voice"); m14.set("label", "Female listening voice"); m14.set("ftype", "text"); m14.set("group", "Audio"); m14.set("help", "Voice for the female speaker (V2) in listening dialogues. Leave empty to auto-pick per TTS model (fish-audio free female / MAI ko-KR-Haena). Use the speaker icon to hear a sample."); $app.save(m14);
+var m15 = new Record(meta); m15.set("field", "tts_fallback_model"); m15.set("label", "Fallback TTS model"); m15.set("ftype", "select"); m15.set("group", "Audio"); m15.set("help", "Used only if the primary TTS model fails or times out."); m15.set("options", ["microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]); $app.save(m15);
+var m16 = new Record(meta); m16.set("field", "tts_fallback_male_voice"); m16.set("label", "Fallback male listening voice"); m16.set("ftype", "text"); m16.set("group", "Audio"); m16.set("help", "Voice for the male speaker (V1) when the run falls back to the fallback TTS model. Leave empty to auto-pick per fallback model."); $app.save(m16);
+var m17 = new Record(meta); m17.set("field", "tts_fallback_female_voice"); m17.set("label", "Fallback female listening voice"); m17.set("ftype", "text"); m17.set("group", "Audio"); m17.set("help", "Voice for the female speaker (V2) when the run falls back to the fallback TTS model. Leave empty to auto-pick per fallback model."); $app.save(m17);
+var m18 = new Record(meta); m18.set("field", "max_tokens"); m18.set("label", "Max tokens"); m18.set("ftype", "number"); m18.set("group", "Advanced"); m18.set("help", "LLM generation cap"); $app.save(m18);
+var m19 = new Record(meta); m19.set("field", "temperature"); m19.set("label", "Temperature"); m19.set("ftype", "number"); m19.set("group", "Advanced"); m19.set("help", "LLM sampling temp"); $app.save(m19);
+var m20 = new Record(meta); m20.set("field", "timeout_s"); m20.set("label", "Timeout (s)"); m20.set("ftype", "number"); m20.set("group", "Advanced"); m20.set("help", "LLM call timeout"); $app.save(m20);
+var m21 = new Record(meta); m21.set("field", "retries"); m21.set("label", "LLM retries"); m21.set("ftype", "number"); m21.set("group", "Advanced"); m21.set("help", "Retry count"); $app.save(m21);
+var m22 = new Record(meta); m22.set("field", "img_retries"); m22.set("label", "Image retries"); m22.set("ftype", "number"); m22.set("group", "Advanced"); m22.set("help", "Per-model image retries"); $app.save(m22);
+var m23 = new Record(meta); m23.set("field", "push_pb_base"); m23.set("label", "Push base URL"); m23.set("ftype", "text"); m23.set("group", "Push"); m23.set("help", "Client PocketBase base URL"); $app.save(m23);
+var m24 = new Record(meta); m24.set("field", "push_pb_email"); m24.set("label", "Push email"); m24.set("ftype", "text"); m24.set("group", "Push"); m24.set("help", "Client PB admin email"); $app.save(m24);
+var m25 = new Record(meta); m25.set("field", "push_pb_pass"); m25.set("label", "Push password"); m25.set("ftype", "text"); m25.set("group", "Push"); m25.set("help", "Client PB admin password"); $app.save(m25);
+var m26 = new Record(meta); m26.set("field", "push_subject_id"); m26.set("label", "Subject id"); m26.set("ftype", "text"); m26.set("group", "Push"); m26.set("help", "Subject record id on client PB"); $app.save(m26);
+var m27 = new Record(meta); m27.set("field", "push_exam_type"); m27.set("label", "Exam type on push"); m27.set("ftype", "text"); m27.set("group", "Push"); m27.set("help", "exam_type for the auto-created exam (mock/ubt/practice/official)"); $app.save(m27);
+var m28 = new Record(meta); m28.set("field", "push_exam_status"); m28.set("label", "Exam status on push"); m28.set("ftype", "select"); m28.set("group", "Push"); m28.set("help", "draft = review-then-publish | published = immediate"); m28.set("options", ["draft", "published"]); $app.save(m28);
+var m29 = new Record(meta); m29.set("field", "pdf_parser"); m29.set("label", "PDF parser"); m29.set("ftype", "select"); m29.set("group", "PDF"); m29.set("help", "Auto = PyMuPDF (local) first, cloud OCR (Upstage/vision) when the PDF is scanned or garbled | Local only = PyMuPDF, never sends pages to cloud APIs"); m29.set("options", ["auto", "local"]); $app.save(m29);
+var m30 = new Record(meta); m30.set("field", "upscale_pdf_images"); m30.set("label", "Upscale extracted paper images"); m30.set("ftype", "bool"); m30.set("group", "PDF"); m30.set("help", "Every image extracted from the PDF is upscaled via fal-ai/recraft/upscale/crisp before upload (bills FAL credits); on failure the raw extracted image is used"); $app.save(m30);
+var m31 = new Record(meta); m31.set("field", "audio_gap_ms"); m31.set("label", "Gap between clips (ms)"); m31.set("ftype", "number"); m31.set("group", "Audio"); m31.set("help", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."); $app.save(m31);
+var m32 = new Record(meta); m32.set("field", "sample_rate"); m32.set("label", "Sample rate (Hz)"); m32.set("ftype", "number"); m32.set("group", "Audio"); m32.set("help", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."); $app.save(m32);
+var m33 = new Record(meta); m33.set("field", "active"); m33.set("label", "Config enabled"); m33.set("ftype", "bool"); m33.set("group", "General"); m33.set("help", "Use this config"); $app.save(m33);
+
+  // ---- migrations (idempotent, cheap after first run) ----
+  try {
+    var mImg = $app.findFirstRecordByData("mock_config_meta", "field", "image_primary")
+    var cur = mImg.get("options") || []
+    if (typeof cur === "string") { try { cur = JSON.parse(cur) } catch (errP) { cur = [] } }
+    if (cur.indexOf("black-forest-labs/flux.2-klein-4b") === -1) {
+      mImg.set("label", "Image provider")
+      mImg.set("ftype", "select")
+      mImg.set("options", ["fal-ai/z-image/turbo", "z-image", "black-forest-labs/flux.2-klein-4b"])
+      mImg.set("help", "fal-ai (Fal.ai) | z-image (Magnific) | black-forest-labs/flux.2-klein-4b (OpenRouter)")
+      $app.save(mImg)
+    }
+    var oldCfgs = $app.findRecordsByFilter("mock_config", "image_primary = 'nano-banana'", "", 200, 0)
+    for (var cI = 0; cI < oldCfgs.length; cI++) {
+      oldCfgs[cI].set("image_primary", "black-forest-labs/flux.2-klein-4b")
+      $app.save(oldCfgs[cI])
+    }
+  } catch (errM) {}
+  try {
+    var runCols = ["dryrun", "fullrun"]
+    for (var rc = 0; rc < runCols.length; rc++) {
+      var col = $app.findCollectionByNameOrId(runCols[rc])
+      var hasImg = false, hasAud = false
+      for (var fi = 0; fi < col.fields.items().length; fi++) {
+        var fld = col.fields.items()[fi]
+        if (fld.name === "images") hasImg = true
+        if (fld.name === "audio") hasAud = true
+      }
+      if (!hasImg || !hasAud) {
+        if (!hasImg) col.fields.add({"name": "images", "type": "file", "required": false, "options": {"maxSelect": 20, "maxSize": 20971520, "mimeTypes": ["image/webp", "image/png", "image/jpeg"]}})
+        if (!hasAud) col.fields.add({"name": "audio", "type": "file", "required": false, "options": {"maxSelect": 20, "maxSize": 20971520, "mimeTypes": ["audio/mpeg", "audio/mp3", "audio/wav"]}})
+        $app.save(col)
+      } else {
+        // upgrade single-file fields (maxSelect defaulted to 1 on old installs) to multi-file
+        var changed = false
+        for (var fi2 = 0; fi2 < col.fields.items().length; fi2++) {
+          var fld2 = col.fields.items()[fi2]
+          if (fld2.name === "images" || fld2.name === "audio") {
+            var opts = fld2.options || {}
+            var max = Number(opts.maxSelect || 1)
+            if (max < 10) { opts.maxSelect = 20; changed = true }
+            if (!opts.mimeTypes || opts.mimeTypes.length === 0) {
+              opts.mimeTypes = fld2.name === "images" ? ["image/webp", "image/png", "image/jpeg"] : ["audio/mpeg", "audio/mp3", "audio/wav"]
+              changed = true
+            }
+          }
+        }
+        if (changed) $app.save(col)
+      }
+    }
+  } catch (errF) {}
+  try {
+    var cfgCol = $app.findCollectionByNameOrId("mock_config")
+    var hasVoices = false
+    for (var fi3 = 0; fi3 < cfgCol.fields.items().length; fi3++) { if (cfgCol.fields.items()[fi3].name === "tts_voices") hasVoices = true }
+    if (!hasVoices) {
+      cfgCol.fields.add({"name": "tts_voices", "type": "json", "required": false, "maxSize": 65536})
+      $app.save(cfgCol)
+    }
+  } catch (errV) {}
+  try {
+    var cfgCol3 = $app.findCollectionByNameOrId("mock_config")
+    var hasDup = false, hasSets = false
+    for (var fi5 = 0; fi5 < cfgCol3.fields.items().length; fi5++) {
+      var nm2 = cfgCol3.fields.items()[fi5].name
+      if (nm2 === "dedup_enabled") hasDup = true
+      if (nm2 === "dedup_sets") hasSets = true
+    }
+    var changed3 = false
+    if (!hasDup) { cfgCol3.fields.add({"name": "dedup_enabled", "type": "bool", "required": false}); changed3 = true }
+    if (!hasSets) { cfgCol3.fields.add({"name": "dedup_sets", "type": "number", "required": false, "min": 0, "max": 20}); changed3 = true }
+    if (changed3) $app.save(cfgCol3)
+  } catch (errD) {}
+  try {
+    var cfgCol2 = $app.findCollectionByNameOrId("mock_config")
+    var hasProv = false, hasGem = false
+    for (var fi4 = 0; fi4 < cfgCol2.fields.items().length; fi4++) {
+      var nm = cfgCol2.fields.items()[fi4].name
+      if (nm === "author_provider") hasProv = true
+      if (nm === "gemini_model") hasGem = true
+    }
+    var changed2 = false
+    if (!hasProv) { cfgCol2.fields.add({"name": "author_provider", "type": "select", "required": false, "values": ["gemini", "openrouter"], "maxSelect": 1}); changed2 = true }
+    if (!hasGem) { cfgCol2.fields.add({"name": "gemini_model", "type": "text", "required": false, "max": 200}); changed2 = true }
+    if (changed2) $app.save(cfgCol2)
+  } catch (errG) {}
+  try {
+    var cfgCol4 = $app.findCollectionByNameOrId("mock_config")
+    var needFields = [["pdf_parser", "select", {"values": ["auto", "local"], "maxSelect": 1}],
+                      ["upscale_pdf_images", "bool", null],
+                      ["tts_male_voice", "text", {"max": 200}],
+                      ["tts_female_voice", "text", {"max": 200}],
+                      ["tts_fallback_male_voice", "text", {"max": 200}],
+                      ["tts_fallback_female_voice", "text", {"max": 200}]]
+    var changed4 = false
+    for (var nfi = 0; nfi < needFields.length; nfi++) {
+      var nf = needFields[nfi]
+      var hasIt = false
+      for (var fi6 = 0; fi6 < cfgCol4.fields.items().length; fi6++) {
+        if (cfgCol4.fields.items()[fi6].name === nf[0]) hasIt = true
+      }
+      if (!hasIt) {
+        var addOpts = nf[2] || {}
+        addOpts["name"] = nf[0]
+        addOpts["type"] = nf[1]
+        addOpts["required"] = false
+        cfgCol4.fields.add(addOpts)
+        changed4 = true
+      }
+    }
+    if (changed4) $app.save(cfgCol4)
+  } catch (errH) {}
+  try {
+    var mProv = $app.findFirstRecordByData("mock_config_meta", "field", "author_provider")
+    mProv.set("label", "Author provider")
+    mProv.set("ftype", "select")
+    mProv.set("options", ["gemini", "openrouter"])
+    mProv.set("help", "gemini = Gemini API first (primary) with OpenRouter auto-fallback | openrouter = skip Gemini")
+    mProv.set("group", "LLM")
+    $app.save(mProv)
+  } catch (errP) {}
+  try {
+    var mGem = $app.findFirstRecordByData("mock_config_meta", "field", "gemini_model")
+    mGem.set("label", "Gemini author model")
+    mGem.set("ftype", "text")
+    mGem.set("help", "Primary author model - direct Google Gemini API (needs GEMINI_API_KEY in the container): gemini-3.6-flash, gemini-3.5-flash, gemini-3.5-flash-lite, gemini-2.5-pro")
+    mGem.set("group", "LLM")
+    $app.save(mGem)
+  } catch (errQ) {}
+  try {
+    var mAuth = $app.findFirstRecordByData("mock_config_meta", "field", "llm_author_model")
+    mAuth.set("label", "OpenRouter fallback author")
+    mAuth.set("help", "OpenRouter model used ONLY when the Gemini author fails or quota is exceeded")
+    $app.save(mAuth)
+  } catch (errR) {}
+  try {
+    var pdfMetaDefs = [
+      ["pdf_parser", "PDF parser", "select", "PDF", "Auto = PyMuPDF (local) first, cloud OCR (Upstage/Mistral) when the PDF is scanned or garbled | Local only = PyMuPDF, never sends pages to cloud APIs", ["auto", "local"]],
+      ["upscale_pdf_images", "Upscale extracted paper images", "bool", "PDF", "Every image extracted from the PDF is upscaled via fal-ai/recraft/upscale/crisp before upload (bills FAL credits); on failure the raw extracted image is used", null],
+      ["tts_male_voice", "Male listening voice", "text", "Audio", "Voice for the male speaker (V1) in listening dialogues. Leave empty to auto-pick per TTS model (fish-audio free male / MAI ko-KR-InJoon). Use the speaker icon to hear a sample.", null],
+      ["tts_female_voice", "Female listening voice", "text", "Audio", "Voice for the female speaker (V2) in listening dialogues. Leave empty to auto-pick per TTS model (fish-audio free female / MAI ko-KR-Haena). Use the speaker icon to hear a sample.", null],
+      ["tts_fallback_male_voice", "Fallback male listening voice", "text", "Audio", "Voice for the male speaker (V1) when the run falls back to the fallback TTS model. Leave empty to auto-pick per fallback model.", null],
+      ["tts_fallback_female_voice", "Fallback female listening voice", "text", "Audio", "Voice for the female speaker (V2) when the run falls back to the fallback TTS model. Leave empty to auto-pick per fallback model.", null],
+      ["image_count", "Image questions target", "number", "Images", "How many questions carry a picture, spread randomly across reading AND listening. Applies to RANDOM generation only - Paper PDF mode follows the paper.", null]
+    ]
+    var mColM = $app.findCollectionByNameOrId("mock_config_meta")
+    for (var pmi = 0; pmi < pdfMetaDefs.length; pmi++) {
+      var pm = pdfMetaDefs[pmi]
+      var mRec = null
+      try { mRec = $app.findFirstRecordByData("mock_config_meta", "field", pm[0]) } catch (errM2) {}
+      if (!mRec) { mRec = new Record(mColM); mRec.set("field", pm[0]) }
+      mRec.set("label", pm[1])
+      mRec.set("ftype", pm[2])
+      mRec.set("group", pm[3])
+      mRec.set("help", pm[4])
+      if (pm[5]) mRec.set("options", pm[5])
+      $app.save(mRec)
+    }
+  } catch (errS) {}
+  try {
+    var mT = $app.findFirstRecordByData("mock_config_meta", "field", "tts_model")
+    if (mT.getString("ftype") !== "select") { mT.set("ftype", "select"); mT.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); mT.set("label", "TTS model"); mT.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); $app.save(mT) }
+  } catch (errT) {}
+  try {
+    // upsert missing default TTS model seeds (existing installs never got them)
+    var mCol = $app.findCollectionByNameOrId("mock_models")
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"]]
+    for (var si = 0; si < seedDefs.length; si++) {
+      var exists = false
+      try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
+      if (!exists) {
+        var mRec = new Record(mCol)
+        mRec.set("kind", seedDefs[si][0]); mRec.set("model", seedDefs[si][1]); mRec.set("display", seedDefs[si][2]); mRec.set("notes", seedDefs[si][3])
+        $app.save(mRec)
+      }
+    }
+  } catch (errU) {}
+
+  }
+  if ($app.countRecords("mock_models") === 0) {
+    var models = $app.findCollectionByNameOrId("mock_models")
+    var k0 = new Record(models); k0.set("kind", "llm"); k0.set("model", "google/gemini-2.5-flash"); k0.set("display", "Gemini 2.5 Flash"); k0.set("notes", "fast author/proofread"); $app.save(k0);
+var k1 = new Record(models); k1.set("kind", "llm"); k1.set("model", "google/gemini-3.5-flash"); k1.set("display", "Gemini 3.5 Flash"); k1.set("notes", "repair pass"); $app.save(k1);
+var k2 = new Record(models); k2.set("kind", "llm"); k2.set("model", "qwen/qwen3.5-flash-02-23"); k2.set("display", "Qwen 3.5 Flash"); k2.set("notes", "proofread"); $app.save(k2);
+var k3 = new Record(models); k3.set("kind", "llm"); k3.set("model", "claude-sonnet-4.5"); k3.set("display", "Claude Sonnet 4.5"); k3.set("notes", "alt author"); $app.save(k3);
+var k4 = new Record(models); k4.set("kind", "llm"); k4.set("model", "deepseek/deepseek-v4-pro"); k4.set("display", "DeepSeek V4 Pro"); k4.set("notes", "alt repair"); $app.save(k4);
+var k5 = new Record(models); k5.set("kind", "tts"); k5.set("model", "fish-audio/s2.1-pro-free:free"); k5.set("display", "Fish Audio S2.1 Pro (free)"); k5.set("notes", "default TTS - 44100 Hz"); $app.save(k5);
+var k6 = new Record(models); k6.set("kind", "tts"); k6.set("model", "microsoft/mai-voice-2-flash"); k6.set("display", "MAI Voice 2 Flash"); k6.set("notes", "fallback TTS - 24000 Hz"); $app.save(k6);
+var k7 = new Record(models); k7.set("kind", "tts"); k7.set("model", "x-ai/grok-voice-tts-1.0"); k7.set("display", "Grok Voice TTS"); k7.set("notes", "alt TTS - 44100 Hz"); $app.save(k7);
+var k8 = new Record(models); k8.set("kind", "tts"); k8.set("model", "google/gemini-3.1-flash-tts-preview"); k8.set("display", "Gemini Flash TTS"); k8.set("notes", "alt TTS - 24000 Hz"); $app.save(k8);
+var k9 = new Record(models); k9.set("kind", "tts"); k9.set("model", "hexgrad/kokoro-82m"); k9.set("display", "Kokoro 82M"); k9.set("notes", "alt TTS - open weights"); $app.save(k9);
+var k10 = new Record(models); k10.set("kind", "tts"); k10.set("model", "mistralai/voxtral-mini-tts-2603"); k10.set("display", "Voxtral Mini TTS"); k10.set("notes", "alt TTS"); $app.save(k10);
+var k11 = new Record(models); k11.set("kind", "image"); k11.set("model", "z-image"); k11.set("display", "z-image"); k11.set("notes", "primary image gen (5 credits/img)"); $app.save(k11);
+var k12 = new Record(models); k12.set("kind", "image"); k12.set("model", "p-image-ideogram-1k"); k12.set("display", "P-Image Ideogram 1K"); k12.set("notes", "fallback (may 404)"); $app.save(k12);
+
+  }
+}
+
+function checkKey(apiKey) {
+  if (!apiKey || apiKey.length === 0) return { error: "missing X-API-Key header" }
+  var hash = $security.sha256(apiKey)
+  var client = null
+  try { client = $app.findFirstRecordByData("mock_clients", "api_key_hash", hash) } catch (err) {}
+  if (!client) return { error: "invalid API key" }
+  if (!client.getBool("active")) return { error: "client is disabled" }
+  return { client: client }
+}
+
+function ensureConfig(clientId) {
+  var cfg = null
+  try { cfg = $app.findFirstRecordByData("mock_config", "client", clientId) } catch (err) {}
+  if (!cfg) {
+    var col = $app.findCollectionByNameOrId("mock_config")
+    cfg = new Record(col)
+    cfg.set("client", clientId)
+    cfg.set("name", "default"); cfg.set("llm_author_model", "google/gemini-2.5-flash"); cfg.set("author_provider", "gemini"); cfg.set("gemini_model", "gemini-3.5-flash"); cfg.set("dedup_enabled", true); cfg.set("dedup_sets", 5); cfg.set("llm_proofread_model", "qwen/qwen3.5-flash-02-23"); cfg.set("llm_repair_model", "google/gemini-2.5-flash"); cfg.set("image_primary", "z-image"); cfg.set("image_fallback", "p-image-ideogram-1k"); cfg.set("tts_model", "fish-audio/s2.1-pro-free:free"); cfg.set("tts_fallback_model", "microsoft/mai-voice-2-flash"); cfg.set("tts_fallback_voice", "ko-KR-Haena:MAI-Voice-2"); cfg.set("tts_male_voice", ""); cfg.set("tts_female_voice", ""); cfg.set("tts_fallback_male_voice", ""); cfg.set("tts_fallback_female_voice", ""); cfg.set("pdf_parser", "auto"); cfg.set("upscale_pdf_images", true); cfg.set("question_count", 40); cfg.set("reading_count", 20); cfg.set("image_count", 22); cfg.set("image_count_min", 18); cfg.set("image_count_max", 26); cfg.set("difficulty_profile", "creative+medium"); cfg.set("marks_per_question", 1); cfg.set("max_tokens", 32000); cfg.set("temperature", 0.7); cfg.set("timeout_s", 600); cfg.set("retries", 3); cfg.set("img_retries", 4); cfg.set("push_pb_base", "https://ubt.wts.com.np"); cfg.set("push_pb_email", "shiva@cld.com.np"); cfg.set("push_pb_pass", ""); cfg.set("push_subject_id", "illfosglou0e3j6"); cfg.set("push_exam_type", "mock"); cfg.set("push_exam_status", "draft"); cfg.set("audio_gap_ms", 300); cfg.set("sample_rate", 44100); cfg.set("audio_workers", 4); cfg.set("prompts_json", {}); cfg.set("active", true); 
+    $app.save(cfg)
+  }
+  return cfg
+}
+
+try {
+  ensureCollections()
+  var q = e.request.url.query()
+  var cid = q.get("client") || ""
+  if (!cid) return e.json(400, { error: "client param required" })
+  var client = null
+  try { client = $app.findRecordById("mock_clients", cid) } catch (err) { client = null }
+  if (!client) return e.json(404, { error: "client not found" })
+  var delFor = function (col) {
+    var n = 0
+    var recs = $app.findRecordsByFilter(col, "client = '" + cid + "'", "", 1000, 0)
+    for (var i = 0; i < recs.length; i++) { try { $app.delete(recs[i]); n++ } catch (err) {} }
+    return n
+  }
+  var deleted = {
+    configs: delFor("mock_config"),
+    jobs: delFor("mock_jobs"),
+    dryruns: delFor("dryrun"),
+    fullruns: delFor("fullrun")
+  }
+  $app.delete(client)
+  return e.json(200, { ok: true, deleted: deleted })
+} catch (err) {
+  return e.json(500, { error: String(err) })
+}
+
+}, $apis.requireSuperuserAuth())
+
 routerAdd("GET", "/api/creator/jobs", (e) => {
 
 function ensureCollections() {

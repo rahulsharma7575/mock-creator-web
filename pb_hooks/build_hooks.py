@@ -935,6 +935,40 @@ try {
 ),
 )
 
+# POST /api/creator/delete-client?client=<id> - superuser only - cascade-delete a client
+# (PocketBase blocks direct deletes: mock_config/mock_jobs/dryrun/fullrun reference the
+# client via required relations, so this hook removes all related records first).
+route(
+    "delete_client", "POST", "/api/creator/delete-client", "$apis.requireSuperuserAuth()",
+    """
+try {
+  ensureCollections()
+  var q = e.request.url.query()
+  var cid = q.get("client") || ""
+  if (!cid) return e.json(400, { error: "client param required" })
+  var client = null
+  try { client = $app.findRecordById("mock_clients", cid) } catch (err) { client = null }
+  if (!client) return e.json(404, { error: "client not found" })
+  var delFor = function (col) {
+    var n = 0
+    var recs = $app.findRecordsByFilter(col, "client = '" + cid + "'", "", 1000, 0)
+    for (var i = 0; i < recs.length; i++) { try { $app.delete(recs[i]); n++ } catch (err) {} }
+    return n
+  }
+  var deleted = {
+    configs: delFor("mock_config"),
+    jobs: delFor("mock_jobs"),
+    dryruns: delFor("dryrun"),
+    fullruns: delFor("fullrun")
+  }
+  $app.delete(client)
+  return e.json(200, { ok: true, deleted: deleted })
+} catch (err) {
+  return e.json(500, { error: String(err) })
+}
+""",
+)
+
 # GET /api/creator/jobs - API-key: own jobs; superuser: all jobs (+ ?client=, ?status=)
 route(
     "jobs_list", "GET", "/api/creator/jobs", None,
