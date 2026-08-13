@@ -298,7 +298,7 @@ createApp({
     loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();this.loadFalStatus();this.loadOrBalance();this.loadGeminiStatus();this.loadMagnificStatus();this.loadUpstageStatus();this.ensureOrModels();this.$nextTick(()=>this.viewEnter());},
     async loadClients(){try{const r=await api('/api/collections/mock_clients/records?perPage=200&sort=name');this.clients=r.items||[];if(!this.gClient){const act=this.clients.find(c=>c.active)||this.clients[0];if(act)this.gClient=act.id;}if(!this.qs.client&&this.gClient)this.qs.client=this.gClient;}catch(e){this.toast('clients: '+e.message,'err');}},
     audioOrdered(){const want=['tts_model','tts_male_voice','tts_female_voice','tts_fallback_model','tts_fallback_male_voice','tts_fallback_female_voice','audio_gap_ms','sample_rate'];const by={};this.meta.forEach(m=>{if(m.group==='Audio')by[m.field]=m;});return want.map(f=>by[f]).filter(Boolean);},
-    audioCol(field){if(field==='audio_gap_ms'||field==='sample_rate')return'md:col-span-2';const prim=['tts_model','tts_male_voice','tts_female_voice'];return prim.includes(field)?'md:col-start-1':'md:col-start-2';},
+    audioCol(field){if(field==='audio_gap_ms'||field==='sample_rate')return'a-span2';const prim=['tts_model','tts_male_voice','tts_female_voice'];return prim.includes(field)?'a-col1':'a-col2';},
     voiceModelFor(field){const c=this.cfgData||{};if(field==='tts_male_voice'||field==='tts_female_voice')return c.tts_model||'';return c.tts_fallback_model||'';},
     openVoicePreview(field){if(!this.cfgData||!this.cfgData[field])return;this.voicePreview={open:true,field,text:'안녕하세요. 음성 미리듣기입니다.',busy:false,error:'',usedFallback:false};},
     closeVoicePreview(){this.voicePreview.open=false;},
@@ -311,8 +311,9 @@ createApp({
       if(!models.length){vp.error='No TTS model set';vp.busy=false;return;}
       for(let mi=0;mi<models.length;mi++){
         try{
-          const r=await fetch('/api/creator/tts-preview?model='+encodeURIComponent(models[mi])+'&voice='+encodeURIComponent(voice)+'&text='+encodeURIComponent(text));
-          if(!r.ok){let msg='HTTP '+r.status;try{const j=await r.json();msg=j.error||msg;}catch(e){}throw new Error(msg);}
+          const headers={};const tk=localStorage.getItem(LS_TK);if(tk)headers['Authorization']='Bearer '+tk;
+          const r=await fetch('/api/creator/tts-preview?model='+encodeURIComponent(models[mi])+'&voice='+encodeURIComponent(voice)+'&text='+encodeURIComponent(text),{headers});
+          if(!r.ok){let msg='HTTP '+r.status;try{const j=await r.json();msg=j.error||j.message||msg;}catch(e){}throw new Error(msg);}
           const blob=await r.blob();if(!blob||blob.size<100)throw new Error('empty audio');
           const url=URL.createObjectURL(blob);
           if(this._vpAudio){this._vpAudio.pause();URL.revokeObjectURL(this._vpAudio._url||'');}
