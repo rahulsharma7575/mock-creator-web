@@ -96,33 +96,6 @@ createApp({
     listeningCount(){const c=this.cfgData.question_count||40;const r=this.cfgData.reading_count||20;return Math.max(0,c-r);},
     orCount(){return Object.keys(this.orModels).length;},
     voiceOptions(){const base=['ko-KR-InJoon:MAI-Voice-2','ko-KR-Haena:MAI-Voice-2','ko-KR-InJoonNeural','ko-KR-SunHiNeural','ko-KR-HyunsuNeural','ko-KR-YuJinNeural'];const c=this.cfgData;if(c){if(c.tts_male_voice&&!base.includes(c.tts_male_voice))base.unshift(c.tts_male_voice);if(c.tts_female_voice&&!base.includes(c.tts_female_voice))base.unshift(c.tts_female_voice);if(c.tts_fallback_male_voice&&!base.includes(c.tts_fallback_male_voice))base.unshift(c.tts_fallback_male_voice);if(c.tts_fallback_female_voice&&!base.includes(c.tts_fallback_female_voice))base.unshift(c.tts_fallback_female_voice);}return base;},
-    audioOrdered(){const want=['tts_model','tts_male_voice','tts_female_voice','tts_fallback_model','tts_fallback_male_voice','tts_fallback_female_voice','audio_gap_ms','sample_rate'];const by={};this.meta.forEach(m=>{if(m.group==='Audio')by[m.field]=m;});return want.map(f=>by[f]).filter(Boolean);},
-    audioCol(field){if(field==='audio_gap_ms'||field==='sample_rate')return'md:col-span-2';const prim=['tts_model','tts_male_voice','tts_female_voice'];return prim.includes(field)?'md:col-start-1':'md:col-start-2';},
-    voiceModelFor(field){const c=this.cfgData||{};if(field==='tts_male_voice'||field==='tts_female_voice')return c.tts_model||'';return c.tts_fallback_model||'';},
-    openVoicePreview(field){if(!this.cfgData||!this.cfgData[field])return;this.voicePreview={open:true,field,text:'안녕하세요. 음성 미리듣기입니다.',busy:false,error:'',usedFallback:false};},
-    closeVoicePreview(){this.voicePreview.open=false;},
-    async playVoicePreview(){
-      const vp=this.voicePreview;if(!vp||!vp.field||vp.busy)return;
-      const c=this.cfgData||{};const voice=c[vp.field];if(!voice)return;
-      vp.busy=true;vp.error='';vp.usedFallback=false;
-      const text=vp.text||'안녕하세요. 음성 미리듣기입니다.';
-      const models=[this.voiceModelFor(vp.field),c.tts_fallback_model||''].filter(Boolean);
-      if(!models.length){vp.error='No TTS model set';vp.busy=false;return;}
-      for(let mi=0;mi<models.length;mi++){
-        try{
-          const r=await fetch('/api/creator/tts-preview?model='+encodeURIComponent(models[mi])+'&voice='+encodeURIComponent(voice)+'&text='+encodeURIComponent(text));
-          if(!r.ok){let msg='HTTP '+r.status;try{const j=await r.json();msg=j.error||msg;}catch(e){}throw new Error(msg);}
-          const blob=await r.blob();if(!blob||blob.size<100)throw new Error('empty audio');
-          const url=URL.createObjectURL(blob);
-          if(this._vpAudio){this._vpAudio.pause();URL.revokeObjectURL(this._vpAudio._url||'');}
-          const au=new Audio(url);au._url=url;this._vpAudio=au;
-          vp.usedFallback=mi>0;
-          au.play().catch(()=>{vp.error='Playback blocked by the browser - click again';});
-          vp.busy=false;return;
-        }catch(e){vp.error='Model '+(mi===0?models[0]:models[1])+' failed: '+e.message;}
-      }
-      vp.busy=false;
-    },
     apiAllOk(){const sts=[this.geminiStatus&&this.geminiStatus.valid,this.orBalance&&this.orBalance.ok,this.falStatus&&this.falStatus.ok];if(!(this.geminiStatus||this.orBalance||this.falStatus))return null;if(!sts.some(Boolean))return false;return sts.every(Boolean);},
     costEst(){
       const q=+this.cfgData.question_count||40,r=+this.cfgData.reading_count||20,img=+this.cfgData.image_count||18,list=Math.max(0,q-r);
@@ -324,6 +297,33 @@ createApp({
     logout(){localStorage.removeItem(LS_TK);localStorage.removeItem(LS_EM);clearInterval(this.drawerTimer);this.drawerTimer=null;this.drawerJob=null;this.authed=false;this.who='';this.view='overview';this.clients=[];this.jobs=[];this.configs=[];this.cfgClient='';this.cfg=null;},
     loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();this.loadFalStatus();this.loadOrBalance();this.loadGeminiStatus();this.loadMagnificStatus();this.loadUpstageStatus();this.ensureOrModels();this.$nextTick(()=>this.viewEnter());},
     async loadClients(){try{const r=await api('/api/collections/mock_clients/records?perPage=200&sort=name');this.clients=r.items||[];if(!this.gClient){const act=this.clients.find(c=>c.active)||this.clients[0];if(act)this.gClient=act.id;}if(!this.qs.client&&this.gClient)this.qs.client=this.gClient;}catch(e){this.toast('clients: '+e.message,'err');}},
+    audioOrdered(){const want=['tts_model','tts_male_voice','tts_female_voice','tts_fallback_model','tts_fallback_male_voice','tts_fallback_female_voice','audio_gap_ms','sample_rate'];const by={};this.meta.forEach(m=>{if(m.group==='Audio')by[m.field]=m;});return want.map(f=>by[f]).filter(Boolean);},
+    audioCol(field){if(field==='audio_gap_ms'||field==='sample_rate')return'md:col-span-2';const prim=['tts_model','tts_male_voice','tts_female_voice'];return prim.includes(field)?'md:col-start-1':'md:col-start-2';},
+    voiceModelFor(field){const c=this.cfgData||{};if(field==='tts_male_voice'||field==='tts_female_voice')return c.tts_model||'';return c.tts_fallback_model||'';},
+    openVoicePreview(field){if(!this.cfgData||!this.cfgData[field])return;this.voicePreview={open:true,field,text:'안녕하세요. 음성 미리듣기입니다.',busy:false,error:'',usedFallback:false};},
+    closeVoicePreview(){this.voicePreview.open=false;},
+    async playVoicePreview(){
+      const vp=this.voicePreview;if(!vp||!vp.field||vp.busy)return;
+      const c=this.cfgData||{};const voice=c[vp.field];if(!voice)return;
+      vp.busy=true;vp.error='';vp.usedFallback=false;
+      const text=vp.text||'안녕하세요. 음성 미리듣기입니다.';
+      const models=[this.voiceModelFor(vp.field),c.tts_fallback_model||''].filter(Boolean);
+      if(!models.length){vp.error='No TTS model set';vp.busy=false;return;}
+      for(let mi=0;mi<models.length;mi++){
+        try{
+          const r=await fetch('/api/creator/tts-preview?model='+encodeURIComponent(models[mi])+'&voice='+encodeURIComponent(voice)+'&text='+encodeURIComponent(text));
+          if(!r.ok){let msg='HTTP '+r.status;try{const j=await r.json();msg=j.error||msg;}catch(e){}throw new Error(msg);}
+          const blob=await r.blob();if(!blob||blob.size<100)throw new Error('empty audio');
+          const url=URL.createObjectURL(blob);
+          if(this._vpAudio){this._vpAudio.pause();URL.revokeObjectURL(this._vpAudio._url||'');}
+          const au=new Audio(url);au._url=url;this._vpAudio=au;
+          vp.usedFallback=mi>0;
+          au.play().catch(()=>{vp.error='Playback blocked by the browser - click again';});
+          vp.busy=false;return;
+        }catch(e){vp.error='Model '+(mi===0?models[0]:models[1])+' failed: '+e.message;}
+      }
+      vp.busy=false;
+    },
     onGlobalClient(){const id=this.gClient;this.qs.client=id;if(this.cfgClient!==id){this.cfgClient=id;if(this.view==='configs')this.loadConfig();}if(!id)this.cfgClient='';},
     genTypeLabel(j){const g=Number((j&&j.gen_type)||1);if(g===2)return{label:'Book PDF',c:'var(--blue)'};if(g===3)return{label:'Paper PDF',c:'var(--purple)'};return null;},
     toggleApiMenu(){this.apiMenu=!this.apiMenu;},
