@@ -185,7 +185,14 @@ def _pymupdf_parse(path, max_pages, want_images, progress=None):
 
 
 def _pymupdf_images(doc, page, pno):
-    """Extract embedded raster images as crisp 2.5x region renders (PNG bytes)."""
+    """Extract question figures from a page.
+
+    Primary: native embedded-image pixels via xref (doc.extract_image) - exact
+    original image, zero crop math (fixes 'random crop' artifacts on real papers).
+    Fallback: 2.5x region render when native extraction is unavailable.
+
+    Decor is skipped: tiny images (<MIN_IMG_PX), header/footer band, full-page
+    fills. Images repeated on 3+ pages (logos/headers) are dropped in _finalize."""
     fitz = _fitz()
     out = []
     pw, ph = page.rect.width, page.rect.height
@@ -193,7 +200,7 @@ def _pymupdf_images(doc, page, pno):
         infos = page.get_image_info(xrefs=True)
     except Exception:
         return out
-    seen = set()
+    seen_xrefs = set()
     for info in infos:
         bbox = info.get("bbox")
         if not bbox:
@@ -201,25 +208,45 @@ def _pymupdf_images(doc, page, pno):
         x0, y0, x1, y1 = bbox
         w, h = max(0.0, x1 - x0), max(0.0, y1 - y0)
         if w < MIN_IMG_PX or h < MIN_IMG_PX:
-            continue
+            continue  # tiny decoration
         if (w * h) / max(1.0, pw * ph) > FULL_PAGE_RATIO:
-            continue  # full-page scan/background, not a question figure
-        key = (round(x0), round(y0), round(x1), round(y1))
-        if key in seen:
-            continue
-        seen.add(key)
-        try:
-            mat = fitz.Matrix(2.5, 2.5)
-            clip = fitz.Rect(x0 - 2, y0 - 2, x1 + 2, y1 + 2)
-            pix = page.get_pixmap(matrix=mat, clip=clip, alpha=False)
-            png = pix.tobytes("png")
-            if len(png) > 6 * 1024 * 1024:
+            continue  # full-page fill/scan, not a question figure
+        if y0 < ph * 0.09 or y1 > ph * 0.97:
+            continue  # header/footer band (page furniture)
+        xref = info.get("xref") or 0
+        if xref and xref in seen_xrefs:
+            continue  # same image object already taken
+        if xref:
+            seen_xrefs.add(xref)
+        png = None
+        if xref:
+            try:
+                raw = doc.extract_image(xref).get("image")
+                if raw:
+                    from PIL import Image as PILImage
+                    im = PILImage.open(io.BytesIO(raw))
+                    im.load()
+                    if im.width < MIN_IMG_PX or im.height < MIN_IMG_PX:
+                        continue
+                    buf = io.BytesIO()
+                    im.convert("RGB").save(buf, "PNG")  # recraft/crisp needs PNG input
+                    png = buf.getvalue()
+            except Exception:
+                png = None
+        if png is None:
+            # fallback: crisp region render
+            try:
+                mat = fitz.Matrix(2.5, 2.5)
+                clip = fitz.Rect(x0 - 2, y0 - 2, x1 + 2, y1 + 2)
+                pix = page.get_pixmap(matrix=mat, clip=clip, alpha=False)
+                png = pix.tobytes("png")
+            except Exception:
                 continue
-            out.append({"id": "p%d_img%d" % (pno + 1, len(out) + 1),
-                        "page": pno + 1, "bbox": [round(x0), round(y0), round(x1), round(y1)],
-                        "png": png})
-        except Exception:
+        if not png or len(png) > 6 * 1024 * 1024:
             continue
+        out.append({"id": "p%d_img%d" % (pno + 1, len(out) + 1),
+                    "page": pno + 1, "bbox": [round(x0), round(y0), round(x1), round(y1)],
+                    "xref": xref, "png": png})
         if len(out) >= MAX_IMAGES:
             break
     return out
@@ -420,7 +447,9 @@ def parse_pdf(path, gen_type=3, parser="auto", upstage_key="", or_key="", max_pa
 
     gen_type: 2 = book (first-chapters slice, text+markdown tables only)
               3 = printed paper (question pages only, images extracted + mapped)
-    parser:   "auto" (full chain) | "local" (PyMuPDF only)
+    parser:   "auto" | "local" (PyMuPDF) | "upstage" | "mistral" (vision OCR)
+              The SELECTED parser runs first; on failure or quality-gate failure
+              it moves to the other online parser, then local as last resort.
     progress: optional callable(msg) — live step-by-step progress for job logs.
     Raises PdfParseError with a clear message when nothing usable was extracted.
     """
@@ -434,59 +463,88 @@ def parse_pdf(path, gen_type=3, parser="auto", upstage_key="", or_key="", max_pa
     max_pages = min(max_pages, MAX_PAGES)
     want_images = gen_type == 3
     filename = os.path.basename(path)
+    sel = str(parser or "auto").strip().lower()
 
+    # deterministic order: selected first -> other online -> local last
+    chain = [sel]
+    for p in ("local", "upstage", "mistral"):
+        if p not in chain:
+            chain.append(p)
+    if sel == "auto":
+        chain = ["local", "upstage", "mistral"]
+
+    local_pages, local_images = [], []
     local_error = ""
-    pages, images = [], []
-    try:
-        pages, images = _pymupdf_parse(path, max_pages, want_images, progress)
-        if pages and _doc_usable(pages):
-            return _finalize(pages, images, gen_type, "pymupdf", progress)
-        local_error = ("PyMuPDF text layer unusable "
-                       "(avg %d letters/page — scanned or garbled)" %
-                       (sum(_text_stats(p.get("text", ""))["letters"] for p in pages) // max(1, len(pages))))
-        if progress:
-            progress("text layer missing/garbled (%s) — promoting to cloud OCR" % local_error)
-    except PdfParseError as e:
-        local_error = str(e)
-        if progress:
-            progress("PyMuPDF failed: %s" % local_error[:160])
 
-    if parser == "local":
-        raise PdfParseError("PDF has no usable text layer (%s) and PDF parser is set to 'Local only' — "
-                            "set it to Auto or add UPSTAGE_API_KEY / OpenRouter key for OCR" % local_error)
+    def try_local():
+        nonlocal local_pages, local_images, local_error
+        try:
+            local_pages, local_images = _pymupdf_parse(path, max_pages, want_images, progress)
+            if local_pages and _doc_usable(local_pages):
+                return _finalize(local_pages, local_images, gen_type, "pymupdf", progress)
+            local_error = ("PyMuPDF text layer unusable "
+                           "(avg %d letters/page — scanned or garbled)" %
+                           (sum(_text_stats(p.get("text", ""))["letters"] for p in local_pages) // max(1, len(local_pages))))
+            if progress:
+                progress("text layer missing/garbled (%s) — promoting to cloud OCR" % local_error)
+        except PdfParseError as e:
+            local_error = str(e)
+            if progress:
+                progress("PyMuPDF failed: %s" % local_error[:160])
+        return None
 
-    if upstage_key:
+    def try_upstage():
+        if not upstage_key:
+            if progress:
+                progress("Upstage skipped — UPSTAGE_API_KEY not set")
+            return None
         try:
             up_pages, up_images = _upstage_parse(path, filename, max_pages, upstage_key, progress)
             if up_pages and _doc_usable(up_pages):
                 return _finalize(up_pages, up_images, gen_type, "upstage", progress)
             if progress:
-                progress("Upstage output failed the quality gate, trying vision OCR")
+                progress("Upstage output failed the quality gate, trying the next parser")
         except PdfParseError as e:
             if progress:
                 progress("Upstage failed: %s" % str(e)[:160])
+        return None
 
-    if or_key:
-        try:
-            mi_pages, mi_images = _vision_ocr(path, max_pages, or_key, pages, progress)
-            if mi_pages and _doc_usable(mi_pages):
-                return _finalize(mi_pages, mi_images, gen_type, "vision-ocr", progress)
+    def try_mistral():
+        if not or_key:
             if progress:
-                progress("vision OCR output failed the quality gate")
+                progress("Mistral (vision OCR) skipped — OpenRouter key not set")
+            return None
+        try:
+            mi_pages, mi_images = _vision_ocr(path, max_pages, or_key, local_pages, progress)
+            if mi_pages and _doc_usable(mi_pages):
+                return _finalize(mi_pages, mi_images, gen_type, "mistral", progress)
+            if progress:
+                progress("Mistral (vision OCR) output failed the quality gate")
         except PdfParseError as e:
             if progress:
-                progress("vision OCR failed: %s" % str(e)[:160])
+                progress("Mistral (vision OCR) failed: %s" % str(e)[:160])
+        return None
+
+    attempts = {"local": try_local, "upstage": try_upstage, "mistral": try_mistral}
+    for name in chain:
+        if name not in attempts:
+            continue
+        if progress:
+            progress("parser stage: %s" % name)
+        res = attempts[name]()
+        if res is not None:
+            return res
 
     # best-effort: keep whatever PyMuPDF found (even low quality) so the job can still run
-    if pages and any(_text_stats(p.get("text", ""))["letters"] >= 10 for p in pages):
+    if local_pages and any(_text_stats(p.get("text", ""))["letters"] >= 10 for p in local_pages):
         if progress:
             progress("WARNING: using low-quality local text (%s)" % local_error)
-        return _finalize(pages, images, gen_type, "pymupdf(low quality)", progress)
+        return _finalize(local_pages, local_images, gen_type, "pymupdf(low quality)", progress)
 
     raise PdfParseError(
         "could not parse this PDF (10 MB limit, %d page limit). %s. "
         "If the PDF is scanned or contains no selectable text, make sure the container has "
-        "UPSTAGE_API_KEY or an OpenRouter key (vision OCR) configured." % (MAX_PAGES, local_error))
+        "UPSTAGE_API_KEY or an OpenRouter key (Mistral vision OCR) configured." % (MAX_PAGES, local_error))
 
 
 def _finalize(pages, images, gen_type, parser_used, progress=None):
@@ -499,6 +557,13 @@ def _finalize(pages, images, gen_type, parser_used, progress=None):
     if gen_type == 3:
         q_pages = [p for p in pages if p["kind"] == "question"]
         images = [i for i in images if i.get("page") in {p["page"] for p in q_pages}]
+        # drop identical images repeated on 3+ pages (headers/logos/page furniture)
+        xref_counts = {}
+        for i in images:
+            xr = i.get("xref") or 0
+            if xr:
+                xref_counts[xr] = xref_counts.get(xr, 0) + 1
+        images = [i for i in images if (xref_counts.get(i.get("xref") or 0, 0) or 1) < 3]
         _map_images_to_questions(q_pages, images)
     else:
         images = []
@@ -545,7 +610,7 @@ def png_to_bytes(buf):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("usage: python pdf_parser.py <file.pdf> [book|paper] [auto|local]")
+        print("usage: python pdf_parser.py <file.pdf> [book|paper] [auto|local|upstage|mistral]")
         sys.exit(1)
     mode = sys.argv[2] if len(sys.argv) > 2 else "paper"
     parser = sys.argv[3] if len(sys.argv) > 3 else "auto"

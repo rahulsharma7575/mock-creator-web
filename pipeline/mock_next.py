@@ -499,6 +499,10 @@ HARD RULES:
 - The book content may contain page numbers, TOC, ads or repeated headers — ignore them. Use the
   book's real material: its grammar explanations, example sentences, vocabulary and dialogues.
 - Every question MUST trace back to something in the book (a grammar point, word, topic or situation).
+- KOREAN ONLY (absolute): EVERYTHING the student reads — question_text, all 4 options,
+  explanation and every listening audioScript turn — MUST be written in Korean Hangul.
+  English is allowed ONLY in the "type" field and in "imagePrompt". English-heavy questions
+  fail validation and the exam is regenerated.
 - Use the exact same JSON field set as the REFERENCE EXAMPLES in AUTHOR_USER (number, section,
   difficulty, type, question_text, options, correct_answer, marks, explanation, requiresImage,
   imagePrompt, listening). Return the JSON array ONLY — no markdown, no commentary."""
@@ -534,6 +538,11 @@ HARD RULES:
   generated fresh). The image count follows the paper — do not add or remove image questions beyond
   what the paper implies.
 - Ignore answer keys, instruction pages, scoring rules and anything that is not a question.
+- KOREAN ONLY (absolute): EVERYTHING the student reads — question_text, all 4 options,
+  explanation and every listening audioScript turn — MUST be written in Korean Hangul.
+  NEVER translate the paper to English. English is allowed ONLY in the "type" field and
+  in "imagePrompt". If a question comes out English-heavy it fails validation and the exam
+  is regenerated.
 - KOREAN QUALITY: fix nothing that is correct in the paper, but clean up any OCR artifacts
   (garbled characters, broken spacing) into natural Korean.
 Return the JSON array ONLY — no markdown, no commentary."""
@@ -542,6 +551,38 @@ Return the JSON array ONLY — no markdown, no commentary."""
 PROOF_SYSTEM = """You are a meticulous Korean-language examiner. Fix every grammar, particle, spelling and
 띄어쓰기 error and any awkward/unnatural phrasing. Keep the JSON structure EXACTLY identical
 (keys, numbers, options order, correct_answer, section, audioScript voices). Output ONLY the corrected JSON array."""
+
+
+HANGUL_RE = re.compile(r"[가-힣ㄱ-ㅎㅏ-ㅣ]")
+LETTER_RE = re.compile(r"[A-Za-z가-힣ㄱ-ㅎㅏ-ㅣ]")
+
+
+def korean_issues(qs):
+    """Return question numbers whose user-facing text is not predominantly Korean.
+
+    All fields the student sees must be Hangul: question_text, options, explanation
+    and listening scripts (imagePrompt + type stay English by design)."""
+    issues = []
+    for q in qs:
+        if not isinstance(q, dict):
+            continue
+        texts = [str(q.get("question_text") or "")]
+        opts = q.get("options")
+        if isinstance(opts, list):
+            texts += [str(o) for o in opts]
+        texts.append(str(q.get("explanation") or ""))
+        lis = q.get("listening")
+        if isinstance(lis, dict):
+            script = lis.get("audioScript")
+            if isinstance(script, list):
+                texts += [str(t.get("text") or "") for t in script if isinstance(t, dict)]
+        joined = " ".join(texts)
+        letters = LETTER_RE.findall(joined)
+        if not letters:
+            continue
+        if len(HANGUL_RE.findall(joined)) / len(letters) < 0.6:
+            issues.append(q.get("number"))
+    return issues
 
 
 def normalize_exam(qs):
@@ -1661,6 +1702,15 @@ def main():
                                         "; ".join(r.replace("\n", " ")[:60] for r in reps) +
                                         " — write DIFFERENT questions")
                             continue
+                    if not gerrs and gen_type >= 2:
+                        kerr = korean_issues(gqs)
+                        if kerr:
+                            stats["korean_rejects"] = stats.get("korean_rejects", 0) + len(kerr)
+                            print(f"[korean] Q{kerr} written in English — retrying")
+                            last_err = ("questions %s were written in ENGLISH — this is a KOREAN exam. "
+                                        "ALL question_text, options, explanation and listening audioScript "
+                                        "text MUST be Korean Hangul; English is allowed ONLY in type and imagePrompt" % kerr)
+                            continue
                     if not gerrs:
                         qs = gqs
                         author_via = "gemini"
@@ -1706,6 +1756,15 @@ def main():
                         last_err = ("you repeated questions that already exist in earlier mocks: " +
                                     "; ".join(r.replace("\n", " ")[:60] for r in reps) +
                                     " — write DIFFERENT questions")
+                        continue
+                if not errs and gen_type >= 2:
+                    kerr = korean_issues(qs)
+                    if kerr:
+                        stats["korean_rejects"] = stats.get("korean_rejects", 0) + len(kerr)
+                        print(f"[korean] Q{kerr} written in English — retrying")
+                        last_err = ("questions %s were written in ENGLISH — this is a KOREAN exam. "
+                                    "ALL question_text, options, explanation and listening audioScript "
+                                    "text MUST be Korean Hangul; English is allowed ONLY in type and imagePrompt" % kerr)
                         continue
                 if not errs:
                     stats["author_attempt"] = attempt + 1

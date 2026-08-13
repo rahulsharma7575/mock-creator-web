@@ -285,7 +285,7 @@ META_FIELDS = [
     ("push_exam_type", "Exam type on push", "text", "Push", "exam_type for the auto-created exam (mock/ubt/practice/official)"),
     ("push_exam_status", "Exam status on push", "select", "Push", "draft = review-then-publish | published = immediate", ["draft", "published"]),
     ("push_enabled", "Upload to teacher app", "bool", "Push", "On = exams are uploaded to the end-user app after generation | Off = generated locally only, nothing is uploaded"),
-    ("pdf_parser", "PDF parser", "select", "PDF", "Auto = PyMuPDF (local) first, cloud OCR (Upstage/vision) when the PDF is scanned or garbled | Local only = PyMuPDF, never sends pages to cloud APIs", ["auto", "local"]),
+    ("pdf_parser", "PDF parser", "select", "PDF", "Auto = PyMuPDF first, cloud OCR when scanned/garbled | Local = PyMuPDF only | Upstage = cloud OCR first | Mistral = OpenRouter vision OCR first. Selected parser runs first; on failure it falls to the next online parser, then local.", ["auto", "local", "upstage", "mistral"]),
     ("upscale_pdf_images", "Upscale extracted paper images", "bool", "PDF", "Every image extracted from the PDF is upscaled via fal-ai/recraft/upscale/crisp before upload (bills FAL credits); on failure the raw extracted image is used"),
     ("audio_gap_ms", "Gap between clips (ms)", "number", "Audio", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."),
     ("sample_rate", "Sample rate (Hz)", "number", "Audio", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."),
@@ -478,7 +478,7 @@ function ensureCollections() {
   } catch (errR) {}
   try {
     var pdfMetaDefs = [
-      ["pdf_parser", "PDF parser", "select", "PDF", "Auto = PyMuPDF (local) first, cloud OCR (Upstage/Mistral) when the PDF is scanned or garbled | Local only = PyMuPDF, never sends pages to cloud APIs", ["auto", "local"]],
+      ["pdf_parser", "PDF parser", "select", "PDF", "Auto = PyMuPDF first, cloud OCR when scanned/garbled | Local = PyMuPDF only | Upstage = cloud OCR first | Mistral = OpenRouter vision OCR first. Selected parser runs first; on failure it falls to the next online parser, then local.", ["auto", "local", "upstage", "mistral"]],
       ["upscale_pdf_images", "Upscale extracted paper images", "bool", "PDF", "Every image extracted from the PDF is upscaled via fal-ai/recraft/upscale/crisp before upload (bills FAL credits); on failure the raw extracted image is used", null],
       ["tts_male_voice", "Male listening voice", "text", "Audio", "Voice for the male speaker (V1) in listening dialogues. Leave empty to auto-pick per TTS model (fish-audio free male / MAI ko-KR-InJoon). Use the speaker icon to hear a sample.", null],
       ["tts_female_voice", "Female listening voice", "text", "Audio", "Voice for the female speaker (V2) in listening dialogues. Leave empty to auto-pick per TTS model (fish-audio free female / MAI ko-KR-Haena). Use the speaker icon to hear a sample.", null],
