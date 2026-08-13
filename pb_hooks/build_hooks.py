@@ -91,6 +91,8 @@ SCHEMA = [
         f("tts_voices", "json", maxSize=65536),
         f("tts_male_voice", "text", max=200),
         f("tts_female_voice", "text", max=200),
+        f("tts_fallback_male_voice", "text", max=200),
+        f("tts_fallback_female_voice", "text", max=200),
         f("pdf_parser", "select", values=["auto", "local"], maxSelect=1),
         f("upscale_pdf_images", "bool"),
         f("question_count", "number", min=1, max=200),
@@ -221,6 +223,8 @@ DEFAULT_CONFIG = {
     "tts_fallback_voice": "ko-KR-Haena:MAI-Voice-2",
     "tts_male_voice": "",
     "tts_female_voice": "",
+    "tts_fallback_male_voice": "",
+    "tts_fallback_female_voice": "",
     "pdf_parser": "auto",
     "upscale_pdf_images": True,
     "question_count": 40,
@@ -228,7 +232,7 @@ DEFAULT_CONFIG = {
     "image_count": 22,
     "image_count_min": 18,
     "image_count_max": 26,
-    "difficulty_profile": "creative+difficult",
+    "difficulty_profile": "creative+medium",   # fixed: balanced - mostly medium, few hard, never easy/very-hard
     "marks_per_question": 1,
     "max_tokens": 32000,
     "temperature": 0.7,
@@ -258,18 +262,15 @@ META_FIELDS = [
     ("dedup_sets", "Check last N mockups", "number", "LLM", "How many of the latest mock exams to check for duplicates (default 5)"),
     ("image_primary", "Image provider", "select", "Images", "fal-ai (Fal.ai) | z-image (Magnific) | black-forest-labs/flux.2-klein-4b (OpenRouter)", ["fal-ai/z-image/turbo", "z-image", "black-forest-labs/flux.2-klein-4b"]),
     ("image_fallback", "Fallback image model", "text", "Images", "Deprecated - providers fall back automatically, keep empty"),
+    ("image_count", "Image questions target", "number", "Images", "How many questions carry a picture, spread randomly across reading AND listening. Applies to RANDOM generation only - Paper PDF mode follows the paper."),
+    ("image_count_min", "Image questions min", "number", "Images", "Minimum (18)"),
+    ("image_count_max", "Image questions max", "number", "Images", "Maximum (26)"),
     ("tts_model", "TTS model", "select", "Audio", "Model that reads the listening scripts aloud. Options load from the models API.", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]),
+    ("tts_male_voice", "Male listening voice", "text", "Audio", "Voice for the male speaker (V1) in listening dialogues. Leave empty to auto-pick per TTS model (fish-audio free male / MAI ko-KR-InJoon). Use the speaker icon to hear a sample."),
+    ("tts_female_voice", "Female listening voice", "text", "Audio", "Voice for the female speaker (V2) in listening dialogues. Leave empty to auto-pick per TTS model (fish-audio free female / MAI ko-KR-Haena). Use the speaker icon to hear a sample."),
     ("tts_fallback_model", "Fallback TTS model", "select", "Audio", "Used only if the primary TTS model fails or times out.", ["microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]),
-    ("tts_fallback_voice", "Fallback voice", "text", "Audio", "Voice id used when the primary voice is unavailable (e.g. ko-KR-Haena)."),
-    ("tts_male_voice", "Male listening voice (PDF dialogues)", "text", "Audio", "Voice for the male speaker (V1) in synthesized listening dialogues (PDF modes). Leave empty to auto-pick per TTS model (fish-audio free male / MAI ko-KR-InJoon)."),
-    ("tts_female_voice", "Female listening voice (PDF dialogues)", "text", "Audio", "Voice for the female speaker (V2) in synthesized listening dialogues (PDF modes). Leave empty to auto-pick per TTS model (fish-audio free female / MAI ko-KR-Haena)."),
-    ("question_count", "Total questions", "number", "Exam", "40 by default"),
-    ("reading_count", "Reading questions", "number", "Exam", "Reading section size"),
-    ("image_count", "Image questions target", "number", "Exam", "Target count"),
-    ("image_count_min", "Image questions min", "number", "Exam", "Minimum (18)"),
-    ("image_count_max", "Image questions max", "number", "Exam", "Maximum (26)"),
-    ("difficulty_profile", "Difficulty profile", "select", "Exam", "creative+difficult | creative+medium | hard", ["creative+difficult", "creative+medium", "hard"]),
-    ("marks_per_question", "Marks per question", "number", "Exam", "Default marks"),
+    ("tts_fallback_male_voice", "Fallback male listening voice", "text", "Audio", "Voice for the male speaker (V1) when the run falls back to the fallback TTS model. Leave empty to auto-pick per fallback model."),
+    ("tts_fallback_female_voice", "Fallback female listening voice", "text", "Audio", "Voice for the female speaker (V2) when the run falls back to the fallback TTS model. Leave empty to auto-pick per fallback model."),
     ("max_tokens", "Max tokens", "number", "Advanced", "LLM generation cap"),
     ("temperature", "Temperature", "number", "Advanced", "LLM sampling temp"),
     ("timeout_s", "Timeout (s)", "number", "Advanced", "LLM call timeout"),
@@ -281,11 +282,10 @@ META_FIELDS = [
     ("push_subject_id", "Subject id", "text", "Push", "Subject record id on client PB"),
     ("push_exam_type", "Exam type on push", "text", "Push", "exam_type for the auto-created exam (mock/ubt/practice/official)"),
     ("push_exam_status", "Exam status on push", "select", "Push", "draft = review-then-publish | published = immediate", ["draft", "published"]),
-    ("pdf_parser", "PDF parser", "select", "PDF", "Auto = PyMuPDF (local) first, cloud OCR (Upstage/Mistral) when the PDF is scanned or garbled | Local only = PyMuPDF, never sends pages to cloud APIs", ["auto", "local"]),
+    ("pdf_parser", "PDF parser", "select", "PDF", "Auto = PyMuPDF (local) first, cloud OCR (Upstage/vision) when the PDF is scanned or garbled | Local only = PyMuPDF, never sends pages to cloud APIs", ["auto", "local"]),
     ("upscale_pdf_images", "Upscale extracted paper images", "bool", "PDF", "Every image extracted from the PDF is upscaled via fal-ai/recraft/upscale/crisp before upload (bills FAL credits); on failure the raw extracted image is used"),
     ("audio_gap_ms", "Gap between clips (ms)", "number", "Audio", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."),
     ("sample_rate", "Sample rate (Hz)", "number", "Audio", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."),
-    ("audio_workers", "Parallel audio workers", "number", "Audio", "How many clips are synthesized at the same time. 4 is safe for most machines."),
     ("active", "Config enabled", "bool", "General", "Use this config"),
 ]
 
@@ -431,7 +431,9 @@ function ensureCollections() {
     var needFields = [["pdf_parser", "select", {"values": ["auto", "local"], "maxSelect": 1}],
                       ["upscale_pdf_images", "bool", null],
                       ["tts_male_voice", "text", {"max": 200}],
-                      ["tts_female_voice", "text", {"max": 200}]]
+                      ["tts_female_voice", "text", {"max": 200}],
+                      ["tts_fallback_male_voice", "text", {"max": 200}],
+                      ["tts_fallback_female_voice", "text", {"max": 200}]]
     var changed4 = false
     for (var nfi = 0; nfi < needFields.length; nfi++) {
       var nf = needFields[nfi]
@@ -477,8 +479,11 @@ function ensureCollections() {
     var pdfMetaDefs = [
       ["pdf_parser", "PDF parser", "select", "PDF", "Auto = PyMuPDF (local) first, cloud OCR (Upstage/Mistral) when the PDF is scanned or garbled | Local only = PyMuPDF, never sends pages to cloud APIs", ["auto", "local"]],
       ["upscale_pdf_images", "Upscale extracted paper images", "bool", "PDF", "Every image extracted from the PDF is upscaled via fal-ai/recraft/upscale/crisp before upload (bills FAL credits); on failure the raw extracted image is used", null],
-      ["tts_male_voice", "Male listening voice (PDF dialogues)", "text", "Audio", "Voice for the male speaker (V1) in synthesized listening dialogues (PDF modes). Leave empty to auto-pick per TTS model (fish-audio free male / MAI ko-KR-InJoon).", null],
-      ["tts_female_voice", "Female listening voice (PDF dialogues)", "text", "Audio", "Voice for the female speaker (V2) in synthesized listening dialogues (PDF modes). Leave empty to auto-pick per TTS model (fish-audio free female / MAI ko-KR-Haena).", null]
+      ["tts_male_voice", "Male listening voice", "text", "Audio", "Voice for the male speaker (V1) in listening dialogues. Leave empty to auto-pick per TTS model (fish-audio free male / MAI ko-KR-InJoon). Use the speaker icon to hear a sample.", null],
+      ["tts_female_voice", "Female listening voice", "text", "Audio", "Voice for the female speaker (V2) in listening dialogues. Leave empty to auto-pick per TTS model (fish-audio free female / MAI ko-KR-Haena). Use the speaker icon to hear a sample.", null],
+      ["tts_fallback_male_voice", "Fallback male listening voice", "text", "Audio", "Voice for the male speaker (V1) when the run falls back to the fallback TTS model. Leave empty to auto-pick per fallback model.", null],
+      ["tts_fallback_female_voice", "Fallback female listening voice", "text", "Audio", "Voice for the female speaker (V2) when the run falls back to the fallback TTS model. Leave empty to auto-pick per fallback model.", null],
+      ["image_count", "Image questions target", "number", "Images", "How many questions carry a picture, spread randomly across reading AND listening. Applies to RANDOM generation only - Paper PDF mode follows the paper.", null]
     ]
     var mColM = $app.findCollectionByNameOrId("mock_config_meta")
     for (var pmi = 0; pmi < pdfMetaDefs.length; pmi++) {
@@ -753,6 +758,69 @@ try {
     username: j.username || "",
     status: res.statusCode || 0
   })
+} catch (err) {
+  return e.json(500, { error: String(err) })
+}
+""",
+)
+
+# GET /api/creator/magnific-status - superuser only - Magnific key state (credits are
+# not exposed via the Magnific REST API - only through OAuth/MCP, which the container lacks)
+route(
+    "magnific-status", "GET", "/api/creator/magnific-status", "$apis.requireSuperuserAuth()",
+    """
+try {
+  var key = $os.getenv("MAGNIFIC_API_KEY") || ""
+  if (!key) return e.json(200, { ok: false, key_set: false, message: "MAGNIFIC_API_KEY is not set in the container" })
+  return e.json(200, { ok: true, key_set: true, message: "key set - credit balance is not exposed via the Magnific API" })
+} catch (err) {
+  return e.json(500, { error: String(err) })
+}
+""",
+)
+
+# GET /api/creator/upstage-status - superuser only - Upstage key validity (free 401/404 probe)
+route(
+    "upstage-status", "GET", "/api/creator/upstage-status", "$apis.requireSuperuserAuth()",
+    """
+try {
+  var key = $os.getenv("UPSTAGE_API_KEY") || ""
+  if (!key) return e.json(200, { ok: false, valid: false, message: "UPSTAGE_API_KEY not set (optional - vision OCR is used instead)" })
+  var res = $http.send({ url: "https://api.upstage.ai/v1/credits", method: "GET", headers: { "Authorization": "Bearer " + key }, timeout: 20 })
+  if (res.statusCode === 401) return e.json(200, { ok: false, valid: false, message: "key rejected (401) - check UPSTAGE_API_KEY" })
+  if (res.statusCode === 404) return e.json(200, { ok: true, valid: true, message: "key valid - scanned-PDF OCR ready" })
+  return e.json(200, { ok: res.statusCode !== 401, valid: res.statusCode !== 401, status: res.statusCode, message: "probe HTTP " + res.statusCode })
+} catch (err) {
+  return e.json(500, { error: String(err) })
+}
+""",
+)
+
+# GET /api/creator/tts-preview?model=&voice=&text= - superuser only - voice sample (mp3)
+route(
+    "tts-preview", "GET", "/api/creator/tts-preview", "$apis.requireSuperuserAuth()",
+    """
+try {
+  var q = e.request.url.query()
+  var model = (q.get("model") || "").trim()
+  var voice = (q.get("voice") || "").trim()
+  var text = (q.get("text") || "안녕하세요. 음성 미리듣기입니다.").trim().substring(0, 300)
+  var key = $os.getenv("OPENROUTER_API_KEY") || ""
+  if (!model) return e.json(400, { error: "model param required" })
+  if (!voice) return e.json(400, { error: "voice param required" })
+  if (!key) return e.json(400, { error: "OPENROUTER_API_KEY is not set in the container" })
+  var res = $http.send({
+    url: "https://openrouter.ai/api/v1/audio/speech",
+    method: "POST", headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+    body: JSON.stringify({ "model": model, "input": text, "voice": voice, "response_format": "mp3" }),
+    timeout: 60
+  })
+  if (res.statusCode !== 200) {
+    return e.json(400, { error: "TTS failed (HTTP " + res.statusCode + "): " + String(res.raw || "").substring(0, 160) })
+  }
+  var bytes = res.body || []
+  if (bytes.length < 100) return e.json(400, { error: "TTS returned empty audio" })
+  return e.blob(200, "audio/mpeg", bytes)
 } catch (err) {
   return e.json(500, { error: String(err) })
 }

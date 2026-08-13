@@ -86,6 +86,8 @@ TTS_DEFAULTS = {
     "tts_voices": {},
     "tts_male_voice": "",    # PDF dialogue speaker V1 (male) - empty = auto per model
     "tts_female_voice": "",  # PDF dialogue speaker V2 (female) - empty = auto per model
+    "tts_fallback_male_voice": "",    # V1 voice when the fallback model is used
+    "tts_fallback_female_voice": "",  # V2 voice when the fallback model is used
 }
 
 # Auto speaker voices per TTS model family (used for PDF-mode dialogues):
@@ -455,11 +457,23 @@ def _gen(job, tts, args, cfg):
     n, k, voice, text, out = job
     if out.exists() and out.stat().st_size > 2000:
         return (n, k, True)
+    raw_voice = voice
     model, voice = resolve_voice(cfg["tts_model"], voice, cfg, tts)
     fallback_model = cfg.get("tts_fallback_model", "")
     fallback_voice = ""
     if fallback_model and fallback_model != model:
-        fallback_voice = resolve_voice(fallback_model, cfg.get("tts_fallback_voice", ""), cfg, tts, use_fallback_voice=True)[1]
+        key = next((vk for vk, vid in VOICES.items() if str(vid) == str(raw_voice)), "")
+        fm_l = str(fallback_model).lower()
+        f_fam = "mai" if "mai-voice" in fm_l else ("fish" if ("fish" in fm_l or "s2.1" in fm_l) else "")
+        f_defs = DIALOGUE_VOICE_DEFAULTS.get(f_fam, {})
+        if key == "V1":
+            fv = str(cfg.get("tts_fallback_male_voice") or "").strip() or f_defs.get("V1", "") or str(cfg.get("tts_fallback_voice") or "").strip()
+        elif key == "V2":
+            fv = str(cfg.get("tts_fallback_female_voice") or "").strip() or f_defs.get("V2", "") or str(cfg.get("tts_fallback_voice") or "").strip()
+        else:
+            fv = str(cfg.get("tts_fallback_voice") or "").strip()
+        if fv:
+            fallback_voice = resolve_voice(fallback_model, fv, cfg, tts)[1]
     for attempt in range(3):
         try:
             if synth(tts, text, voice, out, model, fallback_model, fallback_voice):

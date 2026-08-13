@@ -65,7 +65,7 @@ DEFAULTS = {
     "image_count": 22,                       # target number of random image questions
     "image_count_min": 18,
     "image_count_max": 26,
-    "difficulty_profile": "creative+difficult",  # creative+difficult | creative+medium | hard | standard
+    "difficulty_profile": "creative+medium",   # fixed: balanced - mostly medium, few hard, never easy/very-hard
     "focus": "",                                  # free-text teacher guidance on which topics/types to prioritize
     "marks_per_question": 1,
     "negative_marks": 0,
@@ -126,6 +126,8 @@ DEFAULTS = {
     "tts_fallback_voice": "ko-KR-Haena:MAI-Voice-2",
     "tts_male_voice": "",                         # empty = auto per TTS model (fish free male / MAI ko-KR-InJoon)
     "tts_female_voice": "",                       # empty = auto per TTS model (fish free female / MAI ko-KR-Haena)
+    "tts_fallback_male_voice": "",                # fallback model male speaker (empty = auto per fallback model)
+    "tts_fallback_female_voice": "",              # fallback model female speaker (empty = auto per fallback model)
     "gen_type": 1,                      # 1 = random standard | 2 = book PDF | 3 = printed paper PDF
     "pdf_path": "",                     # worker-downloaded PDF for gen_type 2/3
     "pdf_parser": "auto",               # auto (PyMuPDF -> Upstage -> Mistral) | local (PyMuPDF only)
@@ -473,7 +475,7 @@ AUTHOR_USER_BOOK = """Write a complete Korean EPS-TOPIK UBT mock exam: EXACTLY {
 
 HARD RULES:
 - {section_order} (number 1..{question_count} unique, in order).
-- Difficulty: "medium", "hard" or "very hard" ONLY. NEVER "easy" or "very easy".
+- Difficulty: "medium" or "hard" ONLY, mostly "medium" — NEVER "easy" and NEVER "very hard".
 - Each question: number, section, difficulty, type (short English label), question_text (Korean,
   starts with "Q<N>. ", NO html), options (4 REAL Korean strings — natural, believable, similar
   length, only ONE best; NEVER numbers/placeholders), correct_answer (["0"]..["3"]),

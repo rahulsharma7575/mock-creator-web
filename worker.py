@@ -70,6 +70,8 @@ CONFIG_MAP = {
     "tts_fallback_voice": "tts_fallback_voice",
     "tts_male_voice": "tts_male_voice",
     "tts_female_voice": "tts_female_voice",
+    "tts_fallback_male_voice": "tts_fallback_male_voice",
+    "tts_fallback_female_voice": "tts_fallback_female_voice",
     "pdf_parser": "pdf_parser",
     "upscale_pdf_images": "upscale_pdf_images",
     "question_count": "question_count",
@@ -402,8 +404,8 @@ def run_job(job):
             cfg["image_count_max"] = 40  # image count follows the paper, never forced
             log(f"job {job_id}: gen_type=3 (paper PDF) - forcing 40 questions (20 reading / 20 listening), images follow the paper")
         else:
-            cfg["difficulty_profile"] = "creative+difficult"  # medium/hard/very hard, never easy
-            log(f"job {job_id}: gen_type=2 (book PDF) - forcing 40 questions (20 reading / 20 listening), no easy questions")
+            cfg["difficulty_profile"] = "creative+medium"  # balanced: mostly medium, few hard, never easy
+            log(f"job {job_id}: gen_type=2 (book PDF) - forcing 40 questions (20 reading / 20 listening), balanced difficulty")
 
     kind = job.get("kind", "full") or "full"
     if kind.startswith("dry_"):

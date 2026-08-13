@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Fraunces:ital,opsz,wght@1,9..144,500;1,9..144,600&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/tailwind.css?v=17">
+<link rel="stylesheet" href="lib/tailwind.css?v=18">
 <style>
 :root{
   --bg:#f7f2e8; --panel:#fffdf8; --panel2:#f0e9d9; --line:#e3d9c1; --ink:#262218; --mut:#7f7866;
@@ -242,10 +242,12 @@ th.sortable:hover{color:var(--amber2)}
       </div>
       <nav class="px-4 space-y-1.5 flex-1">
         <div v-for="n in nav" :key="n.id" class="nav-item" :class="{on:view===n.id}" @click="view=n.id">
-          <span v-html="ic(n.id==='overview'?'chart':n.id==='clients'?'users':n.id==='configs'?'sliders':'fileText',18)"></span>
+          <span v-html="ic(n.id==='overview'?'chart':n.id==='clients'?'users':n.id==='configs'?'sliders':n.id==='jobs'?'fileText':n.id==='fullruns'?'rocket':'database',18)"></span>
           {{ n.label }}
           <span v-if="n.id==='jobs'&&failedCount" class="badge">{{ failedCount }}</span>
           <span v-if="n.id==='configs'&&cfgClient" class="badge" style="background:var(--green)">✓</span>
+          <span v-if="n.id==='dryruns'&&dryruns.length" class="badge" style="background:var(--blue)">{{ dryruns.length }}</span>
+          <span v-if="n.id==='fullruns'&&fullruns.length" class="badge" style="background:var(--purple)">{{ fullruns.length }}</span>
         </div>
       </nav>
       <div class="p-4 border-t" style="border-color:var(--line)">
@@ -270,18 +272,26 @@ th.sortable:hover{color:var(--amber2)}
               <span v-html="ic('activity',13)"></span>API status
               <span class="w-2 h-2 rounded-full" :style="{background:apiAllOk===true?'var(--green)':apiAllOk===false?'var(--red)':'var(--mut)'}"></span>
             </button>
-            <div v-if="apiMenu" class="absolute right-0 top-full mt-2 z-30 w-80 rounded-xl p-3 space-y-1.5 text-xs" style="background:var(--panel2);border:1px solid var(--line);box-shadow:0 10px 32px rgba(0,0,0,.2)">
-              <div class="flex items-center gap-2 py-1">
+            <div v-if="apiMenu" class="absolute right-0 top-full mt-2 z-30 w-80 rounded-xl p-3 space-y-1 text-xs" style="background:var(--panel);border:1px solid var(--line);box-shadow:0 10px 32px rgba(0,0,0,.28)">
+              <div class="flex items-center gap-2 py-1.5 px-1" style="min-width:0">
                 <span class="w-2 h-2 rounded-full shrink-0" :style="{background:geminiStatus&&geminiStatus.valid?'var(--green)':geminiStatus&&geminiStatus.message?'var(--red)':'var(--mut)'}"></span>
-                <span class="f-mono shrink-0">Gemini</span><span class="ml-auto truncate text-right">{{ geminiStatus ? (geminiStatus.valid ? 'key valid · '+geminiStatus.models.length+' models' : (geminiStatus.message||'invalid')) : 'checking…' }}</span>
+                <span class="f-mono shrink-0" style="width:74px">Gemini</span><span class="truncate text-right" style="flex:1;min-width:0" :title="geminiStatus?(geminiStatus.valid?'key valid':(geminiStatus.message||'invalid')):''">{{ geminiStatus ? (geminiStatus.valid ? 'key valid · '+geminiStatus.models.length+' models' : (geminiStatus.message||'invalid')) : 'checking…' }}</span>
               </div>
-              <div class="flex items-center gap-2 py-1">
+              <div class="flex items-center gap-2 py-1.5 px-1" style="min-width:0">
                 <span class="w-2 h-2 rounded-full shrink-0" :style="{background:orBalance&&orBalance.ok?'var(--green)':orBalance?'var(--red)':'var(--mut)'}"></span>
-                <span class="f-mono shrink-0">OpenRouter</span><span class="ml-auto truncate text-right">{{ orBalance&&orBalance.ok ? '$'+orBalance.remaining+' left' : (orBalance?(orBalance.message||'unavailable'):'checking…') }}</span>
+                <span class="f-mono shrink-0" style="width:74px">OpenRouter</span><span class="truncate text-right" style="flex:1;min-width:0">{{ orBalance&&orBalance.ok ? '$'+orBalance.remaining+' left' : (orBalance?(orBalance.message||'unavailable'):'checking…') }}</span>
               </div>
-              <div class="flex items-center gap-2 py-1">
+              <div class="flex items-center gap-2 py-1.5 px-1" style="min-width:0">
                 <span class="w-2 h-2 rounded-full shrink-0" :style="{background:falStatus&&falStatus.ok?'var(--green)':falStatus?'var(--red)':'var(--mut)'}"></span>
-                <span class="f-mono shrink-0">Fal.ai</span><span class="ml-auto truncate text-right">{{ falStatus&&falStatus.ok ? '$'+falStatus.balance+' '+falStatus.currency : (falStatus?(falStatus.message||'unavailable'):'checking…') }}</span>
+                <span class="f-mono shrink-0" style="width:74px">Fal.ai</span><span class="truncate text-right" style="flex:1;min-width:0">{{ falStatus&&falStatus.ok ? '$'+falStatus.balance+' '+falStatus.currency : (falStatus?(falStatus.message||'unavailable'):'checking…') }}</span>
+              </div>
+              <div class="flex items-center gap-2 py-1.5 px-1" style="min-width:0">
+                <span class="w-2 h-2 rounded-full shrink-0" :style="{background:magnificStatus&&magnificStatus.ok?'var(--green)':magnificStatus?'var(--red)':'var(--mut)'}"></span>
+                <span class="f-mono shrink-0" style="width:74px">Magnific</span><span class="truncate text-right" style="flex:1;min-width:0">{{ magnificStatus ? (magnificStatus.key_set ? 'key set — credits via MCP only' : (magnificStatus.message||'unavailable')) : 'checking…' }}</span>
+              </div>
+              <div class="flex items-center gap-2 py-1.5 px-1" style="min-width:0">
+                <span class="w-2 h-2 rounded-full shrink-0" :style="{background:upstageStatus&&upstageStatus.valid?'var(--green)':upstageStatus&&upstageStatus.message&&!upstageStatus.ok?'var(--red)':'var(--mut)'}"></span>
+                <span class="f-mono shrink-0" style="width:74px">Upstage</span><span class="truncate text-right" style="flex:1;min-width:0">{{ upstageStatus ? (upstageStatus.valid ? 'key valid — PDF OCR ready' : (upstageStatus.message||'not set')) : 'checking…' }}</span>
               </div>
               <button class="btn btn-ghost w-full mt-2 px-3 py-1.5 text-xs" @click="refreshAllStatus"><span v-html="ic('refresh',11)"></span>Refresh</button>
             </div>
@@ -483,9 +493,9 @@ th.sortable:hover{color:var(--amber2)}
                       <div v-if="g==='Images'" class="mb-3 flex items-center gap-2 flex-wrap">
                         <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--panel2);color:var(--mut)">API keys & balances live in the top-right API status menu</span>
                       </div>
-                      <div class="acc-grid">
-                        <template v-for="f in metaByGroup(g)" :key="f.field">
-                          <div v-if="!hiddenField(f) && f.field!=='dedup_sets'" class="acc-field" :class="f.field==='prompts_json'?'full':''">
+                      <div :class="g==='Audio' ? 'grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4' : 'acc-grid'">
+                        <template v-for="f in (g==='Audio'?audioOrdered():metaByGroup(g))" :key="f.field">
+                          <div v-if="!hiddenField(f) && f.field!=='dedup_sets'" class="acc-field" :class="[f.field==='prompts_json'?'full':'', g==='Audio'?audioCol(f.field):'']">
                             <label class="lbl">
                               {{ f.label }}
                               <span class="tip" v-if="f.help">?<span class="ttip">{{ f.help }}</span></span>
@@ -502,8 +512,11 @@ th.sortable:hover{color:var(--amber2)}
                               <input v-model.trim="cfgData[f.field]" class="input f-mono" list="ttsModelList" placeholder="Type a model or pick one…">
                               <datalist id="ttsModelList"><option v-for="o in ttsOptions" :key="o" :value="o">{{ o }}</option></datalist>
                             </template>
-                            <template v-else-if="f.field==='tts_male_voice'||f.field==='tts_female_voice'">
-                              <input v-model.trim="cfgData[f.field]" class="input f-mono" list="voiceList" placeholder="Empty = auto per TTS model">
+                            <template v-else-if="f.field==='tts_male_voice'||f.field==='tts_female_voice'||f.field==='tts_fallback_male_voice'||f.field==='tts_fallback_female_voice'">
+                              <div class="flex gap-2 items-center">
+                                <input v-model.trim="cfgData[f.field]" class="input f-mono flex-1" list="voiceList" placeholder="Empty = auto-pick">
+                                <button type="button" class="btn btn-ghost btn-sm shrink-0 flex items-center" :class="cfgData[f.field]?'':'opacity-40'" :disabled="!cfgData[f.field]" :title="cfgData[f.field]?'Hear this voice':'Empty — the system auto-picks a voice'" @click="openVoicePreview(f.field)"><span v-html="ic('headphones',14)"></span></button>
+                              </div>
                               <datalist id="voiceList"><option v-for="o in voiceOptions" :key="o" :value="o">{{ o }}</option></datalist>
                             </template>
                             <template v-else-if="f.ftype==='select'">
@@ -514,11 +527,12 @@ th.sortable:hover{color:var(--amber2)}
                                 <div class="toggle" :class="{on:!!cfgData[f.field]}" @click="cfgData[f.field]=!cfgData[f.field]"></div>
                                 <span class="text-xs" style="color:var(--mut)">{{ cfgData[f.field] ? 'Exams are uploaded to the teacher app after generation' : 'Exams are saved locally only — nothing is uploaded' }}</span>
                               </div>
-                              <div v-else-if="f.field==='dedup_enabled'" class="flex items-center gap-2.5">
+                              <div v-else-if="f.field==='dedup_enabled'" class="flex items-center gap-3 flex-wrap py-1">
                                 <div class="toggle" :class="{on:!!cfgData[f.field]}" @click="cfgData[f.field]=!cfgData[f.field]"></div>
-                                <span class="text-xs" style="color:var(--mut)">check last</span>
-                                <input v-model.number="cfgData.dedup_sets" type="number" min="0" max="20" class="input f-mono w-16" :disabled="!cfgData[f.field]">
+                                <span class="text-xs" style="color:var(--mut)">Check last</span>
+                                <input v-model.number="cfgData.dedup_sets" type="number" min="0" max="20" class="input f-mono w-20 px-3 py-1.5 rounded-lg" :disabled="!cfgData[f.field]">
                                 <span class="text-xs" style="color:var(--mut)">mock exams</span>
+                                <span class="text-[11px] f-mono px-2 py-0.5 rounded-full" :style="cfgData[f.field]?'background:rgba(53,104,156,.1);color:var(--blue)':'background:var(--panel2);color:var(--mut)'">{{ cfgData[f.field] ? 'Random mode only' : 'Off' }}</span>
                               </div>
                               <div v-else class="toggle" :class="{on:!!cfgData[f.field]}" @click="cfgData[f.field]=!cfgData[f.field]"></div>
                             </template>
@@ -611,8 +625,6 @@ th.sortable:hover{color:var(--amber2)}
           </section>
           <section class="ov-sec">
             <div class="flex gap-2 flex-wrap items-center">
-              <div v-for="kf in ['all','dry','full']" :key="kf" class="chip" :class="{on:jobKindFilter===kf}" @click="jobKindFilter=kf">{{ kf==='all'?'All runs':kf==='dry'?'Dry runs':'Full runs' }}</div>
-              <span class="w-px h-5 mx-1" style="background:var(--line)"></span>
               <div v-for="st in ['all','queued','running','done','failed']" :key="st" class="chip" :class="{on:jobFilter===st}" @click="jobFilter=st">{{ st }}</div>
             </div>
           </section>
@@ -625,49 +637,90 @@ th.sortable:hover{color:var(--amber2)}
             </div>
           </section>
           <section class="ov-sec">
-            <div class="panel">
+            <div class="panel overflow-x-auto">
               <div v-if="!filteredJobs.length" class="text-sm py-12 text-center" style="color:var(--mut)">Nothing here.</div>
-              <table v-else class="w-full">
+              <table v-else class="w-full" style="table-layout:fixed;min-width:900px">
                 <thead><tr>
-                  <th class="sortable" @click="sortBy('created')">Created {{ sortIcon('created') }}</th>
-                  <th class="sortable" @click="sortBy('client_name')">Client {{ sortIcon('client_name') }}</th>
-                  <th class="sortable" @click="sortBy('difficulty')">Difficulty {{ sortIcon('difficulty') }}</th>
-                  <th>Focus</th>
-                  <th>Stage</th>
-                  <th>Kind</th>
-                  <th class="sortable" @click="sortBy('count')">Q {{ sortIcon('count') }}</th>
-                  <th class="sortable" @click="sortBy('time')">Time {{ sortIcon('time') }}</th>
-                  <th class="sortable" @click="sortBy('cost')">LLM $ {{ sortIcon('cost') }}</th>
-                  <th>Img credits</th>
-                  <th class="sortable" @click="sortBy('status')">Status {{ sortIcon('status') }}</th>
-                  <th>Pushed</th>
+                  <th style="width:118px" class="sortable" @click="sortBy('created')">Created {{ sortIcon('created') }}</th>
+                  <th style="width:130px" class="sortable" @click="sortBy('client_name')">Client {{ sortIcon('client_name') }}</th>
+                  <th style="width:96px">Kind</th>
+                  <th style="width:56px" class="sortable" @click="sortBy('count')">Q {{ sortIcon('count') }}</th>
+                  <th style="width:88px" class="sortable" @click="sortBy('time')">Time {{ sortIcon('time') }}</th>
+                  <th style="width:76px" class="sortable" @click="sortBy('cost')">LLM $ {{ sortIcon('cost') }}</th>
+                  <th style="width:92px">Img cr</th>
+                  <th style="width:96px" class="sortable" @click="sortBy('status')">Status {{ sortIcon('status') }}</th>
+                  <th style="width:52px">Push</th>
                   <th>Error</th>
                 </tr></thead>
                 <tbody><tr v-for="j in filteredJobs" :key="j.id" class="cursor-pointer" @click="openJob(j)">
-                  <td class="f-mono text-xs">{{ fmtTime(j.created) }}</td><td class="font-semibold">{{ j.client_name||j.client }}</td>
-                  <td class="text-xs">{{ j.difficulty || '—' }}</td>
-                  <td class="text-xs max-w-[160px]"><span v-if="j.focus" class="tip-cell truncate">{{ j.focus }}<span class="tip-pop">{{ j.focus }}</span></span><span v-else style="color:var(--mut)">—</span></td>
-                  <td><span class="stage-bar" v-html="stageFor(j)"></span></td>
-                  <td><span class="text-xs f-mono px-2.5 py-1 rounded-lg" :style="{background:j.kind!=='full'?'rgba(53,104,156,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }} {{ dryLabel(j.kind) }}</span>
-                    <template v-if="genTypeLabel(j)"><span class="text-[10px] f-mono px-1.5 py-0.5 rounded ml-1" :style="{background:genTypeLabel(j).c+'1a',color:genTypeLabel(j).c}">{{ genTypeLabel(j).label }}</span></template></td>
-                  <td class="f-mono">{{ j.count }}</td>
-                  <td class="tcell-num" :title="jobTime(j).title">{{ jobTime(j).label }}</td>
-                  <td class="tcell-num">{{ jobCost(j) }}</td>
-                  <td class="tcell-num" style="color:var(--amber2)">{{ jobCredits(j) }}</td>
+                  <td class="f-mono text-xs whitespace-nowrap overflow-hidden text-ellipsis" :title="fmtTime(j.created)">{{ fmtTime(j.created) }}</td>
+                  <td class="font-semibold truncate" :title="j.client_name||j.client">{{ j.client_name||j.client }}</td>
+                  <td class="whitespace-nowrap"><span class="text-xs f-mono px-2 py-0.5 rounded-lg" :style="{background:j.kind!=='full'?'rgba(53,104,156,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }}{{ dryLabel(j.kind) }}</span><template v-if="genTypeLabel(j)"><span class="text-[10px] f-mono px-1.5 py-0.5 rounded ml-1" :style="{background:genTypeLabel(j).c+'1a',color:genTypeLabel(j).c}">{{ genTypeLabel(j).label }}</span></template></td>
+                  <td class="f-mono text-right">{{ j.count }}</td>
+                  <td class="f-mono text-right" :title="jobTime(j).title">{{ jobTime(j).label }}</td>
+                  <td class="f-mono text-right">{{ jobCost(j) }}</td>
+                  <td class="f-mono text-right" style="color:var(--amber2)">{{ jobCredits(j) }}</td>
                   <td><span class="pill-status" :style="{background:(j.status==='running'?'var(--soft)':j.status==='done'?'rgba(47,125,79,.1)':j.status==='failed'?'rgba(198,69,58,.1)':'transparent'),color:sc(j.status)}"><span class="status-dot" :class="{pulse:j.status==='running'}" :style="{background:sc(j.status)}"></span>{{ j.status }}</span></td>
-                  <td class="f-mono text-xs">{{ j.pushed ? 'yes' : '—' }}</td>
-                  <td class="text-xs max-w-[200px] truncate" :style="{color:j.error?'var(--red)':''}">{{ j.error||'' }}</td>
+                  <td class="f-mono text-xs text-center">{{ j.pushed ? 'yes' : '—' }}</td>
+                  <td class="text-xs truncate" :style="{color:j.error?'var(--red)':''}" :title="j.error||''">{{ j.error||'' }}</td>
                 </tr></tbody>
               </table>
             </div>
           </section>
         </div>
 
-        <!-- ========== FULL RUNS (archived via Jobs) ========== -->
-        <div v-if="view==='fullruns'" class="view-block"></div>
+        <!-- ========== FULL RUNS ========== -->
+        <div v-if="view==='fullruns'" class="view-block">
+          <section class="ov-sec">
+            <div class="flex items-end justify-between">
+              <div><h1 class="f-disp text-3xl font-extrabold tracking-tight flex items-center gap-3"><span v-html="ic('rocket',26)" style="color:var(--amber2)"></span>Full runs</h1><p class="text-sm mt-1.5" style="color:var(--mut)">Complete 40-question runs — preview every question, image and audio clip generated.</p></div>
+              <button class="btn btn-ghost px-4 py-2 text-sm flex items-center gap-1.5" @click="loadFullruns"><span v-if="fullrunsBusy" class="spinner"></span><span v-html="ic('refresh',14)"></span>Refresh</button>
+            </div>
+          </section>
+          <section class="ov-sec">
+            <div class="panel">
+              <div v-if="!fullruns.length" class="text-sm py-12 text-center" style="color:var(--mut)">No full runs yet — generate a mock from the Home screen first.</div>
+              <table v-else class="w-full">
+                <thead><tr><th>Created</th><th>Client</th><th>Q</th><th>Time</th><th>LLM $</th><th>Img</th><th>Pushed</th><th></th></tr></thead>
+                <tbody><tr v-for="d in fullruns" :key="d.id" class="cursor-pointer" @click="openPreview(d)">
+                  <td class="f-mono text-xs">{{ fmtTime(d.created) }}</td><td class="font-semibold">{{ d.client_name || '—' }}</td>
+                  <td class="f-mono">{{ d.count || '—' }}</td>
+                  <td class="tcell-num">{{ dryTime(d) }}</td>
+                  <td class="tcell-num">{{ dryCost(d) }}</td>
+                  <td class="tcell-num" style="color:var(--amber2)">{{ dryFalCost(d) !== '—' ? 'Fal $'+dryFalCost(d).slice(1) : ((d.report&&d.report.img_credits)||0)+' cr' }}</td>
+                  <td class="f-mono text-xs">{{ d.report && d.report.exam_created ? 'yes' : '—' }}</td>
+                  <td class="text-right"><button class="btn btn-ghost btn-sm flex items-center gap-1 ml-auto" @click.stop="openPreview(d)"><span v-html="ic('eye',13)"></span>Preview</button></td>
+                </tr></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
 
-        <!-- ========== DRY RUNS (archived via Jobs) ========== -->
-        <div v-if="view==='dryruns'" class="view-block"></div>
+        <!-- ========== DRY RUNS ========== -->
+        <div v-if="view==='dryruns'" class="view-block">
+          <section class="ov-sec">
+            <div class="flex items-end justify-between">
+              <div><h1 class="f-disp text-3xl font-extrabold tracking-tight flex items-center gap-3"><span v-html="ic('database',26)" style="color:var(--amber2)"></span>Dry runs</h1><p class="text-sm mt-1.5" style="color:var(--mut)">Sample generations saved locally — preview the questions without touching the teacher app.</p></div>
+              <button class="btn btn-ghost px-4 py-2 text-sm flex items-center gap-1.5" @click="loadDryruns"><span v-if="dryrunsBusy" class="spinner"></span><span v-html="ic('refresh',14)"></span>Refresh</button>
+            </div>
+          </section>
+          <section class="ov-sec">
+            <div class="panel">
+              <div v-if="!dryruns.length" class="text-sm py-12 text-center" style="color:var(--mut)">No dry runs yet — hit a Quick test button first.</div>
+              <table v-else class="w-full">
+                <thead><tr><th>Created</th><th>Client</th><th>Kind</th><th>Q</th><th>Time</th><th>LLM $</th><th></th></tr></thead>
+                <tbody><tr v-for="d in dryruns" :key="d.id" class="cursor-pointer" @click="openPreview(d)">
+                  <td class="f-mono text-xs">{{ fmtTime(d.created) }}</td><td class="font-semibold">{{ d.client_name || '—' }}</td>
+                  <td><span class="text-xs f-mono px-2.5 py-1 rounded-lg" :style="{background:'rgba(53,104,156,.1)',color:'var(--blue)'}">{{ dryKindLabel(d.kind) }}</span></td>
+                  <td class="f-mono">{{ d.count || '—' }}</td>
+                  <td class="tcell-num">{{ dryTime(d) }}</td>
+                  <td class="tcell-num">{{ dryCost(d) }}</td>
+                  <td class="text-right"><button class="btn btn-ghost btn-sm flex items-center gap-1 ml-auto" @click.stop="openPreview(d)"><span v-html="ic('eye',13)"></span>Preview</button></td>
+                </tr></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
 
         <div class="text-center text-[11px] pt-9 pb-5 f-mono" style="color:var(--mut)">PocketBase v0.39.10 · pb_hooks + worker engine · studio v7</div>
       </div>
@@ -879,6 +932,26 @@ th.sortable:hover{color:var(--amber2)}
       <div class="panel p-7 w-full max-w-sm"><h2 class="f-disp font-extrabold mb-2 flex items-center gap-2"><span v-html="ic('alertTriangle',17)" style="color:var(--amber2)"></span>Confirm</h2><p class="text-sm" style="color:var(--mut)">{{ confirmMsg }}</p><div class="flex gap-2 justify-end pt-4"><button class="btn btn-ghost px-4 py-2 text-sm" @click="confirmMsg=null">Cancel</button><button class="btn btn-danger px-4 py-2 text-sm" @click="confirmDo()">Confirm</button></div></div>
     </div>
 
+    <!-- Voice preview popup -->
+    <div v-if="voicePreview.open" class="fixed inset-0 z-[55] flex items-center justify-center p-4" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)" @click.self="closeVoicePreview">
+      <div class="panel rounded-2xl p-6 w-full max-w-md">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="f-disp font-bold flex items-center gap-2"><span v-html="ic('headphones',18)" style="color:var(--blue)"></span>Voice preview</h3>
+          <button class="btn btn-ghost btn-sm" @click="closeVoicePreview"><span v-html="ic('x',13)"></span></button>
+        </div>
+        <div class="text-xs f-mono mb-3 px-1 py-2 rounded-lg" style="background:var(--panel2);color:var(--mut)">
+          <div class="truncate">Voice: <span style="color:var(--ink)">{{ cfgData[voicePreview.field] || '—' }}</span></div>
+          <div class="truncate mt-1">Model: <span style="color:var(--ink)">{{ voiceModelFor(voicePreview.field) || '—' }}</span></div>
+        </div>
+        <textarea v-model.trim="voicePreview.text" rows="2" class="textarea text-sm w-full" placeholder="Type the phrase to hear…"></textarea>
+        <div v-if="voicePreview.usedFallback" class="text-[11px] mt-2 flex items-center gap-1.5" style="color:var(--amber2)"><span v-html="ic('info',12)"></span>Primary model failed — playing with the fallback TTS model.</div>
+        <div v-if="voicePreview.error" class="text-[11px] mt-2 flex items-center gap-1.5" style="color:var(--red)"><span v-html="ic('alertTriangle',12)"></span>{{ voicePreview.error }}</div>
+        <button class="btn btn-amber w-full mt-4 py-2.5 text-sm flex items-center justify-center gap-2" :disabled="voicePreview.busy" @click="playVoicePreview">
+          <span v-if="voicePreview.busy" class="spinner"></span><span v-html="ic('play',14)"></span>{{ voicePreview.busy ? 'Generating…' : 'Play sample' }}
+        </button>
+      </div>
+    </div>
+
     <!-- Toasts -->
     <div class="toast-stack">
       <div v-for="t in toasts" :key="t.id" class="toast-card" :class="'t-'+t.type">
@@ -896,7 +969,7 @@ th.sortable:hover{color:var(--amber2)}
 
 <script src="lib/vue.global.prod.js"></script>
 <script src="lib/anime.min.js"></script>
-<script src="lib/icons.js?v=17"></script>
-<script src="app.min.js?v=17"></script>
+<script src="lib/icons.js?v=18"></script>
+<script src="app.min.js?v=18"></script>
 </body>
 </html>

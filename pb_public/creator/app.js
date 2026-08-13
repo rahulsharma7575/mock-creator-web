@@ -66,7 +66,7 @@ createApp({
     authed:!!localStorage.getItem(LS_TK),who:localStorage.getItem(LS_EM)||'',
     loginEmail:'',loginPass:'',loginErr:'',loginBusy:false,clientBusy:false,newKeyHash:'',togglingId:'',
     theme:localStorage.getItem(LS_TH)||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'),view:'overview',
-    nav:[{id:'overview',label:'Overview'},{id:'clients',label:'Clients'},{id:'configs',label:'Configs'},{id:'jobs',label:'Jobs'}],
+    nav:[{id:'overview',label:'Overview'},{id:'clients',label:'Clients'},{id:'configs',label:'Configs'},{id:'jobs',label:'Jobs'},{id:'fullruns',label:'Full runs'},{id:'dryruns',label:'Dry runs'}],
     clients:[],jobs:[],configs:[],meta:[],models:[],jobsBusy:false,startBusy:false,
     dryruns:[],dryrunsBusy:false,fullruns:[],fullrunsBusy:false,previewRun:null,falStatus:null,orBalance:null,geminiStatus:null,pushStatus:null,cfgByClient:{},
     qs:{client:'',count:40,difficulty:'creative+difficult'},jobFilter:'all',jobKindFilter:'all',searchQ:'',sortKey:'created',sortDir:-1,
@@ -75,7 +75,8 @@ createApp({
     cfgClient:'',cfg:null,cfgLoading:false,cfgSaving:false,cfgSavedAt:'',cfgRaw:false,cfgRawText:'',cfgRawErr:'',
     cfgData:{},showPass:false,valIssues:[],valChecked:false,cfgSnapshot:null,
     groupIssues:{},verified:{},openGroup:'Exam',vmCache:{},dryBusy:null,
-    orModels:{},orStatus:'loading',gClient:'',apiMenu:false,
+    orModels:{},orStatus:'loading',gClient:'',apiMenu:false,magnificStatus:null,upstageStatus:null,
+    voicePreview:{open:false,field:'',text:'',busy:false,error:'',usedFallback:false},
   }},
   computed:{
     filteredJobs(){try{let l=Array.isArray(this.jobs)?this.jobs.slice():[];if(this.jobKindFilter==='dry')l=l.filter(j=>j&&String(j.kind||'').startsWith('dry_'));if(this.jobKindFilter==='full')l=l.filter(j=>j&&!String(j.kind||'').startsWith('dry_'));if(this.jobFilter&&this.jobFilter!=='all')l=l.filter(j=>j&&j.status===this.jobFilter);const q=String(this.searchQ||'').trim().toLowerCase();if(q){l=l.filter(j=>{if(!j)return false;return [j.client_name,j.client,j.difficulty,j.focus,j.status,j.kind,String(j.gen_type||1),String(j.id)].join(' ').toLowerCase().includes(q);});}const k=this.sortKey||'created',dir=this.sortDir||-1;return l.sort((a,b)=>{try{let x=this.sortVal(a,k),y=this.sortVal(b,k);if(typeof x==='string'){x=x.toLowerCase();y=String(y==null?'':y).toLowerCase();}else{y=Number(y)||0;x=Number(x)||0;}if(x<y)return-1*dir;if(x>y)return1*dir;return 0;}catch(e){return 0;}});}catch(e){console.error('filteredJobs',e);return Array.isArray(this.jobs)?this.jobs.slice():[];}},
@@ -90,11 +91,38 @@ createApp({
         {k:'failed · 24h',v:fail,c:'var(--red)',i:4,icon:'alertTriangle'},
       ];
     },
-    groups(){const g=[...new Set(this.meta.map(m=>m.group))];return ['LLM','Exam','Images','Audio','Push','Advanced'].filter(x=>g.includes(x));},
+    groups(){const g=[...new Set(this.meta.map(m=>m.group))];return ['PDF','LLM','Images','Audio','Push','Advanced'].filter(x=>g.includes(x));},
     ttsOptions(){const BASE=['fish-audio/s2.1-pro-free:free','microsoft/mai-voice-2-flash','x-ai/grok-voice-tts-1.0','google/gemini-3.1-flash-tts-preview','hexgrad/kokoro-82m','mistralai/voxtral-mini-tts-2603'];const from=(this.models||[]).filter(m=>m&&m.kind==='tts').map(m=>m.model).filter(Boolean);for(const m of from){if(!BASE.includes(m))BASE.push(m);}const cur=this.cfgData?this.cfgData.tts_model:null;if(cur&&!BASE.includes(cur))BASE.unshift(cur);return BASE;},
     listeningCount(){const c=this.cfgData.question_count||40;const r=this.cfgData.reading_count||20;return Math.max(0,c-r);},
     orCount(){return Object.keys(this.orModels).length;},
-    voiceOptions(){const base=['ko-KR-InJoon:MAI-Voice-2','ko-KR-Haena:MAI-Voice-2','ko-KR-InJoonNeural','ko-KR-SunHiNeural','ko-KR-HyunsuNeural','ko-KR-YuJinNeural'];const c=this.cfgData;if(c){if(c.tts_male_voice&&!base.includes(c.tts_male_voice))base.unshift(c.tts_male_voice);if(c.tts_female_voice&&!base.includes(c.tts_female_voice))base.unshift(c.tts_female_voice);}return base;},
+    voiceOptions(){const base=['ko-KR-InJoon:MAI-Voice-2','ko-KR-Haena:MAI-Voice-2','ko-KR-InJoonNeural','ko-KR-SunHiNeural','ko-KR-HyunsuNeural','ko-KR-YuJinNeural'];const c=this.cfgData;if(c){if(c.tts_male_voice&&!base.includes(c.tts_male_voice))base.unshift(c.tts_male_voice);if(c.tts_female_voice&&!base.includes(c.tts_female_voice))base.unshift(c.tts_female_voice);if(c.tts_fallback_male_voice&&!base.includes(c.tts_fallback_male_voice))base.unshift(c.tts_fallback_male_voice);if(c.tts_fallback_female_voice&&!base.includes(c.tts_fallback_female_voice))base.unshift(c.tts_fallback_female_voice);}return base;},
+    audioOrdered(){const want=['tts_model','tts_male_voice','tts_female_voice','tts_fallback_model','tts_fallback_male_voice','tts_fallback_female_voice','audio_gap_ms','sample_rate'];const by={};this.meta.forEach(m=>{if(m.group==='Audio')by[m.field]=m;});return want.map(f=>by[f]).filter(Boolean);},
+    audioCol(field){if(field==='audio_gap_ms'||field==='sample_rate')return'md:col-span-2';const prim=['tts_model','tts_male_voice','tts_female_voice'];return prim.includes(field)?'md:col-start-1':'md:col-start-2';},
+    voiceModelFor(field){const c=this.cfgData||{};if(field==='tts_male_voice'||field==='tts_female_voice')return c.tts_model||'';return c.tts_fallback_model||'';},
+    openVoicePreview(field){if(!this.cfgData||!this.cfgData[field])return;this.voicePreview={open:true,field,text:'안녕하세요. 음성 미리듣기입니다.',busy:false,error:'',usedFallback:false};},
+    closeVoicePreview(){this.voicePreview.open=false;},
+    async playVoicePreview(){
+      const vp=this.voicePreview;if(!vp||!vp.field||vp.busy)return;
+      const c=this.cfgData||{};const voice=c[vp.field];if(!voice)return;
+      vp.busy=true;vp.error='';vp.usedFallback=false;
+      const text=vp.text||'안녕하세요. 음성 미리듣기입니다.';
+      const models=[this.voiceModelFor(vp.field),c.tts_fallback_model||''].filter(Boolean);
+      if(!models.length){vp.error='No TTS model set';vp.busy=false;return;}
+      for(let mi=0;mi<models.length;mi++){
+        try{
+          const r=await fetch('/api/creator/tts-preview?model='+encodeURIComponent(models[mi])+'&voice='+encodeURIComponent(voice)+'&text='+encodeURIComponent(text));
+          if(!r.ok){let msg='HTTP '+r.status;try{const j=await r.json();msg=j.error||msg;}catch(e){}throw new Error(msg);}
+          const blob=await r.blob();if(!blob||blob.size<100)throw new Error('empty audio');
+          const url=URL.createObjectURL(blob);
+          if(this._vpAudio){this._vpAudio.pause();URL.revokeObjectURL(this._vpAudio._url||'');}
+          const au=new Audio(url);au._url=url;this._vpAudio=au;
+          vp.usedFallback=mi>0;
+          au.play().catch(()=>{vp.error='Playback blocked by the browser - click again';});
+          vp.busy=false;return;
+        }catch(e){vp.error='Model '+(mi===0?models[0]:models[1])+' failed: '+e.message;}
+      }
+      vp.busy=false;
+    },
     apiAllOk(){const sts=[this.geminiStatus&&this.geminiStatus.valid,this.orBalance&&this.orBalance.ok,this.falStatus&&this.falStatus.ok];if(!(this.geminiStatus||this.orBalance||this.falStatus))return null;if(!sts.some(Boolean))return false;return sts.every(Boolean);},
     costEst(){
       const q=+this.cfgData.question_count||40,r=+this.cfgData.reading_count||20,img=+this.cfgData.image_count||18,list=Math.max(0,q-r);
@@ -149,7 +177,7 @@ createApp({
     },
   },
   watch:{
-    view(v){if(v==='jobs')this.loadJobs();if(v==='clients')this.loadClients();if(v==='configs'){if(this.gClient&&!this.cfgClient){this.cfgClient=this.gClient;this.loadConfig();}}this.$nextTick(()=>this.viewEnter());},
+    view(v){if(v==='jobs')this.loadJobs();if(v==='clients')this.loadClients();if(v==='dryruns')this.loadDryruns();if(v==='fullruns')this.loadFullruns();if(v==='configs'){if(this.gClient&&!this.cfgClient){this.cfgClient=this.gClient;this.loadConfig();}}this.$nextTick(()=>this.viewEnter());},
     drawerJob(j){clearInterval(this.drawerTimer);this.drawerTimer=null;if(j&&(j.status==='queued'||j.status==='running')){this.drawerTimer=setInterval(()=>this.refreshDrawer(),4000);}},
   },
   methods:{
@@ -183,6 +211,7 @@ createApp({
       if(f.field==='image_primary'){const im=String(this.cfgData.image_primary||'');if(im.startsWith('fal-ai/'))return'Runs via Fal.ai (512x512, 1:1) - FAL_KEY must be in the container env';if(im==='z-image')return'Runs via Magnific (5 credits per image)';if(im==='nano-banana'||im==='black-forest-labs/flux.2-klein-4b')return'Runs via OpenRouter (flux.2 klein 4b, billed per image)';return'';}
       if(f.field==='reading_count'){const t=this.cfgData.question_count||0;const v=this.cfgData[f.field]||0;return t?`${t-v} listening questions remaining (Q${v+1}-Q${t})`:'Set total questions first';}
       if(f.field==='sample_rate'){const m=String(this.cfgData.tts_model||'');const need=m.includes('mai-voice')||m.includes('gemini')?'24000':m.includes('fish')||m.includes('grok')?'44100':'';return need?`Selected TTS (${String(m).split('/').pop()}) expects ${need} Hz`:'';}
+      if(f.field==='dedup_enabled')return'Random questions only — always skipped for Book/Paper PDF modes';
       if(f.field==='tts_voices'){const n=this.listeningCount;return n?`${n} listening questions - each dialog's speakers are labelled V1..V4; map them here if you want distinct voices`:'Add listening questions first';}
       if(f.field==='llm_author_model'&&this.cfgData[f.field]){const m=this.orModels[this.cfgData[f.field]];return m?`OpenRouter: ${m.name}`:this.orStatus==='live'?`Model not found on OpenRouter`:'';
       }
@@ -276,7 +305,7 @@ createApp({
     },
     cardState(g){const list=this.groupIssues[g]||[];if(list.some(i=>i.w==='err'))return'err';if(list.some(i=>i.w==='warn'))return'warn';if(this.verified[g])return'ok';return'idle';},
     groupIssueList(g){return this.groupIssues[g]||[];},
-    hiddenField(f){return['image_count_min','image_count_max','is_active','shuffle_questions','shuffle_options','negative_marks','push_subject_id','push_exam_type','image_fallback','tts_voices'].includes(f.field);},
+    hiddenField(f){return['image_count_min','image_count_max','is_active','shuffle_questions','shuffle_options','negative_marks','push_subject_id','push_exam_type','image_fallback','tts_voices','question_count','reading_count','marks_per_question','difficulty_profile','tts_fallback_voice','audio_workers'].includes(f.field);},
     toggleGroup(g){this.openGroup=this.openGroup===g?'':g;this.$nextTick(()=>this.deckEnter());},
     viewEnter(){
       if(!window.anime)return;
@@ -293,12 +322,12 @@ createApp({
     async login(){this.loginErr='';this.loginBusy=true;
       try{const r=await fetch('/api/collections/_superusers/auth-with-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity:this.loginEmail,password:this.loginPass})});const text=await r.text();let b;try{b=JSON.parse(text);}catch(e){throw new Error('Server returned unexpected response - is PocketBase running?');}if(!r.ok)throw new Error(b.message||'auth failed');localStorage.setItem(LS_TK,b.token);localStorage.setItem(LS_EM,b.record.email||this.loginEmail);this.who=localStorage.getItem(LS_EM);this.authed=true;try{await api('/api/creator/ensure');}catch(e){this.toast('ensure: '+e.message,'err');}this.loadAll();}catch(e){this.loginErr=e.message;}this.loginBusy=false;},
     logout(){localStorage.removeItem(LS_TK);localStorage.removeItem(LS_EM);clearInterval(this.drawerTimer);this.drawerTimer=null;this.drawerJob=null;this.authed=false;this.who='';this.view='overview';this.clients=[];this.jobs=[];this.configs=[];this.cfgClient='';this.cfg=null;},
-    loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();this.loadFalStatus();this.loadOrBalance();this.loadGeminiStatus();this.ensureOrModels();this.$nextTick(()=>this.viewEnter());},
+    loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();this.loadFalStatus();this.loadOrBalance();this.loadGeminiStatus();this.loadMagnificStatus();this.loadUpstageStatus();this.ensureOrModels();this.$nextTick(()=>this.viewEnter());},
     async loadClients(){try{const r=await api('/api/collections/mock_clients/records?perPage=200&sort=name');this.clients=r.items||[];if(!this.gClient){const act=this.clients.find(c=>c.active)||this.clients[0];if(act)this.gClient=act.id;}if(!this.qs.client&&this.gClient)this.qs.client=this.gClient;}catch(e){this.toast('clients: '+e.message,'err');}},
     onGlobalClient(){const id=this.gClient;this.qs.client=id;if(this.cfgClient!==id){this.cfgClient=id;if(this.view==='configs')this.loadConfig();}if(!id)this.cfgClient='';},
     genTypeLabel(j){const g=Number((j&&j.gen_type)||1);if(g===2)return{label:'Book PDF',c:'var(--blue)'};if(g===3)return{label:'Paper PDF',c:'var(--purple)'};return null;},
     toggleApiMenu(){this.apiMenu=!this.apiMenu;},
-    refreshAllStatus(){this.loadFalStatus();this.loadOrBalance();this.loadGeminiStatus();},
+    refreshAllStatus(){this.loadFalStatus();this.loadOrBalance();this.loadGeminiStatus();this.loadMagnificStatus();this.loadUpstageStatus();},
     async loadConfigs(){try{const r=await api('/api/collections/mock_config/records?perPage=200');this.configs=r.items||[];const m={};for(const c of this.configs){m[c.client]=c;}this.cfgByClient=m;}catch(e){this.toast('configs: '+e.message,'err');}},
     async loadMeta(){try{const r=await api('/api/collections/mock_config_meta/records?perPage=200&sort=group,order');this.meta=r.items||[];}catch(e){}},
     async loadModels(){try{const r=await api('/api/collections/mock_models/records?perPage=200');this.models=r.items||[];}catch(e){}},
@@ -307,6 +336,8 @@ createApp({
     async loadFalStatus(){try{const r=await api('/api/creator/fal-status');this.falStatus=r;}catch(e){this.falStatus=null;}},
     async loadOrBalance(){try{const r=await api('/api/creator/or-status');this.orBalance=r;}catch(e){this.orBalance=null;}},
     async loadGeminiStatus(){try{const r=await api('/api/creator/gemini-status');this.geminiStatus=r;}catch(e){this.geminiStatus=null;}},
+    async loadMagnificStatus(){try{const r=await api('/api/creator/magnific-status');this.magnificStatus=r;}catch(e){this.magnificStatus=null;}},
+    async loadUpstageStatus(){try{const r=await api('/api/creator/upstage-status');this.upstageStatus=r;}catch(e){this.upstageStatus=null;}},
     async testPush(){try{const r=await api('/api/creator/push-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base:this.cfgData?this.cfgData.push_pb_base:'',email:this.cfgData?this.cfgData.push_pb_email:'',pass:this.cfgData?this.cfgData.push_pb_pass:''})});this.pushStatus=r;}catch(e){this.pushStatus={connected:false,message:'verify call failed: '+e.message};}},
     pushSummary(){const p=this.pushStatus;if(!p)return '';let s='Connected to '+String(p.url||'').replace('https://','').replace('http://','')+' with '+p.total_exams+' mockups';if(p.published!==undefined)s+=' ('+p.published+' published, '+p.draft+' draft)';return s;},
     geminiModels(){return['gemini-3.6-flash','gemini-3.5-flash','gemini-3.5-flash-lite','gemini-2.5-pro'];},

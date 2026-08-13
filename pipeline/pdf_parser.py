@@ -237,10 +237,7 @@ def _upstage_parse(path, filename, max_pages, api_key):
         raise PdfParseError("Upstage returned no elements")
     by_page = {}
     for el in elements:
-        coords = el.get("coordinates") or []
-        page_no = 1
-        if coords:
-            page_no = int(coords[0].get("page", 1) or 1)
+        page_no = int(el.get("page") or 1)  # page is a direct field (coords have no page)
         if page_no > max_pages:
             continue
         content = el.get("content") or {}
@@ -261,17 +258,18 @@ def _upstage_parse(path, filename, max_pages, api_key):
 
 
 def _upstage_figures(j):
-    """Extract figure images (base64) from Upstage elements, keep the page they sit on."""
+    """Extract figure images (base64) from Upstage elements, keep the page they sit on.
+
+    Upstage schema (verified live 2026-08): elements carry `category` (not `type`) and
+    `page` directly; coordinates are normalized {x,y} only, so bbox proximity mapping is
+    not possible on this path — the author assigns images by page/context instead."""
     out = []
     elements = j.get("elements") or []
     for el in elements:
-        if (el.get("type") or "") not in ("figure", "chart"):
+        if str(el.get("category") or "").lower() not in ("figure", "chart"):
             continue
         content = el.get("content") or {}
-        page_no = 1
-        coords = el.get("coordinates") or []
-        if coords:
-            page_no = int(coords[0].get("page", 1) or 1)
+        page_no = int(el.get("page") or 1)
         b64 = None
         for key in ("figure_base64", "base64", "image_base64"):
             v = content.get(key)
@@ -279,7 +277,7 @@ def _upstage_figures(j):
                 b64 = v.split(",", 1)[-1]
                 break
         if not b64:
-            html = content.get("figure_html") or ""
+            html = str(content.get("figure_html") or content.get("html") or "")
             m = HTML_IMG_RE.search(html)
             if m:
                 b64 = m.group(2)
