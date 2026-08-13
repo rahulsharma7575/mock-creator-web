@@ -68,6 +68,10 @@ CONFIG_MAP = {
     "tts_model": "tts_model",
     "tts_fallback_model": "tts_fallback_model",
     "tts_fallback_voice": "tts_fallback_voice",
+    "tts_male_voice": "tts_male_voice",
+    "tts_female_voice": "tts_female_voice",
+    "pdf_parser": "pdf_parser",
+    "upscale_pdf_images": "upscale_pdf_images",
     "question_count": "question_count",
     "reading_count": "reading_count",
     "image_count": "image_count",
@@ -142,6 +146,20 @@ def auth():
                                  headers={"Content-Type": "application/json"}, method="POST")
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.loads(r.read())["token"]
+
+
+def download_file(path, dest):
+    """Download a stored file (e.g. a job PDF) from the local PocketBase."""
+    global _token, _token_at
+    if not _token or time.time() - _token_at > 3500:
+        _token = auth()
+        _token_at = time.time()
+    req = urllib.request.Request(PB_URL + path, headers={"Authorization": "Bearer " + _token})
+    with urllib.request.urlopen(req, timeout=120) as r:
+        data = r.read()
+    with open(dest, "wb") as f:
+        f.write(data)
+    return len(data)
 
 
 def get_jobs(status):
@@ -372,6 +390,21 @@ def run_job(job):
 
     cfg["is_active"] = True  # pipeline pushes only when active
 
+    # PDF generation modes (end-user app sends gen_type + the PDF file)
+    gen_type = int(job.get("gen_type") or 1)
+    cfg["gen_type"] = gen_type
+    if gen_type >= 2:
+        cfg["question_count"] = 40
+        cfg["reading_count"] = 20
+        if gen_type == 3:
+            cfg["image_count"] = 0
+            cfg["image_count_min"] = 0
+            cfg["image_count_max"] = 40  # image count follows the paper, never forced
+            log(f"job {job_id}: gen_type=3 (paper PDF) - forcing 40 questions (20 reading / 20 listening), images follow the paper")
+        else:
+            cfg["difficulty_profile"] = "creative+difficult"  # medium/hard/very hard, never easy
+            log(f"job {job_id}: gen_type=2 (book PDF) - forcing 40 questions (20 reading / 20 listening), no easy questions")
+
     kind = job.get("kind", "full") or "full"
     if kind.startswith("dry_"):
         dry_mode = kind[4:]  # questions | images | audio
@@ -412,6 +445,24 @@ def run_job(job):
     workdir = WORK_ROOT / job_id
     workdir.mkdir(parents=True, exist_ok=True)
     (workdir / "mocks").mkdir(parents=True, exist_ok=True)
+
+    # PDF generation modes need the uploaded document on disk before the pipeline starts
+    pdf_path = ""
+    if gen_type >= 2:
+        pdf_name = str(job.get("pdf") or "").strip()
+        if not pdf_name:
+            patch_job(job_id, {"status": "failed",
+                               "error": f"generation type {gen_type} requires a PDF file"})
+            return
+        pdf_path = str(workdir / pdf_name)
+        try:
+            n = download_file(f"/api/files/mock_jobs/{job_id}/{pdf_name}", pdf_path)
+            log(f"job {job_id}: downloaded PDF {pdf_name} ({n} bytes)")
+        except Exception as e:
+            patch_job(job_id, {"status": "failed", "error": f"PDF download failed: {e}"[:1900]})
+            return
+        cfg["pdf_path"] = pdf_path
+
     cfgfile = workdir / "config.json"
     cfgfile.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
 

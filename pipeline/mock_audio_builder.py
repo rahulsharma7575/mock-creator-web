@@ -84,6 +84,16 @@ TTS_DEFAULTS = {
     "tts_gap_ms": 400,
     "tts_workers": 4,
     "tts_voices": {},
+    "tts_male_voice": "",    # PDF dialogue speaker V1 (male) - empty = auto per model
+    "tts_female_voice": "",  # PDF dialogue speaker V2 (female) - empty = auto per model
+}
+
+# Auto speaker voices per TTS model family (used for PDF-mode dialogues):
+# fish-audio free endpoint -> free named voices (V4 = Energetic male, V2 = E-girl female)
+# MAI Voice 2 -> native Korean male/female voices
+DIALOGUE_VOICE_DEFAULTS = {
+    "fish": {"V1": "802e3bc2b27e49c2995d23ef70e6ac89", "V2": "ca3007f96ae7499ab87d27ea3599956a"},
+    "mai": {"V1": "ko-KR-InJoon:MAI-Voice-2", "V2": "ko-KR-Haena:MAI-Voice-2"},
 }
 
 
@@ -331,6 +341,18 @@ def main() -> None:
         args.gap = int(cfg["tts_gap_ms"])
     global SAMPLE_RATE
     SAMPLE_RATE = int(cfg["tts_rate"])
+
+    # PDF-dialogue speaker voices: explicit config > per-model default > stock VOICES.
+    # Order matters: the tts_voices map below (explicit per-speaker overrides) wins last.
+    model_l = str(cfg.get("tts_model") or "").lower()
+    fam = "mai" if ("mai-voice" in model_l) else ("fish" if ("fish" in model_l or "s2.1" in model_l) else "")
+    fam_defaults = DIALOGUE_VOICE_DEFAULTS.get(fam, {})
+    for key, cfg_key in (("V1", "tts_male_voice"), ("V2", "tts_female_voice")):
+        v = str(cfg.get(cfg_key) or "").strip()
+        if not v:
+            v = fam_defaults.get(key, "")
+        if v:
+            VOICES[key] = v
     voices = cfg.get("tts_voices") or {}
     if isinstance(voices, dict):
         VOICES.update({k: v for k, v in voices.items() if v})

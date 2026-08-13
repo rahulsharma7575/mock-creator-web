@@ -124,6 +124,12 @@ DEFAULTS = {
     "tts_model": "fish-audio/s2.1-pro-free:free",
     "tts_fallback_model": "microsoft/mai-voice-2-flash",
     "tts_fallback_voice": "ko-KR-Haena:MAI-Voice-2",
+    "tts_male_voice": "",                         # empty = auto per TTS model (fish free male / MAI ko-KR-InJoon)
+    "tts_female_voice": "",                       # empty = auto per TTS model (fish free female / MAI ko-KR-Haena)
+    "gen_type": 1,                      # 1 = random standard | 2 = book PDF | 3 = printed paper PDF
+    "pdf_path": "",                     # worker-downloaded PDF for gen_type 2/3
+    "pdf_parser": "auto",               # auto (PyMuPDF -> Upstage -> Mistral) | local (PyMuPDF only)
+    "upscale_pdf_images": True,         # recraft/upscale/crisp on extracted paper images (fal credits)
     "tts_rate": 44100,
     "tts_gap_ms": 400,
     "tts_voices": {},                          # optional speaker->voice map override
@@ -463,6 +469,74 @@ Every question in the exam MUST follow the field set shown above (no extra/missi
 Return the JSON array ONLY — no markdown, no commentary."""
 
 
+AUTHOR_USER_BOOK = """Write a complete Korean EPS-TOPIK UBT mock exam: EXACTLY {question_count} questions as a JSON array, ALL grounded in the uploaded BOOK PDF content below (its topics, grammar points, vocabulary and situations).
+
+HARD RULES:
+- {section_order} (number 1..{question_count} unique, in order).
+- Difficulty: "medium", "hard" or "very hard" ONLY. NEVER "easy" or "very easy".
+- Each question: number, section, difficulty, type (short English label), question_text (Korean,
+  starts with "Q<N>. ", NO html), options (4 REAL Korean strings — natural, believable, similar
+  length, only ONE best; NEVER numbers/placeholders), correct_answer (["0"]..["3"]),
+  marks {marks_per_question}, explanation (Korean, 1-2 sentences), requiresImage (bool), imagePrompt
+  (English, detailed — ONLY when requiresImage true).
+- NEVER reuse the exact same question_text for two questions — vary the stems.
+- EXACTLY {image_count} questions (between {image_count_min} and {image_count_max}) MUST have
+  requiresImage true plus a detailed English imagePrompt.
+- Reading mixes: fill-in-blank, grammar in context, vocabulary, sentence completion, conversation
+  completion, honorifics, idioms, connectors, sentence ordering, reading comprehension
+  (안내문/공지/이메일/광고/편지/일기), situation judgment, sign/menu/schedule/map/notice interpretation.
+- Listening (Q{listening_start}-{question_count}): each needs "listening": {"audioScript": [{"voice":"V1".."V4","text":"..."}],
+  "durationSeconds", "speakers", "situation"}. Situations rotate: phone, 방송, news, weather,
+  office, hospital, shopping, transportation, restaurant, school, interview, customer service.
+  Spoken-style Korean: polite endings, natural contractions, 반말 ONLY between close friends.
+  2-4 speakers, turns <= 2 sentences.
+- KOREAN QUALITY (zero mistakes): perfect particles and 띄어쓰기, natural native Korean, realistic
+  Korean names and places, no politics/religion/sensitive content. No English in options/scripts.
+- VARIETY: never repeat grammar patterns, vocabulary roots, situations, names, or sentence
+  structures across the exam.
+- The book content may contain page numbers, TOC, ads or repeated headers — ignore them. Use the
+  book's real material: its grammar explanations, example sentences, vocabulary and dialogues.
+- Every question MUST trace back to something in the book (a grammar point, word, topic or situation).
+- Use the exact same JSON field set as the REFERENCE EXAMPLES in AUTHOR_USER (number, section,
+  difficulty, type, question_text, options, correct_answer, marks, explanation, requiresImage,
+  imagePrompt, listening). Return the JSON array ONLY — no markdown, no commentary."""
+
+
+AUTHOR_USER_PAPER = """Rebuild the old printed EPS-TOPIK question paper below into a fresh digital mock exam:
+EXACTLY {question_count} questions as a JSON array ({section_order}).
+
+HARD RULES:
+- Follow the paper faithfully: same question types, topics, images and Korean wording wherever the
+  paper is clear. Do NOT change or invent questions that are readable in the paper.
+- ALWAYS 4 options + one correct_answer — every paper question must become the standard
+  field set: number, section, difficulty ("medium"/"hard"/"very hard", never "easy"), type,
+  question_text (Korean, starts "Q<N>. "), options (4 REAL Korean strings), correct_answer (["0"]..["3"]),
+  marks {marks_per_question}, explanation (Korean), requiresImage (bool), imagePrompt (English, when
+  requiresImage), listening (for Q{listening_start}+).
+- Determine the correct answer with YOUR OWN judgement from the question content — ignore any
+  printed answer key.
+- Question missing, garbled or making no sense after OCR: DO NOT hallucinate the original. Create
+  ONE new coherent question that matches the surrounding context/scenario and, where the paper's
+  answer list hints at the intended answer, build the new question around that answer.
+- Reading passages with 2-3 questions: inline the passage text into EVERY related question's
+  question_text (each question stays standalone).
+- Listening (Q{listening_start}-{question_count}): if the paper contains a readable transcript for a
+  question, use it verbatim as the audioScript. If the transcript is missing/empty (typical — audio
+  is never printed), write a natural 2-4 turn Korean dialogue between a male speaker (voice "V1")
+  and a female speaker (voice "V2") that matches the question stem, the picture and the correct
+  answer. Include "listening": {"audioScript": [...], "durationSeconds", "speakers": 2, "situation"}.
+- Images: the extracted paper images are listed under PAPER IMAGES with the question they belong to.
+  For a question with a paper image set requiresImage true AND pdfImage "<id>" (exact id from the
+  list). imagePrompt may describe the expected picture from the question/answer context. Questions
+  that need a picture but have no paper image: requiresImage true + normal imagePrompt (they will be
+  generated fresh). The image count follows the paper — do not add or remove image questions beyond
+  what the paper implies.
+- Ignore answer keys, instruction pages, scoring rules and anything that is not a question.
+- KOREAN QUALITY: fix nothing that is correct in the paper, but clean up any OCR artifacts
+  (garbled characters, broken spacing) into natural Korean.
+Return the JSON array ONLY — no markdown, no commentary."""
+
+
 PROOF_SYSTEM = """You are a meticulous Korean-language examiner. Fix every grammar, particle, spelling and
 띄어쓰기 error and any awkward/unnatural phrasing. Keep the JSON structure EXACTLY identical
 (keys, numbers, options order, correct_answer, section, audioScript voices). Output ONLY the corrected JSON array."""
@@ -686,8 +760,8 @@ def validate_exam(qs, stage="final"):
     return errs
 
 
-def llm_author(key, attempt, model_cfg, extra_user=""):
-    user = render_prompt(AUTHOR_USER) + extra_user
+def llm_author(key, attempt, model_cfg, extra_user="", user_builder=None):
+    user = (user_builder() if user_builder else render_prompt(AUTHOR_USER)) + extra_user
     if attempt:
         user += f"\n\nPREVIOUS ATTEMPT FAILED VALIDATION:\n{attempt}"
     qs, usage = chat_json(key, model_cfg["slug"], AUTHOR_SYSTEM, user,
@@ -1061,15 +1135,19 @@ def to_webp(data, max_size=1024, quality=80):
     return buf.getvalue()
 
 
-def run_images(key, qs, record_ids, headers, work_dir, img_model=None):
+def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_images=None):
     """Generate TOPIK images for requiresImage questions.
 
     Model chain (first working wins): primary provider (CFG img_model) ->
     then the other providers (z-image / OpenRouter flux / fal-ai) in order.
     Each step retried per CFG img_retries / img_fallback_retries, with size + server-side verify,
     then ONE backfill pass for anything still missing.
+    pdf_images: {qnum: {"png": bytes}} — questions whose image came from a parsed PDF:
+    upscaled via fal-ai/recraft/upscale/crisp when enabled (raw fallback), never regenerated.
     Returns (ok, cost, credits, missing_numbers)."""
     from PIL import Image  # noqa: F401 — ensure importable early
+    import pdf_parser as P
+    pdf_images = pdf_images or {}
     primary = img_model or CFG.get("img_model") or "z-image"
     chain = img_chain(primary)
     img_retries = int(CFG.get("img_retries", 2))
@@ -1077,6 +1155,8 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None):
     verify = bool(CFG.get("image_verify_after", True))
     max_size = int(CFG.get("img_max_size", 1024))
     quality = int(CFG.get("img_quality", 80))
+    upscale_on = bool(CFG.get("upscale_pdf_images", True))
+    fal_key = os.environ.get("FAL_KEY") or ""
     jobs = []
     for q, rid in zip(qs, record_ids):
         if not q.get("requiresImage"):
@@ -1114,6 +1194,34 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None):
 
     def one(job):
         num, rid, prompt = job
+        if num in pdf_images:
+            png = pdf_images[num]["png"]
+            webp_data = None
+            used = 0.0
+            try:
+                if upscale_on and fal_key:
+                    up_ok = upload_file(headers, rid, "image", f"q{num}_raw.png", png, "image/png")
+                    if up_ok:
+                        chk = httpx.get(CFG["pb_base"] + f"/api/collections/questions/records/{rid}",
+                                        headers=headers, params={"fields": "image"}, timeout=30)
+                        fname = (chk.json().get("image") or "") if chk.status_code == 200 else ""
+                        if fname:
+                            url = CFG["pb_base"] + f"/api/files/questions/{rid}/{fname}"
+                            webp_data = to_webp(P.upscale_image(url, fal_key), max_size=max_size, quality=quality)
+                            print(f"    q{num} pdf-extracted: upscaled via recraft/crisp")
+                        else:
+                            raise RuntimeError("no uploaded filename for upscale")
+                if webp_data is None:
+                    webp_data = to_webp(png, max_size=max_size, quality=quality)
+            except Exception as e:
+                print(f"    q{num} pdf-extracted upscale failed ({str(e)[:100]}) — using raw extracted image")
+                webp_data = to_webp(png, max_size=max_size, quality=quality)
+            up = upload_file(headers, rid, "image", f"q{num}.webp", webp_data, "image/webp")
+            if up:
+                path = out_dir / f"q{num}.webp"
+                path.write_bytes(webp_data)
+                return (num, up, used, "pdf-extracted")
+            return (num, False, 0, None)
         for mi, model in enumerate(chain):
             tries = img_retries if mi == 0 else fb_retries
             gave_up = False
@@ -1449,6 +1557,8 @@ def main():
         "stage_times": {},
     }
     t_all = time.time()
+    gen_type = int(CFG.get("gen_type", 1))
+    pdf_doc = None
     def stage_secs():
         return int(time.time() - t_all)
 
@@ -1459,12 +1569,48 @@ def main():
             sys.exit("FAILED: existing questions file is invalid — delete it and re-run")
         stats["authored"] = False
     else:
+        # PDF generation modes: parse the uploaded document before authoring
+        gen_type = int(CFG.get("gen_type", 1))
+        pdf_doc = None
+        user_builder = None
+        if gen_type >= 2:
+            import pdf_parser as P
+            pdf_path = str(CFG.get("pdf_path") or "").strip()
+            if not pdf_path or not os.path.exists(pdf_path):
+                sys.exit("FAILED: generation type %d requires a PDF file (pdf_path missing on the worker)" % gen_type)
+            parser_mode = "local" if str(CFG.get("pdf_parser", "auto")) == "local" else "auto"
+            pdf_doc = P.parse_pdf(pdf_path, gen_type=gen_type, parser=parser_mode,
+                                  upstage_key=os.environ.get("UPSTAGE_API_KEY", ""),
+                                  or_key=key)
+            pdf_dir = base_dir / "pdf"
+            pdf_dir.mkdir(parents=True, exist_ok=True)
+            (pdf_dir / "parsed.md").write_text(pdf_doc["text"] or "", encoding="utf-8")
+            for pi in pdf_doc["images"]:
+                (pdf_dir / (pi["id"] + ".png")).write_bytes(pi["png"])
+            print("[pdf] parser=%s pages=%d images=%d text_chars=%d" % (
+                pdf_doc["parser_used"], len(pdf_doc["pages"]), len(pdf_doc["images"]), len(pdf_doc["text"])))
+            if not pdf_doc["text"].strip():
+                sys.exit("FAILED: PDF parsed but no question content found (only answer-key/instruction pages?)")
+            if gen_type == 2:
+                user_prompt = render_prompt(AUTHOR_USER_BOOK) + "\n\nBOOK CONTENT:\n" + pdf_doc["text"]
+            else:
+                img_lines = []
+                for pi in pdf_doc["images"]:
+                    qn = pi.get("nearest_question")
+                    qn = qn if isinstance(qn, int) and qn > 0 else "no question matched"
+                    img_lines.append("%s -> question %s (page %d)" % (pi["id"], qn, pi.get("page", 0)))
+                user_prompt = (render_prompt(AUTHOR_USER_PAPER) + "\n\nPAPER CONTENT:\n" +
+                               pdf_doc["text"] + "\n\nPAPER IMAGES:\n" +
+                               ("\n".join(img_lines) if img_lines else "(none extracted)"))
+            user_builder = lambda: user_prompt
+        else:
+            user_prompt = render_prompt(AUTHOR_USER)
+
         # 1. Author - DUAL PROVIDER: Gemini (direct Google API) first, OpenRouter fallback
         qs, last_err, author_via = None, None, ""
         sys_prompt = AUTHOR_SYSTEM
-        user_prompt = render_prompt(AUTHOR_USER)
         dedup_serials, dedup_texts = (None, None)
-        if CFG.get("dedup_enabled", True):
+        if CFG.get("dedup_enabled", True) and gen_type == 1:
             dedup_serials, dedup_texts = fetch_last_sets()
         if dedup_texts:
             dedup_block = dedup_prompt_block(dedup_serials, dedup_texts)
@@ -1531,7 +1677,7 @@ def main():
             for attempt in range(gretries):
                 print(f"[author] openrouter {author_cfg['name']} attempt {attempt + 1}...")
                 try:
-                    qs, usage = llm_author(key, last_err, author_cfg, dedup_block)
+                    qs, usage = llm_author(key, last_err, author_cfg, dedup_block, user_builder=user_builder)
                 except Exception as e:
                     print(f"[author] generation error: {str(e)[:120]}")
                     last_err = "previous generation failed or returned broken JSON — return complete valid JSON"
@@ -1559,6 +1705,18 @@ def main():
         if not qs or validate_exam(qs, stage="author"):
             errs = validate_exam(qs, stage="author") if qs else ["no questions returned"]
             sys.exit("FAILED: could not author a valid exam after attempts — " + "; ".join(errs[:12]))
+
+        # paper mode: resolve pdfImage refs against the extracted images
+        if gen_type == 3 and pdf_doc:
+            valid_ids = set(i["id"] for i in pdf_doc["images"])
+            for q in qs:
+                pi = str(q.get("pdfImage") or "")
+                if pi:
+                    if pi in valid_ids:
+                        q["requiresImage"] = True
+                    else:
+                        print(f"[pdf] Q{q.get('number')}: pdfImage '{pi}' not in extracted images — will generate fresh")
+                        q["pdfImage"] = ""
         stats["stage_times"]["author"] = stage_secs()
 
         # 1b. Choose proofreading model (config-driven when --config/$MOCK_CONFIG, else interactive)
@@ -1613,6 +1771,7 @@ def main():
         report = {
             "mock": mock, "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "dry_mode": dm, "questions": len(qs),
+            "gen_type": gen_type,
             "author_attempt": stats["author_attempt"],
             "author_cost_usd": round(stats["author_cost"], 4),
             "proofread_model": stats["proof_model"], "proofread_cost_usd": round(stats["proof_cost"], 4),
@@ -1680,8 +1839,18 @@ def main():
     stats["stage_times"]["audio"] = stage_secs()
 
     # 5. Images
+    pdf_images_map = {}
+    if gen_type == 3 and pdf_doc:
+        img_by_id = {i["id"]: i for i in pdf_doc["images"]}
+        for q in qs:
+            pi = str(q.get("pdfImage") or "")
+            if pi and pi in img_by_id:
+                pdf_images_map[q["number"]] = {"png": img_by_id[pi]["png"]}
+        if pdf_images_map:
+            print(f"[images] {len(pdf_images_map)} extracted paper images will be upscaled (fal recraft/crisp)")
     print(f"[images] generating TOPIK images ({img_primary})...")
-    i_ok, i_cost, i_credits, img_missing = run_images(key, qs, ids, headers, base_dir, img_primary)
+    i_ok, i_cost, i_credits, img_missing = run_images(
+        key, qs, ids, headers, base_dir, img_primary, pdf_images=pdf_images_map)
     stats["img_ok"], stats["img_cost"], stats["img_credits"] = i_ok, i_cost, i_credits
     stats["img_missing"] = img_missing
     stats["img_total"] = sum(1 for q in qs if q.get("requiresImage"))
@@ -1693,6 +1862,7 @@ def main():
     report = {
         "mock": mock, "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "questions": stats["audio_total"] + sum(1 for q in qs if q.get("section") == "reading"),
+        "gen_type": gen_type,
         "author_attempt": stats["author_attempt"],
         "author_cost_usd": round(stats["author_cost"], 4),
         "proofread_model": stats["proof_model"], "proofread_cost_usd": round(stats["proof_cost"], 4),

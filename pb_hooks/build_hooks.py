@@ -89,6 +89,10 @@ SCHEMA = [
         f("tts_fallback_model", "text", max=200),
         f("tts_fallback_voice", "text", max=200),
         f("tts_voices", "json", maxSize=65536),
+        f("tts_male_voice", "text", max=200),
+        f("tts_female_voice", "text", max=200),
+        f("pdf_parser", "select", values=["auto", "local"], maxSelect=1),
+        f("upscale_pdf_images", "bool"),
         f("question_count", "number", min=1, max=200),
         f("reading_count", "number", min=0, max=50),
         f("image_count", "number", min=0, max=40),
@@ -139,6 +143,11 @@ SCHEMA = [
           collectionId=COLLECTION_IDS["mock_clients"], maxSelect=1, minSelect=0),
         f("status", "select", values=["queued", "running", "done", "failed"], maxSelect=1),
         f("kind", "select", values=["full", "dry_questions", "dry_images", "dry_audio"], maxSelect=1),
+        f("gen_type", "number", min=1, max=3),
+        {"id": "f_pdf", "name": "pdf", "type": "file", "required": False,
+         "presentable": False, "hidden": False, "primaryKey": False,
+         "options": {"maxSelect": 1, "maxSize": 10485760,
+                     "mimeTypes": ["application/pdf", "application/x-pdf"]}},
         f("count", "number", min=1, max=200),
         f("difficulty", "select", values=["creative+difficult", "creative+medium", "hard", ""], maxSelect=1),
         f("overrides", "json", maxSize=65536),
@@ -210,6 +219,10 @@ DEFAULT_CONFIG = {
     "tts_model": "fish-audio/s2.1-pro-free:free",
     "tts_fallback_model": "microsoft/mai-voice-2-flash",
     "tts_fallback_voice": "ko-KR-Haena:MAI-Voice-2",
+    "tts_male_voice": "",
+    "tts_female_voice": "",
+    "pdf_parser": "auto",
+    "upscale_pdf_images": True,
     "question_count": 40,
     "reading_count": 20,
     "image_count": 22,
@@ -248,6 +261,8 @@ META_FIELDS = [
     ("tts_model", "TTS model", "select", "Audio", "Model that reads the listening scripts aloud. Options load from the models API.", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]),
     ("tts_fallback_model", "Fallback TTS model", "select", "Audio", "Used only if the primary TTS model fails or times out.", ["microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]),
     ("tts_fallback_voice", "Fallback voice", "text", "Audio", "Voice id used when the primary voice is unavailable (e.g. ko-KR-Haena)."),
+    ("tts_male_voice", "Male listening voice (PDF dialogues)", "text", "Audio", "Voice for the male speaker (V1) in synthesized listening dialogues (PDF modes). Leave empty to auto-pick per TTS model (fish-audio free male / MAI ko-KR-InJoon)."),
+    ("tts_female_voice", "Female listening voice (PDF dialogues)", "text", "Audio", "Voice for the female speaker (V2) in synthesized listening dialogues (PDF modes). Leave empty to auto-pick per TTS model (fish-audio free female / MAI ko-KR-Haena)."),
     ("question_count", "Total questions", "number", "Exam", "40 by default"),
     ("reading_count", "Reading questions", "number", "Exam", "Reading section size"),
     ("image_count", "Image questions target", "number", "Exam", "Target count"),
@@ -266,6 +281,8 @@ META_FIELDS = [
     ("push_subject_id", "Subject id", "text", "Push", "Subject record id on client PB"),
     ("push_exam_type", "Exam type on push", "text", "Push", "exam_type for the auto-created exam (mock/ubt/practice/official)"),
     ("push_exam_status", "Exam status on push", "select", "Push", "draft = review-then-publish | published = immediate", ["draft", "published"]),
+    ("pdf_parser", "PDF parser", "select", "PDF", "Auto = PyMuPDF (local) first, cloud OCR (Upstage/Mistral) when the PDF is scanned or garbled | Local only = PyMuPDF, never sends pages to cloud APIs", ["auto", "local"]),
+    ("upscale_pdf_images", "Upscale extracted paper images", "bool", "PDF", "Every image extracted from the PDF is upscaled via fal-ai/recraft/upscale/crisp before upload (bills FAL credits); on failure the raw extracted image is used"),
     ("audio_gap_ms", "Gap between clips (ms)", "number", "Audio", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."),
     ("sample_rate", "Sample rate (Hz)", "number", "Audio", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."),
     ("audio_workers", "Parallel audio workers", "number", "Audio", "How many clips are synthesized at the same time. 4 is safe for most machines."),
@@ -410,6 +427,30 @@ function ensureCollections() {
     if (changed2) $app.save(cfgCol2)
   } catch (errG) {}
   try {
+    var cfgCol4 = $app.findCollectionByNameOrId("mock_config")
+    var needFields = [["pdf_parser", "select", {"values": ["auto", "local"], "maxSelect": 1}],
+                      ["upscale_pdf_images", "bool", null],
+                      ["tts_male_voice", "text", {"max": 200}],
+                      ["tts_female_voice", "text", {"max": 200}]]
+    var changed4 = false
+    for (var nfi = 0; nfi < needFields.length; nfi++) {
+      var nf = needFields[nfi]
+      var hasIt = false
+      for (var fi6 = 0; fi6 < cfgCol4.fields.items().length; fi6++) {
+        if (cfgCol4.fields.items()[fi6].name === nf[0]) hasIt = true
+      }
+      if (!hasIt) {
+        var addOpts = nf[2] || {}
+        addOpts["name"] = nf[0]
+        addOpts["type"] = nf[1]
+        addOpts["required"] = false
+        cfgCol4.fields.add(addOpts)
+        changed4 = true
+      }
+    }
+    if (changed4) $app.save(cfgCol4)
+  } catch (errH) {}
+  try {
     var mProv = $app.findFirstRecordByData("mock_config_meta", "field", "author_provider")
     mProv.set("label", "Author provider")
     mProv.set("ftype", "select")
@@ -432,6 +473,27 @@ function ensureCollections() {
     mAuth.set("help", "OpenRouter model used ONLY when the Gemini author fails or quota is exceeded")
     $app.save(mAuth)
   } catch (errR) {}
+  try {
+    var pdfMetaDefs = [
+      ["pdf_parser", "PDF parser", "select", "PDF", "Auto = PyMuPDF (local) first, cloud OCR (Upstage/Mistral) when the PDF is scanned or garbled | Local only = PyMuPDF, never sends pages to cloud APIs", ["auto", "local"]],
+      ["upscale_pdf_images", "Upscale extracted paper images", "bool", "PDF", "Every image extracted from the PDF is upscaled via fal-ai/recraft/upscale/crisp before upload (bills FAL credits); on failure the raw extracted image is used", null],
+      ["tts_male_voice", "Male listening voice (PDF dialogues)", "text", "Audio", "Voice for the male speaker (V1) in synthesized listening dialogues (PDF modes). Leave empty to auto-pick per TTS model (fish-audio free male / MAI ko-KR-InJoon).", null],
+      ["tts_female_voice", "Female listening voice (PDF dialogues)", "text", "Audio", "Voice for the female speaker (V2) in synthesized listening dialogues (PDF modes). Leave empty to auto-pick per TTS model (fish-audio free female / MAI ko-KR-Haena).", null]
+    ]
+    var mColM = $app.findCollectionByNameOrId("mock_config_meta")
+    for (var pmi = 0; pmi < pdfMetaDefs.length; pmi++) {
+      var pm = pdfMetaDefs[pmi]
+      var mRec = null
+      try { mRec = $app.findFirstRecordByData("mock_config_meta", "field", pm[0]) } catch (errM2) {}
+      if (!mRec) { mRec = new Record(mColM); mRec.set("field", pm[0]) }
+      mRec.set("label", pm[1])
+      mRec.set("ftype", pm[2])
+      mRec.set("group", pm[3])
+      mRec.set("help", pm[4])
+      if (pm[5]) mRec.set("options", pm[5])
+      $app.save(mRec)
+    }
+  } catch (errS) {}
   try {
     var mT = $app.findFirstRecordByData("mock_config_meta", "field", "tts_model")
     if (mT.getString("ftype") !== "select") { mT.set("ftype", "select"); mT.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); mT.set("label", "TTS model"); mT.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); $app.save(mT) }
@@ -735,23 +797,40 @@ try {
   if (["full","dry_questions","dry_images","dry_audio"].indexOf(kind) === -1) kind = "full"
   var focus = (q.get("focus") || "").trim()
   if (focus.length > 500) focus = focus.substring(0, 500)
+  var gen = 1
+  try { gen = parseInt(q.get("gen_type") || "1", 10) } catch (err) {}
+  if (isNaN(gen) || gen < 1 || gen > 3) gen = 1
+  var pdfFiles = []
+  try { pdfFiles = e.findUploadedFiles("pdf") } catch (err) {}
+  var pdfName = ""
+  if (gen >= 2 && pdfFiles.length === 0) {
+    return e.json(400, { error: "PDF file required for generation type " + gen + " - upload the document as multipart field 'pdf'" })
+  }
+  if (pdfFiles.length > 0) {
+    if (pdfFiles[0].size > 10485760) return e.json(400, { error: "PDF exceeds the 10 MB upload limit" })
+    pdfName = pdfFiles[0].name || "doc.pdf"
+  }
   var jobCol = $app.findCollectionByNameOrId("mock_jobs")
   var job = new Record(jobCol)
   job.set("client", client.id)
   job.set("status", "queued")
   job.set("kind", kind)
+  job.set("gen_type", gen)
   job.set("count", count)
   job.set("difficulty", difficulty)
   job.set("overrides", focus ? { "focus": focus } : {})
+  if (pdfFiles.length > 0) { try { job.set("pdf", pdfFiles[0]) } catch (err) {} }
   $app.save(job)
   return e.json(200, {
     job_id: job.id,
     status: "queued",
     kind: kind,
+    gen_type: gen,
     client: client.getString("name"),
     count: count,
     difficulty: difficulty,
-    focus: focus
+    focus: focus,
+    pdf: pdfName
   })
 } catch (err) {
   return e.json(500, { error: String(err) })

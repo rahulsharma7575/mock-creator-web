@@ -29,7 +29,7 @@ COPY entrypoint.sh /app/entrypoint.sh
 # TTS helper scripts must live where mock_audio_builder.py looks for them
 RUN mkdir -p /root/.config/opencode/scripts \
     && cp /app/scripts/tts.py /app/scripts/audio_convert.py /root/.config/opencode/scripts/ \
-    && pip install --no-cache-dir httpx pillow
+    && pip install --no-cache-dir httpx pillow pymupdf
 
 ENV PB_URL=http://127.0.0.1:8090 \
     PB_PORT=8090 \

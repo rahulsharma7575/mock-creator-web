@@ -65,20 +65,20 @@ createApp({
   data(){return{
     authed:!!localStorage.getItem(LS_TK),who:localStorage.getItem(LS_EM)||'',
     loginEmail:'',loginPass:'',loginErr:'',loginBusy:false,clientBusy:false,newKeyHash:'',togglingId:'',
-    theme:localStorage.getItem(LS_TH)||'light',view:'overview',
-    nav:[{id:'overview',label:'Overview'},{id:'clients',label:'Clients'},{id:'configs',label:'Configs'},{id:'jobs',label:'Jobs'},{id:'fullruns',label:'Full runs'},{id:'dryruns',label:'Dry runs'}],
+    theme:localStorage.getItem(LS_TH)||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'),view:'overview',
+    nav:[{id:'overview',label:'Overview'},{id:'clients',label:'Clients'},{id:'configs',label:'Configs'},{id:'jobs',label:'Jobs'}],
     clients:[],jobs:[],configs:[],meta:[],models:[],jobsBusy:false,startBusy:false,
     dryruns:[],dryrunsBusy:false,fullruns:[],fullrunsBusy:false,previewRun:null,falStatus:null,orBalance:null,geminiStatus:null,pushStatus:null,cfgByClient:{},
-    qs:{client:'',count:40,difficulty:'creative+difficult'},jobFilter:'all',searchQ:'',sortKey:'created',sortDir:-1,
+    qs:{client:'',count:40,difficulty:'creative+difficult'},jobFilter:'all',jobKindFilter:'all',searchQ:'',sortKey:'created',sortDir:-1,
     drawerJob:null,drawerTimer:null,drawerLastUpd:'',clientModal:false,clientStep:0,newClientName:'',newKey:'',clientErr:'',
     confirmMsg:null,confirmFn:null,toasts:[],
     cfgClient:'',cfg:null,cfgLoading:false,cfgSaving:false,cfgSavedAt:'',cfgRaw:false,cfgRawText:'',cfgRawErr:'',
     cfgData:{},showPass:false,valIssues:[],valChecked:false,cfgSnapshot:null,
     groupIssues:{},verified:{},openGroup:'Exam',vmCache:{},dryBusy:null,
-    orModels:{},orStatus:'loading',
+    orModels:{},orStatus:'loading',gClient:'',apiMenu:false,
   }},
   computed:{
-    filteredJobs(){try{let l=Array.isArray(this.jobs)?this.jobs.slice():[];if(this.jobFilter&&this.jobFilter!=='all')l=l.filter(j=>j&&j.status===this.jobFilter);const q=String(this.searchQ||'').trim().toLowerCase();if(q){l=l.filter(j=>{if(!j)return false;return [j.client_name,j.client,j.difficulty,j.focus,j.status,j.kind,String(j.id)].join(' ').toLowerCase().includes(q);});}const k=this.sortKey||'created',dir=this.sortDir||-1;return l.sort((a,b)=>{try{let x=this.sortVal(a,k),y=this.sortVal(b,k);if(typeof x==='string'){x=x.toLowerCase();y=String(y==null?'':y).toLowerCase();}else{y=Number(y)||0;x=Number(x)||0;}if(x<y)return-1*dir;if(x>y)return1*dir;return 0;}catch(e){return 0;}});}catch(e){console.error('filteredJobs',e);return Array.isArray(this.jobs)?this.jobs.slice():[];}},
+    filteredJobs(){try{let l=Array.isArray(this.jobs)?this.jobs.slice():[];if(this.jobKindFilter==='dry')l=l.filter(j=>j&&String(j.kind||'').startsWith('dry_'));if(this.jobKindFilter==='full')l=l.filter(j=>j&&!String(j.kind||'').startsWith('dry_'));if(this.jobFilter&&this.jobFilter!=='all')l=l.filter(j=>j&&j.status===this.jobFilter);const q=String(this.searchQ||'').trim().toLowerCase();if(q){l=l.filter(j=>{if(!j)return false;return [j.client_name,j.client,j.difficulty,j.focus,j.status,j.kind,String(j.gen_type||1),String(j.id)].join(' ').toLowerCase().includes(q);});}const k=this.sortKey||'created',dir=this.sortDir||-1;return l.sort((a,b)=>{try{let x=this.sortVal(a,k),y=this.sortVal(b,k);if(typeof x==='string'){x=x.toLowerCase();y=String(y==null?'':y).toLowerCase();}else{y=Number(y)||0;x=Number(x)||0;}if(x<y)return-1*dir;if(x>y)return1*dir;return 0;}catch(e){return 0;}});}catch(e){console.error('filteredJobs',e);return Array.isArray(this.jobs)?this.jobs.slice():[];}},
     stats(){
       const now=Date.now(),day=864e5,t=this.jobs.filter(j=>now-new Date(this.fixT(j.created)).getTime()<day).length;
       const run=this.jobs.filter(j=>j.status==='running').length,fail=this.jobs.filter(j=>j.status==='failed'&&now-new Date(this.fixT(j.created)).getTime()<day).length;
@@ -94,6 +94,8 @@ createApp({
     ttsOptions(){const BASE=['fish-audio/s2.1-pro-free:free','microsoft/mai-voice-2-flash','x-ai/grok-voice-tts-1.0','google/gemini-3.1-flash-tts-preview','hexgrad/kokoro-82m','mistralai/voxtral-mini-tts-2603'];const from=(this.models||[]).filter(m=>m&&m.kind==='tts').map(m=>m.model).filter(Boolean);for(const m of from){if(!BASE.includes(m))BASE.push(m);}const cur=this.cfgData?this.cfgData.tts_model:null;if(cur&&!BASE.includes(cur))BASE.unshift(cur);return BASE;},
     listeningCount(){const c=this.cfgData.question_count||40;const r=this.cfgData.reading_count||20;return Math.max(0,c-r);},
     orCount(){return Object.keys(this.orModels).length;},
+    voiceOptions(){const base=['ko-KR-InJoon:MAI-Voice-2','ko-KR-Haena:MAI-Voice-2','ko-KR-InJoonNeural','ko-KR-SunHiNeural','ko-KR-HyunsuNeural','ko-KR-YuJinNeural'];const c=this.cfgData;if(c){if(c.tts_male_voice&&!base.includes(c.tts_male_voice))base.unshift(c.tts_male_voice);if(c.tts_female_voice&&!base.includes(c.tts_female_voice))base.unshift(c.tts_female_voice);}return base;},
+    apiAllOk(){const sts=[this.geminiStatus&&this.geminiStatus.valid,this.orBalance&&this.orBalance.ok,this.falStatus&&this.falStatus.ok];if(!(this.geminiStatus||this.orBalance||this.falStatus))return null;if(!sts.some(Boolean))return false;return sts.every(Boolean);},
     costEst(){
       const q=+this.cfgData.question_count||40,r=+this.cfgData.reading_count||20,img=+this.cfgData.image_count||18,list=Math.max(0,q-r);
       const price=s=>{const m=this.orModels[s];return m?{p:+m.p||0,c:+m.c||0}:null;};
@@ -147,7 +149,7 @@ createApp({
     },
   },
   watch:{
-    view(v){if(v==='jobs')this.loadJobs();if(v==='clients')this.loadClients();if(v==='dryruns')this.loadDryruns();if(v==='fullruns')this.loadFullruns();this.$nextTick(()=>this.viewEnter());},
+    view(v){if(v==='jobs')this.loadJobs();if(v==='clients')this.loadClients();if(v==='configs'){if(this.gClient&&!this.cfgClient){this.cfgClient=this.gClient;this.loadConfig();}}this.$nextTick(()=>this.viewEnter());},
     drawerJob(j){clearInterval(this.drawerTimer);this.drawerTimer=null;if(j&&(j.status==='queued'||j.status==='running')){this.drawerTimer=setInterval(()=>this.refreshDrawer(),4000);}},
   },
   methods:{
@@ -172,10 +174,10 @@ createApp({
     toggleTheme(){this.theme=this.theme==='dark'?'light':'dark';localStorage.setItem(LS_TH,this.theme);document.documentElement.setAttribute('data-theme',this.theme);this.$nextTick(()=>this.viewEnter());},
     dryIcon(k){const i=DRY_ICONS[k]||'';return i?i+' ':'';},
     dryLabel(k){return DRY_LABELS[k]||k;},
-    grpBg(g){const m={LLM:'var(--blue)',Images:'rgba(138,95,181,.1)',Exam:null,Audio:'rgba(47,143,143,.08)',Push:'rgba(226,114,63,.08)',Advanced:null,General:null};return m[g]||'transparent';},
-    grpFg(g){const m={LLM:'#2f6ea5',Images:'var(--purple)',Audio:'var(--cyan)',Push:'var(--amber2)'};return m[g]||'var(--ink)';},
-    grpDesc(g){const m={LLM:'Which AI models generate and review questions',Images:'Image questions — one number, applied randomly across the exam',Exam:'Exam structure — question count, difficulty, marks, duration',Audio:'Text-to-speech for listening section audio clips',Push:'Where to send the finished exam — or toggle off to generate locally',Advanced:'LLM token limits, timeouts, retry behaviour',General:'Master on/off switch'};return m[g]||'';},
-    grpIcon(g){return{LLM:'cpu',Images:'image',Exam:'bookOpen',Audio:'headphones',Push:'send',Advanced:'settings',General:'sliders'}[g]||'sliders';},
+    grpBg(g){const m={LLM:'var(--blue)',Images:'rgba(138,95,181,.1)',Exam:null,Audio:'rgba(47,143,143,.08)',Push:'rgba(226,114,63,.08)',PDF:'rgba(47,125,79,.08)',Advanced:null,General:null};return m[g]||'transparent';},
+    grpFg(g){const m={LLM:'#2f6ea5',Images:'var(--purple)',Audio:'var(--cyan)',Push:'var(--amber2)',PDF:'var(--green)'};return m[g]||'var(--ink)';},
+    grpDesc(g){const m={LLM:'Which AI models generate and review questions',Images:'Image questions — one number, applied randomly across the exam',Exam:'Exam structure — question count, difficulty, marks, duration',Audio:'Text-to-speech for listening section audio clips',Push:'Where to send the finished exam — or toggle off to generate locally',PDF:'Book & printed-paper PDF generation — parser, upscaling, dialogue voices',Advanced:'LLM token limits, timeouts, retry behaviour',General:'Master on/off switch'};return m[g]||'';},
+    grpIcon(g){return{LLM:'cpu',Images:'image',Exam:'bookOpen',Audio:'headphones',Push:'send',PDF:'fileText',Advanced:'settings',General:'sliders'}[g]||'sliders';},
     hintText(f){if(!f||!this.cfgData)return'';
       if(f.field==='image_count'){const n=this.cfgData.image_count||18;return`${n} questions will have pictures, spread randomly across reading & listening`;}
       if(f.field==='image_primary'){const im=String(this.cfgData.image_primary||'');if(im.startsWith('fal-ai/'))return'Runs via Fal.ai (512x512, 1:1) - FAL_KEY must be in the container env';if(im==='z-image')return'Runs via Magnific (5 credits per image)';if(im==='nano-banana'||im==='black-forest-labs/flux.2-klein-4b')return'Runs via OpenRouter (flux.2 klein 4b, billed per image)';return'';}
@@ -239,6 +241,11 @@ createApp({
         if(!c.push_pb_base)add('Push','err','Push is on but no target URL is set - add it or toggle push off');
         if(!c.push_pb_pass)add('Push','warn','No push password - exams will be generated locally and not uploaded');
       }
+      if(!scope||scope.has('PDF')){
+        if(c.upscale_pdf_images)add('PDF','info','Extracted paper images will be upscaled via Fal.ai recraft/crisp (FAL_KEY) - falls back to the raw image on failure');
+        if(!c.tts_male_voice&&!c.tts_female_voice)add('PDF','info','Listening voices left empty - auto-picked per TTS model (fish free / MAI InJoon-Haena)');
+        if(c.pdf_parser==='local')add('PDF','info','Parser is Local only (PyMuPDF) - scanned PDFs without a text layer will fail; switch to Auto for cloud OCR');
+      }
       if((c.timeout_s||600)<20)add('Advanced','warn',`LLM timeout (${c.timeout_s}s) is very low - may cause timeouts`);
       if(!scope){this.valIssues=[];for(const g in this.groupIssues){for(const i of this.groupIssues[g])this.valIssues.push({...i,group:g});}}
     },
@@ -287,7 +294,11 @@ createApp({
       try{const r=await fetch('/api/collections/_superusers/auth-with-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity:this.loginEmail,password:this.loginPass})});const text=await r.text();let b;try{b=JSON.parse(text);}catch(e){throw new Error('Server returned unexpected response - is PocketBase running?');}if(!r.ok)throw new Error(b.message||'auth failed');localStorage.setItem(LS_TK,b.token);localStorage.setItem(LS_EM,b.record.email||this.loginEmail);this.who=localStorage.getItem(LS_EM);this.authed=true;try{await api('/api/creator/ensure');}catch(e){this.toast('ensure: '+e.message,'err');}this.loadAll();}catch(e){this.loginErr=e.message;}this.loginBusy=false;},
     logout(){localStorage.removeItem(LS_TK);localStorage.removeItem(LS_EM);clearInterval(this.drawerTimer);this.drawerTimer=null;this.drawerJob=null;this.authed=false;this.who='';this.view='overview';this.clients=[];this.jobs=[];this.configs=[];this.cfgClient='';this.cfg=null;},
     loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();this.loadFalStatus();this.loadOrBalance();this.loadGeminiStatus();this.ensureOrModels();this.$nextTick(()=>this.viewEnter());},
-    async loadClients(){try{const r=await api('/api/collections/mock_clients/records?perPage=200&sort=name');this.clients=r.items||[];}catch(e){this.toast('clients: '+e.message,'err');}},
+    async loadClients(){try{const r=await api('/api/collections/mock_clients/records?perPage=200&sort=name');this.clients=r.items||[];if(!this.gClient){const act=this.clients.find(c=>c.active)||this.clients[0];if(act)this.gClient=act.id;}if(!this.qs.client&&this.gClient)this.qs.client=this.gClient;}catch(e){this.toast('clients: '+e.message,'err');}},
+    onGlobalClient(){const id=this.gClient;this.qs.client=id;if(this.cfgClient!==id){this.cfgClient=id;if(this.view==='configs')this.loadConfig();}if(!id)this.cfgClient='';},
+    genTypeLabel(j){const g=Number((j&&j.gen_type)||1);if(g===2)return{label:'Book PDF',c:'var(--blue)'};if(g===3)return{label:'Paper PDF',c:'var(--purple)'};return null;},
+    toggleApiMenu(){this.apiMenu=!this.apiMenu;},
+    refreshAllStatus(){this.loadFalStatus();this.loadOrBalance();this.loadGeminiStatus();},
     async loadConfigs(){try{const r=await api('/api/collections/mock_config/records?perPage=200');this.configs=r.items||[];const m={};for(const c of this.configs){m[c.client]=c;}this.cfgByClient=m;}catch(e){this.toast('configs: '+e.message,'err');}},
     async loadMeta(){try{const r=await api('/api/collections/mock_config_meta/records?perPage=200&sort=group,order');this.meta=r.items||[];}catch(e){}},
     async loadModels(){try{const r=await api('/api/collections/mock_models/records?perPage=200');this.models=r.items||[];}catch(e){}},
@@ -418,11 +429,6 @@ createApp({
     },
     logCls(c){return c==='err'?'var(--red)':c==='ok'?'var(--green)':LOG_COLORS[c]?LOG_COLORS[c]:'var(--mut)';},
     async copyConfig(){const o={...this.cfgData};if(typeof o.prompts_json==='string')try{o.prompts_json=JSON.parse(o.prompts_json)}catch(e){}try{await navigator.clipboard.writeText(JSON.stringify(o,null,2));this.toast('Config copied to clipboard','ok');}catch(e){this.toast('copy failed','err');}},
-    cloneConfigDialog(){
-      const targets=this.clients.filter(c=>c.id!==this.cfgClient);if(!targets.length)return this.toast('No other clients to clone to','err');
-      const names=targets.map(c=>c.name).join(', ');this.confirmMsg='Clone config to: '+names+'? (overwrites their current config)';
-      this.confirmFn=async()=>{try{for(const c of targets){const r=await api('/api/creator/config?client='+c.id);const body={...this.cfgData};delete body.client;if(typeof body.prompts_json==='string')body.prompts_json=JSON.parse(body.prompts_json);await api('/api/collections/mock_config/records/'+r.config,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}this.toast('Config cloned to '+targets.length+' clients','ok');}catch(e){this.toast('clone: '+e.message,'err');}};
-    },
     togglePass(){this.showPass=!this.showPass;},
     async clearFailed(){
       const failed=this.jobs.filter(j=>j.status==='failed');if(!failed.length)return;

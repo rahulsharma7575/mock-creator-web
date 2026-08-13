@@ -30,8 +30,14 @@ services:
       GEMINI_API_KEY: YOUR_GEMINI_KEY_HERE
       # Fal.ai key - used when the Image provider in /creator config is fal-ai/z-image/turbo.
       # Get it from https://fal.ai/dashboard/keys. Used for: image generation,
-      # balance checks and wrong-model verification.
+      # balance checks, wrong-model verification and PDF image upscaling
+      # (fal-ai/recraft/upscale/crisp for book/paper PDF modes).
       FAL_KEY: YOUR_FAL_KEY_HERE
+      # Upstage Document Parse key (OPTIONAL) - cloud OCR for scanned PDFs
+      # (book/paper generation modes). When unset, the pipeline still works:
+      # PyMuPDF (local) first, then vision-OCR via OpenRouter as the cloud tier.
+      # Get it from https://console.upstage.ai
+      UPSTAGE_API_KEY: ""
 
       # ---- REQUIRED: PocketBase superuser (login for /creator) ----
       PB_SUPERUSER_EMAIL: admin@yourdomain.com
