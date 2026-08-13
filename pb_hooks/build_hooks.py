@@ -93,7 +93,7 @@ SCHEMA = [
         f("tts_female_voice", "text", max=200),
         f("tts_fallback_male_voice", "text", max=200),
         f("tts_fallback_female_voice", "text", max=200),
-        f("pdf_parser", "select", values=["auto", "local"], maxSelect=1),
+        f("pdf_parser", "select", values=["auto", "local", "upstage", "mistral"], maxSelect=1),
         f("upscale_pdf_images", "bool"),
         f("question_count", "number", min=1, max=200),
         f("reading_count", "number", min=0, max=50),
@@ -333,7 +333,9 @@ function ensureCollections() {
     %s
   }
   try {
-    // add any missing mock_config / mock_jobs fields via the canonical schema import.
+    // keep the mock_config / mock_jobs schemas in sync with the generator:
+    // importCollections(SCHEMA, false) is idempotent and applies BOTH missing fields
+    // AND changed definitions (e.g. select field values) on existing installs.
     // NOTE: fields.items() does NOT exist in the 0.39 JSVM (TypeError) - use
     // fields.getByName() for detection and importCollections to apply changes.
     var cfgCol4 = $app.findCollectionByNameOrId("mock_config")
@@ -352,7 +354,14 @@ function ensureCollections() {
       try { hasJ = !!jobsCol.fields.getByName(jobsNeed[nji]) } catch (err) { hasJ = false }
       if (!hasJ) missingField = true
     }
-    if (missingField) {
+    var pdfFieldOk = false
+    try {
+      var pf = cfgCol4.fields.getByName("pdf_parser")
+      var pfv = (pf && (pf.options || {}).values) || []
+      pdfFieldOk = pfv.indexOf("upstage") >= 0 && pfv.indexOf("mistral") >= 0
+    } catch (errF) { pdfFieldOk = false }
+    // always import when any field is missing OR the pdf_parser select values are stale
+    if (missingField || !pdfFieldOk) {
       $app.importCollections(%s, false)
     }
   } catch (errH) { try { $app.logger().info("mig-cfg4: " + String(errH)) } catch (errL) {} }
