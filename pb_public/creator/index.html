@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Fraunces:ital,opsz,wght@1,9..144,500;1,9..144,600&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/tailwind.css?v=22">
+<link rel="stylesheet" href="lib/tailwind.css?v=23">
 <style>
 :root{
   --bg:#f7f2e8; --panel:#fffdf8; --panel2:#f0e9d9; --line:#e3d9c1; --ink:#262218; --mut:#7f7866;
@@ -643,6 +643,7 @@ th.sortable:hover{color:var(--amber2)}
                 <thead><tr>
                   <th style="width:118px" class="sortable" @click="sortBy('created')">Created {{ sortIcon('created') }}</th>
                   <th style="width:130px" class="sortable" @click="sortBy('client_name')">Client {{ sortIcon('client_name') }}</th>
+                  <th style="width:132px">Generation type</th>
                   <th style="width:96px">Kind</th>
                   <th style="width:56px" class="sortable" @click="sortBy('count')">Q {{ sortIcon('count') }}</th>
                   <th style="width:88px" class="sortable" @click="sortBy('time')">Time {{ sortIcon('time') }}</th>
@@ -650,18 +651,21 @@ th.sortable:hover{color:var(--amber2)}
                   <th style="width:92px">Img cr</th>
                   <th style="width:96px" class="sortable" @click="sortBy('status')">Status {{ sortIcon('status') }}</th>
                   <th style="width:52px">Push</th>
+                  <th style="width:56px">PDF</th>
                   <th>Error</th>
                 </tr></thead>
                 <tbody><tr v-for="j in filteredJobs" :key="j.id" class="cursor-pointer" @click="openJob(j)">
                   <td class="f-mono text-xs whitespace-nowrap overflow-hidden text-ellipsis" :title="fmtTime(j.created)">{{ fmtTime(j.created) }}</td>
                   <td class="font-semibold truncate" :title="j.client_name||j.client">{{ j.client_name||j.client }}</td>
-                  <td class="whitespace-nowrap"><span class="text-xs f-mono px-2 py-0.5 rounded-lg" :style="{background:j.kind!=='full'?'rgba(53,104,156,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }}{{ dryLabel(j.kind) }}</span><template v-if="genTypeLabel(j)"><span class="text-[10px] f-mono px-1.5 py-0.5 rounded ml-1" :style="{background:genTypeLabel(j).c+'1a',color:genTypeLabel(j).c}">{{ genTypeLabel(j).label }}</span></template></td>
+                  <td class="whitespace-nowrap"><span v-if="genTypeLabel(j)" class="text-[10.5px] f-mono px-1.5 py-0.5 rounded-full" :style="{background:genTypeLabel(j).c+'1a',color:genTypeLabel(j).c}">{{ genTypeLabel(j).label }}</span></td>
+                  <td class="whitespace-nowrap"><span class="text-xs f-mono px-2 py-0.5 rounded-lg" :style="{background:j.kind!=='full'?'rgba(53,104,156,.1)':'transparent',color:j.kind!=='full'?'var(--blue)':'var(--mut)'}">{{ dryIcon(j.kind) }}{{ dryLabel(j.kind) }}</span></td>
                   <td class="f-mono text-right">{{ j.count }}</td>
                   <td class="f-mono text-right" :title="jobTime(j).title">{{ jobTime(j).label }}</td>
                   <td class="f-mono text-right">{{ jobCost(j) }}</td>
                   <td class="f-mono text-right" style="color:var(--amber2)">{{ jobCredits(j) }}</td>
                   <td><span class="pill-status" :style="{background:(j.status==='running'?'var(--soft)':j.status==='done'?'rgba(47,125,79,.1)':j.status==='failed'?'rgba(198,69,58,.1)':'transparent'),color:sc(j.status)}"><span class="status-dot" :class="{pulse:j.status==='running'}" :style="{background:sc(j.status)}"></span>{{ j.status }}</span></td>
                   <td class="f-mono text-xs text-center">{{ j.pushed ? 'yes' : '—' }}</td>
+                  <td class="text-center"><button v-if="j.pdf" type="button" class="btn btn-ghost btn-sm px-1.5" :title="j.pdf" @click.stop="openJobPdf(j)"><span v-html="ic('fileText',13)" style="color:var(--blue)"></span></button><span v-else style="color:var(--mut)">—</span></td>
                   <td class="text-xs truncate" :style="{color:j.error?'var(--red)':''}" :title="j.error||''">{{ j.error||'' }}</td>
                 </tr></tbody>
               </table>
@@ -733,6 +737,11 @@ th.sortable:hover{color:var(--amber2)}
           <div>
             <h2 class="f-disp text-xl font-extrabold flex items-center gap-2"><span v-html="ic('terminal',19)" style="color:var(--amber2)"></span>Job <span class="f-mono text-base">{{ short(drawerJob.id) }}</span></h2>
             <div class="text-xs f-mono mt-1.5" style="color:var(--mut)">{{ drawerJob.client_name }} · {{ dryLabel(drawerJob.kind) }}<template v-if="genTypeLabel(drawerJob)"> · {{ genTypeLabel(drawerJob).label }}</template> · {{ drawerJob.count }}q · {{ drawerJob.difficulty }}<template v-if="drawerJob.focus"> · focus: {{ drawerJob.focus }}</template></div>
+            <div v-if="drawerJob.pdf" class="text-xs f-mono mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg" style="background:var(--panel2);color:var(--mut)">
+              <span v-html="ic('fileText',13)" style="color:var(--blue)"></span>
+              <span class="truncate" style="flex:1;min-width:0" :title="drawerJob.pdf">{{ drawerJob.pdf }}</span>
+              <button type="button" class="btn btn-ghost btn-sm px-2.5 py-1 text-[11px] shrink-0" @click="openJobPdf(drawerJob)">Open PDF</button>
+            </div>
           </div>
           <button class="btn btn-ghost btn-sm" @click="drawerJob=null"><span v-html="ic('x',13)"></span>Close</button>
         </div>
@@ -969,7 +978,7 @@ th.sortable:hover{color:var(--amber2)}
 
 <script src="lib/vue.global.prod.js"></script>
 <script src="lib/anime.min.js"></script>
-<script src="lib/icons.js?v=22"></script>
-<script src="app.min.js?v=22"></script>
+<script src="lib/icons.js?v=23"></script>
+<script src="app.min.js?v=23"></script>
 </body>
 </html>

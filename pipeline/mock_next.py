@@ -702,6 +702,8 @@ def image_bounds():
     hi = int(CFG.get("image_count_max", 26))
     if q_count >= r_count * 2 and r_count >= 10:
         return lo, hi
+    if int(CFG.get("gen_type", 1)) == 3:
+        return lo, hi  # paper mode: image count follows the paper - never clamp to the sample size
     hi = min(hi, r_count)
     lo = min(lo, r_count)
     return lo, hi

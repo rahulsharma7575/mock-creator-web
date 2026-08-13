@@ -326,7 +326,8 @@ createApp({
       vp.busy=false;
     },
     onGlobalClient(){const id=this.gClient;this.qs.client=id;if(this.cfgClient!==id){this.cfgClient=id;if(this.view==='configs')this.loadConfig();}if(!id)this.cfgClient='';},
-    genTypeLabel(j){const g=Number((j&&j.gen_type)||1);if(g===2)return{label:'Book PDF',c:'var(--blue)'};if(g===3)return{label:'Paper PDF',c:'var(--purple)'};return null;},
+    genTypeLabel(j){const g=Number((j&&j.gen_type)||1);if(g===2)return{label:'Book PDF',c:'var(--blue)'};if(g===3)return{label:'Old Questions PDF',c:'var(--purple)'};return{label:'Random generation',c:'var(--mut)'};},
+    async openJobPdf(j){if(!j||!j.pdf)return;try{const headers={};const t=localStorage.getItem(LS_TK);if(t)headers['Authorization']='Bearer '+t;const r=await fetch('/api/files/mock_jobs/'+j.id+'/'+encodeURIComponent(j.pdf),{headers});if(!r.ok){let m='HTTP '+r.status;try{const b=await r.json();m=b.message||m;}catch(e){}throw new Error(m);}const blob=await r.blob();const url=URL.createObjectURL(blob);window.open(url,'_blank');}catch(e){this.toast('PDF: '+e.message,'err');}},
     toggleApiMenu(){this.apiMenu=!this.apiMenu;},
     refreshAllStatus(){this.loadFalStatus();this.loadOrBalance();this.loadGeminiStatus();this.loadMagnificStatus();this.loadUpstageStatus();},
     async loadConfigs(){try{const r=await api('/api/collections/mock_config/records?perPage=200');this.configs=r.items||[];const m={};for(const c of this.configs){m[c.client]=c;}this.cfgByClient=m;}catch(e){this.toast('configs: '+e.message,'err');}},
