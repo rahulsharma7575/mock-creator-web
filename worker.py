@@ -365,7 +365,7 @@ def summarize_log(log_tail, kind):
             headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=90) as r:
             j = json.loads(r.read().decode("utf-8"))
-        return (j.get("choices") or [{}])[0].get("message", {}).get("content", "").strip()[:1200]
+        return str((j.get("choices") or [{}])[0].get("message", {}).get("content") or "").strip()[:1200]
     except Exception as e:
         log(f"summary generation failed: {e}")
         return ""
@@ -375,6 +375,7 @@ def run_job(job):
     job_id = job["id"]
     client_id = job.get("client") or ""
     client_name = job.get("client_name") or client_id
+    t0 = time.time()
     log(f"job {job_id} ({client_name}): starting")
 
     try:
@@ -427,9 +428,11 @@ def run_job(job):
         else:
             # questions: 2 reading + 1 listening, no images
             cfg["reading_count"] = 2
-            cfg["image_count"] = 0
-            cfg["image_count_min"] = 0
-            cfg["image_count_max"] = 0
+            if gen_type != 3:
+                # paper mode keeps its own image bounds (0-40) - images follow the paper
+                cfg["image_count"] = 0
+                cfg["image_count_min"] = 0
+                cfg["image_count_max"] = 0
         log(f"job {job_id}: dry run mode={dry_mode}, sample_size=3")
 
     if cfg.get("push_enabled", True) and not cfg.get("pb_pass") and not os.environ.get("MOCK_PB_PASS"):
@@ -449,6 +452,7 @@ def run_job(job):
     (workdir / "mocks").mkdir(parents=True, exist_ok=True)
 
     # PDF generation modes need the uploaded document on disk before the pipeline starts
+    log_tail = ""
     pdf_path = ""
     if gen_type >= 2:
         pdf_name = str(job.get("pdf") or "").strip()
@@ -457,8 +461,12 @@ def run_job(job):
                                "error": f"generation type {gen_type} requires a PDF file"})
             return
         pdf_path = str(workdir / pdf_name)
+        patch_job(job_id, {"status": "running",
+                           "log": f"[worker {int(time.time() - t0)}s] downloading PDF '{pdf_name}'…",
+                           "error": ""})
         try:
             n = download_file(f"/api/files/mock_jobs/{job_id}/{pdf_name}", pdf_path)
+            log_tail = f"[worker {int(time.time() - t0)}s] PDF downloaded ({n} bytes)"
             log(f"job {job_id}: downloaded PDF {pdf_name} ({n} bytes)")
         except Exception as e:
             patch_job(job_id, {"status": "failed", "error": f"PDF download failed: {e}"[:1900]})
@@ -470,12 +478,16 @@ def run_job(job):
 
     patch_job(job_id, {
         "status": "running",
-        "log": ("[worker] dry_run=" + cfg.get("dry_mode", "full") +
+        "log": (log_tail + "\n" if log_tail else "") +
+               ("[worker] dry_run=" + cfg.get("dry_mode", "full") +
                 " started for " + client_name +
                 " (count=" + str(cfg.get("question_count")) +
                 ", difficulty=" + str(cfg.get("difficulty_profile")) + ")"),
         "error": "",
     })
+    log_tail = ((log_tail + "\n") if log_tail else "") + (
+        "[worker] dry_run=" + cfg.get("dry_mode", "full") + " started for " + client_name +
+        " (count=" + str(cfg.get("question_count")) + ", difficulty=" + str(cfg.get("difficulty_profile")) + ")")
 
     env = dict(os.environ)
     env.setdefault("PYTHONUTF8", "1")
@@ -485,7 +497,6 @@ def run_job(job):
     if kind.startswith("dry_"):
         cmd.append("--dry-run")
 
-    log_tail = ""
     rc = -1
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,

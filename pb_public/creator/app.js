@@ -55,11 +55,11 @@ const ICON_MAP = {
 };
 
 const LOG_COLORS = {
-  author: 'var(--blue)', repair: 'var(--amber2)', proofread: 'var(--purple)',
+  pdf: 'var(--amber)', author: 'var(--blue)', repair: 'var(--amber2)', proofread: 'var(--purple)',
   save: 'var(--green)', pb: 'var(--amber2)', audio: 'var(--cyan)', images: 'var(--purple)',
   local: 'var(--green)', 'dry-run': 'var(--blue)', resume: 'var(--mut)'
 };
-const PIPE_STAGES = ['author', 'repair', 'proofread', 'save', 'pb', 'audio', 'images'];
+const PIPE_STAGES = ['pdf', 'author', 'repair', 'proofread', 'save', 'pb', 'audio', 'images'];
 
 createApp({
   data(){return{
@@ -140,7 +140,7 @@ createApp({
       if(!this.drawerJob)return[];
       const lines=(this.drawerJob.log||'').split('\n').filter(Boolean);
       return lines.map(l=>{
-        const m=l.match(/^\[([a-z-]+)\]/);
+        const m=l.match(/^\[([a-z-]+)/);
         let cls='plain';
         if(m&&LOG_COLORS[m[1]])cls=m[1];
         else if(/FAILED|error|failed/i.test(l))cls='err';
@@ -455,9 +455,9 @@ createApp({
     openConfigFor(id){this.view='configs';this.cfgClient=id;this.cfgRaw=false;this.loadConfig();},
     stageFor(j){
       if(!j||(j.status!=='running'&&j.status!=='failed'))return'';
-      const log=j.log||'';const stages=['author','repair','proofread','save','pb','audio','images'];
-      const active=stages.filter(s=>log.includes('['+s+']'));const last=active[active.length-1];
-      return stages.map(s=>`<span class="stage-dot ${s===last?'on':''}" style="color:${s==='author'?'var(--blue)':s==='images'?'var(--purple)':s==='audio'?'var(--cyan)':s==='pb'?'var(--amber2)':'var(--mut)'}" title="${s}"></span>`).join('');
+      const log=j.log||'';const stages=['pdf','author','repair','proofread','save','pb','audio','images'];
+      const active=stages.filter(s=>s==='pdf'?log.includes('[pdf'):log.includes('['+s+']'));const last=active[active.length-1];
+      return stages.map(s=>`<span class="stage-dot ${s===last?'on':''}" style="color:${s==='pdf'?'var(--amber)':s==='author'?'var(--blue)':s==='images'?'var(--purple)':s==='audio'?'var(--cyan)':s==='pb'?'var(--amber2)':'var(--mut)'}" title="${s}"></span>`).join('');
     },
     logCls(c){return c==='err'?'var(--red)':c==='ok'?'var(--green)':LOG_COLORS[c]?LOG_COLORS[c]:'var(--mut)';},
     async copyConfig(){const o={...this.cfgData};if(typeof o.prompts_json==='string')try{o.prompts_json=JSON.parse(o.prompts_json)}catch(e){}try{await navigator.clipboard.writeText(JSON.stringify(o,null,2));this.toast('Config copied to clipboard','ok');}catch(e){this.toast('copy failed','err');}},

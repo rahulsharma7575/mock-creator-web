@@ -586,7 +586,8 @@ def repair_exam(key, qs, stats=None):
     stats.setdefault("answers", 0)
     stats.setdefault("images", 0)
     for q in qs:
-        if q.get("section") == "listening" and not (q.get("listening") or {}).get("audioScript"):
+        script = (q.get("listening") or {}).get("audioScript") if q.get("section") == "listening" else None
+        if q.get("section") == "listening" and (not script or (isinstance(script, list) and not all((t or {}).get("text", "").strip() for t in script))):
             print(f"[repair] writing listening script for Q{q['number']}...")
             user = (
                 "다음 한국어 듣기 문제를 위한 자연스러운 대화(2-4턴, 턴당 최대 2문장, 구어체)를 작성하세요. "
@@ -1202,6 +1203,7 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
             used = 0.0
             try:
                 if upscale_on and fal_key:
+                    print(f"    q{num} pdf-extracted: upscaling via recraft/crisp…")
                     up_ok = upload_file(headers, rid, "image", f"q{num}_raw.png", png, "image/png")
                     if up_ok:
                         chk = httpx.get(CFG["pb_base"] + f"/api/collections/questions/records/{rid}",
@@ -1210,7 +1212,7 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
                         if fname:
                             url = CFG["pb_base"] + f"/api/files/questions/{rid}/{fname}"
                             webp_data = to_webp(P.upscale_image(url, fal_key), max_size=max_size, quality=quality)
-                            print(f"    q{num} pdf-extracted: upscaled via recraft/crisp")
+                            print(f"    q{num} pdf-extracted: upscaled OK ({len(webp_data)} bytes webp)")
                         else:
                             raise RuntimeError("no uploaded filename for upscale")
                 if webp_data is None:
@@ -1451,6 +1453,9 @@ def final_summary(stats):
              f"${stats['author_cost']:.3f}, attempt {stats['author_attempt']}")
     else:
         line(f"author {q_n} questions", "resumed (existing file)")
+    if stats.get("pdf_parser"):
+        line(f"pdf parse ({stats['pdf_parser']})",
+             f"{stats.get('pdf_pages', 0)} pages · {stats.get('pdf_images', 0)} extracted images · {stats.get('pdf_parse_s', 0)}s")
     if stats.get("dedup_checked"):
         line(f"dedup vs last {len(stats.get('dedup_sets_checked') or [])} mocks",
              f"{stats.get('dedup_repeats', 0)} repeats")
@@ -1556,6 +1561,7 @@ def main():
         "pb_count": 0, "pb_created": False, "exam_created": False, "audio_ok": 0,
         "audio_total": 0, "img_ok": 0, "img_total": 0, "img_model": img_primary, "img_missing": [],
         "img_cost": 0.0, "img_credits": 0, "qfile": qfile, "llm_cost": 0.0,
+        "pdf_parse_s": None, "pdf_parser": None, "pdf_pages": None, "pdf_images": None,
         "stage_times": {},
     }
     t_all = time.time()
@@ -1581,16 +1587,20 @@ def main():
             if not pdf_path or not os.path.exists(pdf_path):
                 sys.exit("FAILED: generation type %d requires a PDF file (pdf_path missing on the worker)" % gen_type)
             parser_mode = "local" if str(CFG.get("pdf_parser", "auto")) == "local" else "auto"
+            t_pdf = time.time()
+            pdf_progress = lambda m: print("[pdf %ds] %s" % (int(time.time() - t_all), m), flush=True)
             pdf_doc = P.parse_pdf(pdf_path, gen_type=gen_type, parser=parser_mode,
                                   upstage_key=os.environ.get("UPSTAGE_API_KEY", ""),
-                                  or_key=key)
+                                  or_key=key, progress=pdf_progress)
+            stats["pdf_parse_s"] = int(time.time() - t_pdf)
+            stats["pdf_parser"] = pdf_doc["parser_used"]
+            stats["pdf_pages"] = len(pdf_doc["pages"])
+            stats["pdf_images"] = len(pdf_doc["images"])
             pdf_dir = base_dir / "pdf"
             pdf_dir.mkdir(parents=True, exist_ok=True)
             (pdf_dir / "parsed.md").write_text(pdf_doc["text"] or "", encoding="utf-8")
             for pi in pdf_doc["images"]:
                 (pdf_dir / (pi["id"] + ".png")).write_bytes(pi["png"])
-            print("[pdf] parser=%s pages=%d images=%d text_chars=%d" % (
-                pdf_doc["parser_used"], len(pdf_doc["pages"]), len(pdf_doc["images"]), len(pdf_doc["text"])))
             if not pdf_doc["text"].strip():
                 sys.exit("FAILED: PDF parsed but no question content found (only answer-key/instruction pages?)")
             if gen_type == 2:
@@ -1774,6 +1784,10 @@ def main():
             "mock": mock, "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "dry_mode": dm, "questions": len(qs),
             "gen_type": gen_type,
+            "pdf_parser": stats.get("pdf_parser"),
+            "pdf_pages": stats.get("pdf_pages"),
+            "pdf_images": stats.get("pdf_images"),
+            "pdf_parse_s": stats.get("pdf_parse_s"),
             "author_attempt": stats["author_attempt"],
             "author_cost_usd": round(stats["author_cost"], 4),
             "proofread_model": stats["proof_model"], "proofread_cost_usd": round(stats["proof_cost"], 4),
@@ -1865,6 +1879,10 @@ def main():
         "mock": mock, "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "questions": stats["audio_total"] + sum(1 for q in qs if q.get("section") == "reading"),
         "gen_type": gen_type,
+        "pdf_parser": stats.get("pdf_parser"),
+        "pdf_pages": stats.get("pdf_pages"),
+        "pdf_images": stats.get("pdf_images"),
+        "pdf_parse_s": stats.get("pdf_parse_s"),
         "author_attempt": stats["author_attempt"],
         "author_cost_usd": round(stats["author_cost"], 4),
         "proofread_model": stats["proof_model"], "proofread_cost_usd": round(stats["proof_cost"], 4),

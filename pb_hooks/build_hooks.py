@@ -113,6 +113,7 @@ SCHEMA = [
         f("push_subject_id", "text", max=100),
         f("push_exam_type", "text", max=20),
         f("push_exam_status", "text", max=20),
+        f("push_enabled", "bool"),
         f("dedup_enabled", "bool"),
         f("dedup_sets", "number", min=0, max=20),
         f("audio_gap_ms", "number", min=0, max=5000),
@@ -245,6 +246,7 @@ DEFAULT_CONFIG = {
     "push_subject_id": "illfosglou0e3j6",
     "push_exam_type": "mock",
     "push_exam_status": "draft",
+    "push_enabled": True,
     "audio_gap_ms": 300,
     "sample_rate": 44100,
     "audio_workers": 4,
@@ -282,6 +284,7 @@ META_FIELDS = [
     ("push_subject_id", "Subject id", "text", "Push", "Subject record id on client PB"),
     ("push_exam_type", "Exam type on push", "text", "Push", "exam_type for the auto-created exam (mock/ubt/practice/official)"),
     ("push_exam_status", "Exam status on push", "select", "Push", "draft = review-then-publish | published = immediate", ["draft", "published"]),
+    ("push_enabled", "Upload to teacher app", "bool", "Push", "On = exams are uploaded to the end-user app after generation | Off = generated locally only, nothing is uploaded"),
     ("pdf_parser", "PDF parser", "select", "PDF", "Auto = PyMuPDF (local) first, cloud OCR (Upstage/vision) when the PDF is scanned or garbled | Local only = PyMuPDF, never sends pages to cloud APIs", ["auto", "local"]),
     ("upscale_pdf_images", "Upscale extracted paper images", "bool", "PDF", "Every image extracted from the PDF is upscaled via fal-ai/recraft/upscale/crisp before upload (bills FAL credits); on failure the raw extracted image is used"),
     ("audio_gap_ms", "Gap between clips (ms)", "number", "Audio", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."),
@@ -329,6 +332,30 @@ function ensureCollections() {
     var models = $app.findCollectionByNameOrId("mock_models")
     %s
   }
+  try {
+    // add any missing mock_config / mock_jobs fields via the canonical schema import.
+    // NOTE: fields.items() does NOT exist in the 0.39 JSVM (TypeError) - use
+    // fields.getByName() for detection and importCollections to apply changes.
+    var cfgCol4 = $app.findCollectionByNameOrId("mock_config")
+    var needFields = ["pdf_parser", "upscale_pdf_images", "tts_male_voice", "tts_female_voice",
+                      "tts_fallback_male_voice", "tts_fallback_female_voice", "push_enabled"]
+    var missingField = false
+    for (var nfi = 0; nfi < needFields.length; nfi++) {
+      var hasIt = false
+      try { hasIt = !!cfgCol4.fields.getByName(needFields[nfi]) } catch (err) { hasIt = false }
+      if (!hasIt) missingField = true
+    }
+    var jobsCol = $app.findCollectionByNameOrId("mock_jobs")
+    var jobsNeed = ["gen_type", "pdf"]
+    for (var nji = 0; nji < jobsNeed.length; nji++) {
+      var hasJ = false
+      try { hasJ = !!jobsCol.fields.getByName(jobsNeed[nji]) } catch (err) { hasJ = false }
+      if (!hasJ) missingField = true
+    }
+    if (missingField) {
+      $app.importCollections(%s, false)
+    }
+  } catch (errH) { try { $app.logger().info("mig-cfg4: " + String(errH)) } catch (errL) {} }
 }
 """ % (
     json.dumps(list(COLLECTION_IDS.keys())),
@@ -363,8 +390,8 @@ function ensureCollections() {
     for (var rc = 0; rc < runCols.length; rc++) {
       var col = $app.findCollectionByNameOrId(runCols[rc])
       var hasImg = false, hasAud = false
-      for (var fi = 0; fi < col.fields.items().length; fi++) {
-        var fld = col.fields.items()[fi]
+      for (var fi = 0; fi < col.fields.length; fi++) {
+        var fld = col.fields[fi]
         if (fld.name === "images") hasImg = true
         if (fld.name === "audio") hasAud = true
       }
@@ -375,8 +402,8 @@ function ensureCollections() {
       } else {
         // upgrade single-file fields (maxSelect defaulted to 1 on old installs) to multi-file
         var changed = false
-        for (var fi2 = 0; fi2 < col.fields.items().length; fi2++) {
-          var fld2 = col.fields.items()[fi2]
+        for (var fi2 = 0; fi2 < col.fields.length; fi2++) {
+          var fld2 = col.fields[fi2]
           if (fld2.name === "images" || fld2.name === "audio") {
             var opts = fld2.options || {}
             var max = Number(opts.maxSelect || 1)
@@ -394,7 +421,7 @@ function ensureCollections() {
   try {
     var cfgCol = $app.findCollectionByNameOrId("mock_config")
     var hasVoices = false
-    for (var fi3 = 0; fi3 < cfgCol.fields.items().length; fi3++) { if (cfgCol.fields.items()[fi3].name === "tts_voices") hasVoices = true }
+    for (var fi3 = 0; fi3 < cfgCol.fields.length; fi3++) { if (cfgCol.fields[fi3].name === "tts_voices") hasVoices = true }
     if (!hasVoices) {
       cfgCol.fields.add({"name": "tts_voices", "type": "json", "required": false, "maxSize": 65536})
       $app.save(cfgCol)
@@ -403,8 +430,8 @@ function ensureCollections() {
   try {
     var cfgCol3 = $app.findCollectionByNameOrId("mock_config")
     var hasDup = false, hasSets = false
-    for (var fi5 = 0; fi5 < cfgCol3.fields.items().length; fi5++) {
-      var nm2 = cfgCol3.fields.items()[fi5].name
+    for (var fi5 = 0; fi5 < cfgCol3.fields.length; fi5++) {
+      var nm2 = cfgCol3.fields[fi5].name
       if (nm2 === "dedup_enabled") hasDup = true
       if (nm2 === "dedup_sets") hasSets = true
     }
@@ -416,8 +443,8 @@ function ensureCollections() {
   try {
     var cfgCol2 = $app.findCollectionByNameOrId("mock_config")
     var hasProv = false, hasGem = false
-    for (var fi4 = 0; fi4 < cfgCol2.fields.items().length; fi4++) {
-      var nm = cfgCol2.fields.items()[fi4].name
+    for (var fi4 = 0; fi4 < cfgCol2.fields.length; fi4++) {
+      var nm = cfgCol2.fields[fi4].name
       if (nm === "author_provider") hasProv = true
       if (nm === "gemini_model") hasGem = true
     }
@@ -426,32 +453,6 @@ function ensureCollections() {
     if (!hasGem) { cfgCol2.fields.add({"name": "gemini_model", "type": "text", "required": false, "max": 200}); changed2 = true }
     if (changed2) $app.save(cfgCol2)
   } catch (errG) {}
-  try {
-    var cfgCol4 = $app.findCollectionByNameOrId("mock_config")
-    var needFields = [["pdf_parser", "select", {"values": ["auto", "local"], "maxSelect": 1}],
-                      ["upscale_pdf_images", "bool", null],
-                      ["tts_male_voice", "text", {"max": 200}],
-                      ["tts_female_voice", "text", {"max": 200}],
-                      ["tts_fallback_male_voice", "text", {"max": 200}],
-                      ["tts_fallback_female_voice", "text", {"max": 200}]]
-    var changed4 = false
-    for (var nfi = 0; nfi < needFields.length; nfi++) {
-      var nf = needFields[nfi]
-      var hasIt = false
-      for (var fi6 = 0; fi6 < cfgCol4.fields.items().length; fi6++) {
-        if (cfgCol4.fields.items()[fi6].name === nf[0]) hasIt = true
-      }
-      if (!hasIt) {
-        var addOpts = nf[2] || {}
-        addOpts["name"] = nf[0]
-        addOpts["type"] = nf[1]
-        addOpts["required"] = false
-        cfgCol4.fields.add(addOpts)
-        changed4 = true
-      }
-    }
-    if (changed4) $app.save(cfgCol4)
-  } catch (errH) {}
   try {
     var mProv = $app.findFirstRecordByData("mock_config_meta", "field", "author_provider")
     mProv.set("label", "Author provider")
@@ -483,6 +484,7 @@ function ensureCollections() {
       ["tts_female_voice", "Female listening voice", "text", "Audio", "Voice for the female speaker (V2) in listening dialogues. Leave empty to auto-pick per TTS model (fish-audio free female / MAI ko-KR-Haena). Use the speaker icon to hear a sample.", null],
       ["tts_fallback_male_voice", "Fallback male listening voice", "text", "Audio", "Voice for the male speaker (V1) when the run falls back to the fallback TTS model. Leave empty to auto-pick per fallback model.", null],
       ["tts_fallback_female_voice", "Fallback female listening voice", "text", "Audio", "Voice for the female speaker (V2) when the run falls back to the fallback TTS model. Leave empty to auto-pick per fallback model.", null],
+      ["push_enabled", "Upload to teacher app", "bool", "Push", "On = exams are uploaded to the end-user app after generation | Off = generated locally only, nothing is uploaded", null],
       ["image_count", "Image questions target", "number", "Images", "How many questions carry a picture, spread randomly across reading AND listening. Applies to RANDOM generation only - Paper PDF mode follows the paper.", null]
     ]
     var mColM = $app.findCollectionByNameOrId("mock_config_meta")
@@ -523,6 +525,7 @@ function ensureCollections() {
             i, js_str(kind), js_str(model), js_str(display), js_str(notes))
         for i, (kind, model, display, notes) in enumerate(MODEL_SEEDS)
     ),
+    json.dumps(SCHEMA),
 )
 
 KEY_CHECK_FN = """
@@ -1002,6 +1005,8 @@ try {
       client_name: cname,
       status: r.getString("status"),
       kind: r.getString("kind") || "full",
+      gen_type: r.getInt("gen_type") || 1,
+      pdf: r.getString("pdf"),
       count: r.getInt("count"),
       difficulty: r.getString("difficulty"),
       focus: (function () {
@@ -1059,6 +1064,8 @@ try {
     client_name: cname,
     status: rec.getString("status"),
     kind: rec.getString("kind") || "full",
+    gen_type: rec.getInt("gen_type") || 1,
+    pdf: rec.getString("pdf"),
     count: rec.getInt("count"),
     difficulty: rec.getString("difficulty"),
     overrides: rec.get("overrides"),

@@ -27,6 +27,8 @@ import io
 import os
 import re
 import sys
+import threading
+import time
 
 import httpx
 
@@ -128,7 +130,25 @@ def _fitz():
         return fitz
 
 
-def _pymupdf_parse(path, max_pages, want_images):
+def _start_heartbeat(progress, label, interval=30):
+    """Log a 'still working' line every `interval` seconds until stopped (long cloud calls)."""
+    stop = threading.Event()
+
+    def run():
+        t = 0
+        while not stop.wait(interval):
+            t += interval
+            try:
+                progress("%s (%ds)…" % (label, t))
+            except Exception:
+                pass
+
+    th = threading.Thread(target=run, daemon=True)
+    th.start()
+    return stop
+
+
+def _pymupdf_parse(path, max_pages, want_images, progress=None):
     """Local parse. Returns (pages, images) or raises PdfParseError on any failure."""
     fitz = _fitz()
     try:
@@ -138,6 +158,8 @@ def _pymupdf_parse(path, max_pages, want_images):
     pages = []
     images = []
     try:
+        if progress:
+            progress("opening PDF (%d pages, %.1f MB)" % (len(doc), os.path.getsize(path) / 1048576.0))
         for pno in range(min(len(doc), max_pages)):
             page = doc[pno]
             txt = page.get_text("text") or ""
@@ -203,6 +225,18 @@ def _pymupdf_images(doc, page, pno):
     return out
 
 
+def _page_count(path):
+    try:
+        fitz = _fitz()
+        doc = fitz.open(path)
+        try:
+            return len(doc)
+        finally:
+            doc.close()
+    except Exception:
+        return 0
+
+
 def _render_page_png(path, page_no, zoom=2.0):
     """Render one page to PNG bytes (used for the vision-OCR tier)."""
     fitz = _fitz()
@@ -216,15 +250,20 @@ def _render_page_png(path, page_no, zoom=2.0):
         doc.close()
 
 
-def _upstage_parse(path, filename, max_pages, api_key):
+def _upstage_parse(path, filename, max_pages, api_key, progress=None):
     """Cloud layout analysis + OCR (Korean+English, text inside images)."""
     headers = {"Authorization": "Bearer " + api_key}
     data = {"ocr": "force", "output_format": "markdown", "base64_encoding": '["figure"]'}
     files = {"document": (filename, open(path, "rb"), "application/pdf")}
+    if progress:
+        progress("Upstage parsing document (up to %d pages)…" % max_pages)
+    stop_hb = _start_heartbeat(progress, "still parsing via Upstage") if progress else None
     try:
         r = httpx.post("https://api.upstage.ai/v1/document-ai/document-parse",
                        headers=headers, data=data, files=files, timeout=300)
     finally:
+        if stop_hb:
+            stop_hb.set()
         try:
             files["document"][1].close()
         except Exception:
@@ -235,6 +274,8 @@ def _upstage_parse(path, filename, max_pages, api_key):
     elements = j.get("elements") or j.get("result", {}).get("elements") or []
     if not elements:
         raise PdfParseError("Upstage returned no elements")
+    if progress:
+        progress("Upstage done — %d elements" % len(elements))
     by_page = {}
     for el in elements:
         page_no = int(el.get("page") or 1)  # page is a direct field (coords have no page)
@@ -295,17 +336,27 @@ def _upstage_figures(j):
     return out
 
 
-def _vision_ocr(path, max_pages, or_key, pages_hint):
+def _vision_ocr(path, max_pages, or_key, pages_hint, progress=None):
     """Per-page OCR via a vision LLM on OpenRouter (rendered page PNGs, Korean+English).
 
     Mistral OCR is not hosted on OpenRouter (verified 2026-08), so this tier reads the
     rendered pages with a vision model — same role, no extra keys needed."""
     model = VISION_OCR_MODEL
     pages = []
+    total_pages = _page_count(path)
+    if max_pages and total_pages:
+        max_pages = min(max_pages, total_pages)
     for pno in range(max_pages):
+        if progress:
+            progress("vision OCR parsing page %d/%d…" % (pno + 1, total_pages or max_pages))
+            stop_hb = _start_heartbeat(progress, "still parsing page %d" % (pno + 1))
+        else:
+            stop_hb = None
         try:
             png = _render_page_png(path, pno)
         except Exception as e:
+            if stop_hb:
+                stop_hb.set()
             if pno == 0:
                 raise PdfParseError("could not render pages for OCR: %s" % str(e)[:120])
             break
@@ -330,7 +381,11 @@ def _vision_ocr(path, max_pages, or_key, pages_hint):
                                     "Content-Type": "application/json"},
                            json=payload, timeout=240)
         except Exception as e:
+            if stop_hb:
+                stop_hb.set()
             raise PdfParseError("vision OCR request failed: %s" % str(e)[:120])
+        if stop_hb:
+            stop_hb.set()
         if r.status_code != 200:
             raise PdfParseError("vision OCR HTTP %s: %s" % (r.status_code, r.text[:200]))
         j = r.json()
@@ -360,12 +415,13 @@ def _map_images_to_questions(pages, images):
     return images
 
 
-def parse_pdf(path, gen_type=3, parser="auto", upstage_key="", or_key="", max_pages=None):
+def parse_pdf(path, gen_type=3, parser="auto", upstage_key="", or_key="", max_pages=None, progress=None):
     """Parse a PDF into a PdfDoc for the given generation type.
 
     gen_type: 2 = book (first-chapters slice, text+markdown tables only)
               3 = printed paper (question pages only, images extracted + mapped)
     parser:   "auto" (full chain) | "local" (PyMuPDF only)
+    progress: optional callable(msg) — live step-by-step progress for job logs.
     Raises PdfParseError with a clear message when nothing usable was extracted.
     """
     path = str(path)
@@ -382,14 +438,18 @@ def parse_pdf(path, gen_type=3, parser="auto", upstage_key="", or_key="", max_pa
     local_error = ""
     pages, images = [], []
     try:
-        pages, images = _pymupdf_parse(path, max_pages, want_images)
+        pages, images = _pymupdf_parse(path, max_pages, want_images, progress)
         if pages and _doc_usable(pages):
-            return _finalize(pages, images, gen_type, "pymupdf")
+            return _finalize(pages, images, gen_type, "pymupdf", progress)
         local_error = ("PyMuPDF text layer unusable "
                        "(avg %d letters/page — scanned or garbled)" %
                        (sum(_text_stats(p.get("text", ""))["letters"] for p in pages) // max(1, len(pages))))
+        if progress:
+            progress("text layer missing/garbled (%s) — promoting to cloud OCR" % local_error)
     except PdfParseError as e:
         local_error = str(e)
+        if progress:
+            progress("PyMuPDF failed: %s" % local_error[:160])
 
     if parser == "local":
         raise PdfParseError("PDF has no usable text layer (%s) and PDF parser is set to 'Local only' — "
@@ -397,26 +457,31 @@ def parse_pdf(path, gen_type=3, parser="auto", upstage_key="", or_key="", max_pa
 
     if upstage_key:
         try:
-            up_pages, up_images = _upstage_parse(path, filename, max_pages, upstage_key)
+            up_pages, up_images = _upstage_parse(path, filename, max_pages, upstage_key, progress)
             if up_pages and _doc_usable(up_pages):
-                return _finalize(up_pages, up_images, gen_type, "upstage")
-            print("[pdf] Upstage output failed the quality gate, trying vision OCR", flush=True)
+                return _finalize(up_pages, up_images, gen_type, "upstage", progress)
+            if progress:
+                progress("Upstage output failed the quality gate, trying vision OCR")
         except PdfParseError as e:
-            print("[pdf] Upstage failed: %s" % str(e)[:160], flush=True)
+            if progress:
+                progress("Upstage failed: %s" % str(e)[:160])
 
     if or_key:
         try:
-            mi_pages, mi_images = _vision_ocr(path, max_pages, or_key, pages)
+            mi_pages, mi_images = _vision_ocr(path, max_pages, or_key, pages, progress)
             if mi_pages and _doc_usable(mi_pages):
-                return _finalize(mi_pages, mi_images, gen_type, "vision-ocr")
-            print("[pdf] vision OCR output failed the quality gate", flush=True)
+                return _finalize(mi_pages, mi_images, gen_type, "vision-ocr", progress)
+            if progress:
+                progress("vision OCR output failed the quality gate")
         except PdfParseError as e:
-            print("[pdf] vision OCR failed: %s" % str(e)[:160], flush=True)
+            if progress:
+                progress("vision OCR failed: %s" % str(e)[:160])
 
     # best-effort: keep whatever PyMuPDF found (even low quality) so the job can still run
     if pages and any(_text_stats(p.get("text", ""))["letters"] >= 10 for p in pages):
-        print("[pdf] WARNING: using low-quality local text (%s)" % local_error, flush=True)
-        return _finalize(pages, images, gen_type, "pymupdf(low quality)")
+        if progress:
+            progress("WARNING: using low-quality local text (%s)" % local_error)
+        return _finalize(pages, images, gen_type, "pymupdf(low quality)", progress)
 
     raise PdfParseError(
         "could not parse this PDF (10 MB limit, %d page limit). %s. "
@@ -424,7 +489,7 @@ def parse_pdf(path, gen_type=3, parser="auto", upstage_key="", or_key="", max_pa
         "UPSTAGE_API_KEY or an OpenRouter key (vision OCR) configured." % (MAX_PAGES, local_error))
 
 
-def _finalize(pages, images, gen_type, parser_used):
+def _finalize(pages, images, gen_type, parser_used, progress=None):
     """Page classification (paper mode), image mapping, doc text assembly."""
     for p in pages:
         if gen_type == 3:
@@ -450,6 +515,10 @@ def _finalize(pages, images, gen_type, parser_used):
         "stats": {"pages": len(pages), "images": len(images),
                   "excluded_pages": [p["page"] for p in pages if p["kind"] != "question"]},
     }
+    if progress:
+        progress("parsed via %s — %d pages, %d extracted images, %d text chars%s" % (
+            parser_used, len(pages), len(images), len(doc["text"]),
+            (" (excluded pages: %s)" % doc["stats"]["excluded_pages"]) if doc["stats"]["excluded_pages"] else ""))
     return doc
 
 
