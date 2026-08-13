@@ -97,6 +97,7 @@ CONFIG_MAP = {
     "dedup_sets": "dedup_sets",
     "audio_gap_ms": "tts_gap_ms",
     "sample_rate": "tts_rate",
+    "tts_speed": "tts_speed",
     "audio_workers": "tts_workers",
     "active": "is_active",
 }

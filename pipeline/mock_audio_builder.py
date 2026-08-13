@@ -82,6 +82,7 @@ TTS_DEFAULTS = {
     "tts_fallback_voice": "ko-KR-Haena:MAI-Voice-2",
     "tts_rate": 44100,
     "tts_gap_ms": 400,
+    "tts_speed": 1.0,    # speech speed (0.5-2.0); 1.0 = normal
     "tts_workers": 4,
     "tts_voices": {},
     "tts_male_voice": "",    # PDF dialogue speaker V1 (male) - empty = auto per model
@@ -201,7 +202,7 @@ def resolve_voice(model, voice, cfg, tts_mod, use_fallback_voice=False):
 
 
 def synth(tts, text: str, voice: str, out: Path, model: str,
-          fallback_model: str = "", fallback_voice: str = "") -> bool:
+          fallback_model: str = "", fallback_voice: str = "", speed: float = 1.0) -> bool:
     """Synthesize one clip. Uses the tts module directly; falls back to subprocess.
     On failure retries once with the fallback model/voice (config-driven)."""
     key = os.environ.get("OPENROUTER_API_KEY") or (tts.find_key(None) if tts else None)
@@ -209,17 +210,17 @@ def synth(tts, text: str, voice: str, out: Path, model: str,
     def try_one(m, v):
         if tts is not None:
             try:
-                data = tts.make_speech(m, v, text, "mp3", key, None)
+                data = tts.make_speech(m, v, text, "mp3", key, speed)
                 out.write_bytes(data)
                 return out.stat().st_size > 2000
             except Exception as e:
                 print(f"    module synth ({m}) failed: {e}", flush=True)
         tts_path = Path.home() / ".config" / "opencode" / "scripts" / "tts.py"
-        r = subprocess.run(
-            [sys.executable, str(tts_path), "--model", m, "--voice", v,
-             "--text", text, "--out", str(out)],
-            capture_output=True, text=True, timeout=180,
-        )
+        cmd = [sys.executable, str(tts_path), "--model", m, "--voice", v,
+               "--text", text, "--out", str(out)]
+        if speed and speed != 1.0:
+            cmd += ["--speed", str(speed)]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         return r.returncode == 0 and out.exists() and out.stat().st_size > 2000
 
     if try_one(model, voice):
@@ -476,7 +477,8 @@ def _gen(job, tts, args, cfg):
             fallback_voice = resolve_voice(fallback_model, fv, cfg, tts)[1]
     for attempt in range(3):
         try:
-            if synth(tts, text, voice, out, model, fallback_model, fallback_voice):
+            spd = float(cfg.get("tts_speed") or 1.0)
+            if synth(tts, text, voice, out, model, fallback_model, fallback_voice, speed=spd):
                 print(f"  ok q{n}_{k:02d} ({out.stat().st_size} bytes)", flush=True)
                 return (n, k, True)
         except SystemExit as se:

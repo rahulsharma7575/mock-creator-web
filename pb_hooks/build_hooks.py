@@ -118,6 +118,7 @@ SCHEMA = [
         f("dedup_sets", "number", min=0, max=20),
         f("audio_gap_ms", "number", min=0, max=5000),
         f("sample_rate", "number", min=8000, max=48000),
+        f("tts_speed", "number", min=0.5, max=2.0),
         f("audio_workers", "number", min=1, max=16),
         f("prompts_json", "json", maxSize=2097152),
         f("active", "bool"),
@@ -249,6 +250,7 @@ DEFAULT_CONFIG = {
     "push_enabled": True,
     "audio_gap_ms": 300,
     "sample_rate": 44100,
+    "tts_speed": 1.0,
     "audio_workers": 4,
     "prompts_json": {},
     "active": True,
@@ -289,6 +291,7 @@ META_FIELDS = [
     ("upscale_pdf_images", "Upscale extracted paper images", "bool", "PDF", "Every image extracted from the PDF is upscaled via fal-ai/recraft/upscale/crisp before upload (bills FAL credits); on failure the raw extracted image is used"),
     ("audio_gap_ms", "Gap between clips (ms)", "number", "Audio", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."),
     ("sample_rate", "Sample rate (Hz)", "number", "Audio", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."),
+    ("tts_speed", "Speech speed", "number", "Audio", "1.0 = normal · 0.8 = slower · 1.2 = faster · range 0.5-2.0. Models that don't support speed ignore it."),
     ("active", "Config enabled", "bool", "General", "Use this config"),
 ]
 
@@ -340,7 +343,7 @@ function ensureCollections() {
     // fields.getByName() for detection and importCollections to apply changes.
     var cfgCol4 = $app.findCollectionByNameOrId("mock_config")
     var needFields = ["pdf_parser", "upscale_pdf_images", "tts_male_voice", "tts_female_voice",
-                      "tts_fallback_male_voice", "tts_fallback_female_voice", "push_enabled"]
+                      "tts_fallback_male_voice", "tts_fallback_female_voice", "tts_speed", "push_enabled"]
     var missingField = false
     for (var nfi = 0; nfi < needFields.length; nfi++) {
       var hasIt = false
@@ -494,6 +497,7 @@ function ensureCollections() {
       ["tts_fallback_male_voice", "Fallback male listening voice", "text", "Audio", "Voice for the male speaker (V1) when the run falls back to the fallback TTS model. Leave empty to auto-pick per fallback model.", null],
       ["tts_fallback_female_voice", "Fallback female listening voice", "text", "Audio", "Voice for the female speaker (V2) when the run falls back to the fallback TTS model. Leave empty to auto-pick per fallback model.", null],
       ["push_enabled", "Upload to teacher app", "bool", "Push", "On = exams are uploaded to the end-user app after generation | Off = generated locally only, nothing is uploaded", null],
+      ["tts_speed", "Speech speed", "number", "Audio", "1.0 = normal · 0.8 = slower · 1.2 = faster · range 0.5-2.0. Models that don't support speed ignore it.", null],
       ["image_count", "Image questions target", "number", "Images", "How many questions carry a picture, spread randomly across reading AND listening. Applies to RANDOM generation only - Paper PDF mode follows the paper.", null]
     ]
     var mColM = $app.findCollectionByNameOrId("mock_config_meta")

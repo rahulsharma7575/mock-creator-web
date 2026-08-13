@@ -134,6 +134,7 @@ DEFAULTS = {
     "upscale_pdf_images": True,         # recraft/upscale/crisp on extracted paper images (fal credits)
     "tts_rate": 44100,
     "tts_gap_ms": 400,
+    "tts_speed": 1.0,                    # speech speed (0.5-2.0); 1.0 = normal
     "tts_voices": {},                          # optional speaker->voice map override
 }
 
