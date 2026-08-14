@@ -226,7 +226,8 @@ def render_prompt(template):
         section_order = f'ALL questions are section "listening" (Q1-{q}) - no reading section'
     else:
         section_order = f'Q1-{r} section "reading", Q{ls}-{q} section "listening"'
-    ctx = {**CFG,
+    ctx = {"FORMAT_RULES": FORMAT_RULES,
+           **CFG,
            "difficulty_note": DIFFICULTY_PROFILES.get(CFG.get("difficulty_profile"), ""),
            "focus_note": ("The teacher needs to test this specific area — give questions that match: " +
                           str(CFG.get("focus"))).strip() if str(CFG.get("focus") or "").strip() else "",
@@ -438,6 +439,36 @@ def chat_json(key, model, system, user, max_tokens=32000, temperature=0.7, extra
 
 AUTHOR_SYSTEM = """You are a senior EPS-TOPIK UBT exam writer and psychometric expert. Output ONLY valid JSON."""
 
+# Shared UBT mock exam format rules - IDENTICAL for every generation mode
+# (random / book PDF / printed paper PDF). Both the author prompts and the repair
+# pass must follow these so the exam format never drifts between modes.
+FORMAT_RULES = """UBT MOCK EXAM FORMAT - IDENTICAL FOR EVERY GENERATION MODE
+(standard random, book PDF, printed paper PDF all follow exactly this format):
+- The exam is EXACTLY {question_count} questions: Q1-{reading_count} reading, Q{listening_start}-{question_count} listening.
+- EVERY listening question's audioScript MUST be fully self-contained: the answer
+  must be clear from the AUDIO ALONE, because some listening questions will be shown
+  to the student as AUDIO-ONLY (no question text, options are just 1/2/3/4). Never
+  write a script that references text, tables or images the student cannot see.
+- SPEAKERS ARE RANDOMIZED: roughly half the listening questions are ONE speaker
+  (V1 male or V2 female alone - announcement/monologue, 2-4 sentences, all turns the
+  SAME voice, "speakers": 1) and the rest are TWO speakers (any V1/V2 combination -
+  V1+V2, V1+V1 or V2+V2, "speakers": 2). The voice tags in audioScript MUST match the
+  chosen speaker count and gender. V1 is always the male voice, V2 the female voice.
+- GRID IMAGE QUESTIONS: exactly {image_grid_count} of the requiresImage questions MUST
+  be GRID questions ("grid": true): ONE flat colourful illustration composed of a 2x2
+  grid of FOUR DIFFERENT scenes/objects. Quadrant numbering: 1 = top-left, 2 = top-right,
+  3 = bottom-left, 4 = bottom-right. options MUST be EXACTLY ["1","2","3","4"] (numbers)
+  and correct_answer is the quadrant index (0-3) that matches the stem or the audio.
+  The imagePrompt MUST be a detailed quadrant-by-quadrant description:
+  "A single flat colourful EPS-TOPIK style illustration split into a 2x2 grid. Top-left
+  (quadrant 1): <specific scene A>. Top-right (quadrant 2): <specific scene B>.
+  Bottom-left (quadrant 3): <specific scene C>. Bottom-right (quadrant 4): <specific
+  scene D>. Bold clean outlines, vivid colours, plain white background, NO numbers,
+  NO labels, NO text inside the image." The app overlays the 1-4 labels - never draw
+  them in the image. Grid questions work for reading AND listening.
+- A random subset of listening questions will be shown AUDIO-ONLY (options 1/2/3/4,
+  no text) - always write listening scripts as if they will be heard alone."""
+
 AUTHOR_USER = """Write a complete Korean EPS-TOPIK UBT mock exam: EXACTLY {question_count} questions as a JSON array.
 
 HARD RULES:
@@ -497,6 +528,7 @@ Reading (image): {"number": 1, "section": "reading", "difficulty": "medium", "ty
 Listening: {"number": 22, "section": "listening", "difficulty": "medium", "type": "listening_vocabulary_image", "question_text": "Q22. 대화를 듣고 남자가 지금 하고 있는 작업에 알맞은 그림을 고르십시오.", "options": ["사과를 상자에 담는 작업", "포도를 가위로 수확하는 작업", "밭에 비닐을 씌우는 작업", "배추에 비료를 주는 작업"], "correct_answer": ["1"], "marks": 1, "explanation": "대화에서 남자가 포도송이를 조심스럽게 가위로 잘라 바구니에 담는 수확 작업을 묘사하고 있습니다.", "requiresImage": true, "imagePrompt": "A farmer's hands with white cotton gloves using pruning shears to cut a bunch of purple grapes in an outdoor vineyard, golden hour sunlight.", "listening": {"audioScript": [{"voice": "V1", "text": "영수 씨, 지금 뭐 하고 있어요?"}, {"voice": "V2", "text": "아, 포도 수확하고 있어요. 가위로 조심스럽게 잘라야 해요."}, {"voice": "V1", "text": "힘들지 않아요? 제가 좀 도와줄까요?"}, {"voice": "V2", "text": "괜찮아요. 거의 다 했어요. 조금만 더 하면 돼요."}], "durationSeconds": 15, "speakers": 2, "situation": "포도밭에서 포도를 수확하는 작업"}}
 
 Every question in the exam MUST follow the field set shown above (no extra/missing keys).
+{FORMAT_RULES}
 Return the JSON array ONLY — no markdown, no commentary."""
 
 
@@ -546,7 +578,8 @@ HARD RULES:
   fail validation and the exam is regenerated.
 - Use the exact same JSON field set as the REFERENCE EXAMPLES in AUTHOR_USER (number, section,
   difficulty, type, question_text, options, correct_answer, marks, explanation, requiresImage,
-  imagePrompt, listening). Return the JSON array ONLY — no markdown, no commentary."""
+  imagePrompt, listening). {FORMAT_RULES}
+Return the JSON array ONLY — no markdown, no commentary."""
 
 
 AUTHOR_USER_PAPER = """Rebuild the old printed EPS-TOPIK question paper below into a fresh digital mock exam:
@@ -594,6 +627,7 @@ HARD RULES:
   is regenerated.
 - KOREAN QUALITY: fix nothing that is correct in the paper, but clean up any OCR artifacts
   (garbled characters, broken spacing) into natural Korean.
+{FORMAT_RULES}
 Return the JSON array ONLY — no markdown, no commentary."""
 
 
@@ -706,6 +740,7 @@ def repair_exam(key, qs, stats=None):
             user = (
                 "다음 한국어 듣기 문제를 위한 자연스러운 음성 스크립트를 작성하세요. "
                 "화자는 무작위로: 1명(남자 V1 또는 여자 V2 혼자, 2-4문장) 또는 2명(남/여 조합, 2-4턴, 턴당 최대 2문장, 구어체)입니다. "
+                "문제가 음성만 제시되는(blank) 문제라면 대화/안내만으로 정답이 분명히 드러나야 합니다. "
                 'JSON만: {"audioScript": [{"voice": "V1"~"V4", "text": "..."}], '
                 '"durationSeconds": 15, "speakers": 1, "situation": "..."}\n'
                 f"문제: {q.get('question_text')}\n선택지: {q.get('options')}\n"
