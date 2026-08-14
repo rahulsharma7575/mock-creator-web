@@ -668,17 +668,107 @@ def korean_issues(qs):
     return issues
 
 
+def fix_numeric_option_questions(qs):
+    """The author sometimes emits options ["1","2","3","4"] without the format
+    flag. Auto-tag: image questions -> grid, listening questions -> blank
+    (audio-only). Returns how many were fixed."""
+    fixed = 0
+    for q in qs:
+        opts = q.get("options") or []
+        if not (isinstance(opts, list) and len(opts) == 4):
+            continue
+        if not all(re.fullmatch(r"[1-4]", str(o).strip()) for o in opts):
+            continue
+        if q.get("grid") and (not q.get("requiresImage") or not q.get("imagePrompt")):
+            # author/proofread tagged grid without an actual image - demote
+            if q.get("section") == "listening":
+                q["grid"] = False
+                q["blank"] = True
+                q["question_text"] = "Q%s. 다음을 듣고 알맞은 것을 고르십시오." % q.get("number")
+                q["explanation"] = "듣기 문제입니다."
+                q["requiresImage"] = False
+                q["imagePrompt"] = ""
+                fixed += 1
+                continue
+            # reading grid without an image stays invalid - the retry message covers it
+        if q.get("grid") and q.get("requiresImage") and not q.get("imagePrompt"):
+            q["grid"] = False  # numeric options without a prompt are not a valid grid
+            fixed += 1
+        if q.get("grid") or q.get("blank"):
+            continue
+        if q.get("requiresImage") and q.get("imagePrompt"):
+            q["grid"] = True
+            fixed += 1
+        elif q.get("section") == "listening":
+            q["blank"] = True
+            q["question_text"] = "Q%s. 다음을 듣고 알맞은 것을 고르십시오." % q.get("number")
+            q["explanation"] = "듣기 문제입니다."
+            q["requiresImage"] = False
+            q["imagePrompt"] = ""
+            fixed += 1
+    return fixed
+
+
+def repair_grid_prompts(key, qs):
+    """After proofread, restore grid questions whose imagePrompt/requiresImage got
+    dropped: listening grids degrade to blank (audio-only); other grids get the
+    quadrant-by-quadrant imagePrompt regenerated via the repair model."""
+    fixed = 0
+    for q in qs:
+        if not q.get("grid"):
+            continue
+        if q.get("section") == "listening" and (not q.get("requiresImage") or not q.get("imagePrompt")):
+            q["grid"] = False
+            q["blank"] = True
+            q["question_text"] = "Q%s. 다음을 듣고 알맞은 것을 고르십시오." % q.get("number")
+            q["explanation"] = "듣기 문제입니다."
+            q["requiresImage"] = False
+            q["imagePrompt"] = ""
+            fixed += 1
+            print(f"[repair] Q{q.get('number')}: image-less listening grid demoted to blank", flush=True)
+            continue
+        if not q.get("imagePrompt") or not q.get("requiresImage"):
+            num = q.get("number")
+            user = (
+                "다음 그리드(2x2) 그림 문제를 위해 영어 imagePrompt를 작성하세요. "
+                "하나의 2x2 합성 이미지: 1=좌상단, 2=우상단, 3=좌하단, 4=우하단, "
+                "정답 사분면이 문제와 일치해야 합니다. "
+                'JSON만: {"imagePrompt": "..."} (영어, 사분면별 상세 묘사, 숫자/글자 없음)\n'
+                f"문제: {q.get('question_text')}\n선택지: {q.get('options')}\n정답: {q.get('correct_answer')}\n"
+                '형식: "A single flat colourful EPS-TOPIK style illustration split into a 2x2 grid. '
+                'Top-left (quadrant 1): ... Top-right (quadrant 2): ... Bottom-left (quadrant 3): ... '
+                'Bottom-right (quadrant 4): ... Bold clean outlines, vivid colours, plain white '
+                'background, NO numbers, NO labels, NO text inside the image."')
+            try:
+                fixed_json, _ = chat_json(key, repair_cfg()["slug"], REPAIR_SYSTEM, user,
+                                          max_tokens=800, temperature=0.3, extra=repair_cfg()["extra"])
+                ip = str((fixed_json or {}).get("imagePrompt") or "").strip()
+                if ip and len(ip) > 60:
+                    q["imagePrompt"] = ip
+                    q["requiresImage"] = True
+                    fixed += 1
+                    print(f"[repair] Q{num}: grid imagePrompt regenerated", flush=True)
+            except Exception as e:
+                print(f"[repair] grid prompt failed Q{num}: {str(e)[:100]}", flush=True)
+    return fixed
+
+
 def apply_blank_questions(qs):
     """Convert a random subset of listening questions to audio-only format:
     minimal stem + options ["1","2","3","4"] + blank flag (student marks the
-    answer after hearing the audio). correct_answer + audioScript are kept."""
+    answer after hearing the audio). correct_answer + audioScript are kept.
+    Questions already marked blank count toward the configured total."""
     n = int(CFG.get("listening_blank_count") or 0)
     if n <= 0 or not isinstance(qs, list):
         return qs, 0
     listen = [q for q in qs if isinstance(q, dict) and q.get("section") == "listening"]
+    existing = sum(1 for q in listen if q.get("blank"))
+    n = max(0, n - existing)
     random.shuffle(listen)
     done = 0
     for q in listen:
+        if q.get("blank"):
+            continue
         if done >= n:
             break
         num = q.get("number")
@@ -689,7 +779,7 @@ def apply_blank_questions(qs):
         q["requiresImage"] = False
         q["imagePrompt"] = ""
         done += 1
-    return qs, done
+    return qs, existing + done
 
 
 def normalize_exam(qs):
@@ -894,7 +984,9 @@ def validate_exam(qs, stage="final"):
         if not isinstance(opts, list) or len(opts) != 4 or any(not o for o in opts):
             errs.append(f"Q{n}: need 4 non-empty options")
         elif not is_num_only and all(re.fullmatch(r"\d{1,2}|[①②③④]", str(o).strip()) for o in opts):
-            errs.append(f"Q{n}: options are placeholders (digits), not real Korean text")
+            errs.append(f"Q{n}: options are placeholders (digits) - write REAL Korean options. "
+                        f"If this is a GRID image question add \"grid\": true (with a quadrant-by-quadrant imagePrompt) "
+                        f"or if it is a listening AUDIO-ONLY question add \"blank\": true")
         if q.get("grid"):
             if not q.get("requiresImage") or not q.get("imagePrompt"):
                 errs.append(f"Q{n}: grid question needs requiresImage + a quadrant-by-quadrant imagePrompt")
@@ -1918,6 +2010,12 @@ def main():
         stats["grid_count"] = sum(1 for q in qs if q.get("grid"))
         print(f"[grid] target {grid_target} grid questions — author produced {stats['grid_count']}")
 
+        # author sometimes emits 1/2/3/4 options without the format flag - auto-tag
+        nfix = fix_numeric_option_questions(qs)
+        if nfix:
+            print(f"[format] auto-tagged {nfix} questions with numeric options (grid/blank)")
+            stats["grid_count"] = sum(1 for q in qs if q.get("grid"))
+
         # blank listening questions: random audio-only subset (options 1/2/3/4)
         qs, nb = apply_blank_questions(qs)
         stats["blank_count"] = nb
@@ -1948,6 +2046,10 @@ def main():
         if validate_exam(qs) and repaired is not None:
             print("[proofread] broke structure — reverting to repaired version")
             qs = repaired
+        # proofread can drop imagePrompt/requiresImage from grid questions - restore
+        gfix = repair_grid_prompts(key, qs)
+        if gfix:
+            print(f"[repair] {gfix} grid questions restored after proofread")
         qs.sort(key=lambda q: q["number"])
         errs = validate_exam(qs)
         if errs:
