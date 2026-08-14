@@ -86,6 +86,10 @@ TTS_DEFAULTS = {
     "tts_natural_pacing": False,   # relaxed 0.92 speed + >=450ms gaps + extra pause after ?/!
     "tts_polish": False,           # loudnorm + highpass + fades on the merged clip
     "tts_atempo_models": "",       # comma list of model fragments where speed is forced via ffmpeg atempo
+    "tts_male_speed": 0.0,         # per-voice speed (0 = follow tts_speed)
+    "tts_female_speed": 0.0,
+    "tts_fallback_male_speed": 0.0,
+    "tts_fallback_female_speed": 0.0,
     "tts_workers": 4,
     "tts_voices": {},
     "tts_male_voice": "",    # PDF dialogue speaker V1 (male) - empty = auto per model
@@ -205,32 +209,55 @@ def resolve_voice(model, voice, cfg, tts_mod, use_fallback_voice=False):
 
 
 def synth(tts, text: str, voice: str, out: Path, model: str,
-          fallback_model: str = "", fallback_voice: str = "", speed: float = 1.0) -> bool:
+          fallback_model: str = "", fallback_voice: str = "",
+          speed: float = 1.0, fallback_speed: float = 1.0, atempo_models: str = "") -> bool:
     """Synthesize one clip. Uses the tts module directly; falls back to subprocess.
-    On failure retries once with the fallback model/voice (config-driven)."""
+    On failure retries once with the fallback model/voice (config-driven).
+    Models listed in atempo_models get speed forced via ffmpeg atempo (pitch-preserving)."""
     key = os.environ.get("OPENROUTER_API_KEY") or (tts.find_key(None) if tts else None)
+    atempo_list = [f.strip().lower() for f in (atempo_models or "").split(",") if f.strip()]
 
-    def try_one(m, v):
+    def force_speed(m, spd, path):
+        if spd == 1.0 or not atempo_list:
+            return
+        ml = m.lower()
+        if not any(frag in ml for frag in atempo_list):
+            return
+        try:
+            ffmpeg = find_ffmpeg()
+            if _apply_atempo(str(ffmpeg), path, spd):
+                print(f"    speed forced via atempo ({spd})", flush=True)
+            else:
+                print("    atempo failed - keeping provider speed", flush=True)
+        except Exception as e:
+            print(f"    atempo error: {e}", flush=True)
+
+    def try_one(m, v, spd):
         if tts is not None:
             try:
-                data = tts.make_speech(m, v, text, "mp3", key, speed)
+                data = tts.make_speech(m, v, text, "mp3", key, spd)
                 out.write_bytes(data)
-                return out.stat().st_size > 2000
+                if out.stat().st_size > 2000:
+                    force_speed(m, spd, out)
+                    return True
             except Exception as e:
                 print(f"    module synth ({m}) failed: {e}", flush=True)
         tts_path = Path.home() / ".config" / "opencode" / "scripts" / "tts.py"
         cmd = [sys.executable, str(tts_path), "--model", m, "--voice", v,
                "--text", text, "--out", str(out)]
-        if speed and speed != 1.0:
-            cmd += ["--speed", str(speed)]
+        if spd and spd != 1.0:
+            cmd += ["--speed", str(spd)]
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
-        return r.returncode == 0 and out.exists() and out.stat().st_size > 2000
+        if r.returncode == 0 and out.exists() and out.stat().st_size > 2000:
+            force_speed(m, spd, out)
+            return True
+        return False
 
-    if try_one(model, voice):
+    if try_one(model, voice, speed):
         return True
     if fallback_model and fallback_model != model:
         print(f"    falling back to {fallback_model} (voice {fallback_voice})", flush=True)
-        return try_one(fallback_model, fallback_voice or voice)
+        return try_one(fallback_model, fallback_voice or voice, fallback_speed)
     return False
 
 
@@ -533,18 +560,23 @@ def _gen(job, tts, args, cfg, ffmpeg):
             fallback_voice = resolve_voice(fallback_model, fv, cfg, tts)[1]
     for attempt in range(3):
         try:
-            spd = float(cfg.get("tts_speed") or 1.0)
-            if synth(tts, text, voice, out, model, fallback_model, fallback_voice, speed=spd):
-                # force speed via ffmpeg atempo for models that ignore the provider param
-                atempo_cfg = str(cfg.get("tts_atempo_models") or "").strip()
-                if spd != 1.0 and atempo_cfg:
-                    ml = model.lower()
-                    if any(frag.strip().lower() and frag.strip().lower() in ml for frag in atempo_cfg.split(",")):
-                        if _apply_atempo(ffmpeg, out, spd):
-                            print(f"    q{n}_{k:02d}: speed forced via atempo ({spd})", flush=True)
-                        else:
-                            print(f"    q{n}_{k:02d}: atempo failed - keeping provider speed", flush=True)
-                print(f"  ok q{n}_{k:02d} ({out.stat().st_size} bytes)", flush=True)
+            # per-voice speed: explicit voice speed wins, else global tts_speed
+            key = next((vk for vk, vid in VOICES.items() if str(vid) == str(raw_voice)), "")
+            base_spd = float(cfg.get("tts_speed") or 1.0)
+            spd = base_spd
+            fspd = base_spd
+            if key == "V1":
+                spd = float(cfg.get("tts_male_speed") or 0) or base_spd
+                fspd = float(cfg.get("tts_fallback_male_speed") or 0) or base_spd
+            elif key == "V2":
+                spd = float(cfg.get("tts_female_speed") or 0) or base_spd
+                fspd = float(cfg.get("tts_fallback_female_speed") or 0) or base_spd
+            spd = max(0.5, min(2.0, spd))
+            fspd = max(0.5, min(2.0, fspd))
+            if synth(tts, text, voice, out, model, fallback_model, fallback_voice,
+                     speed=spd, fallback_speed=fspd,
+                     atempo_models=str(cfg.get("tts_atempo_models") or "")):
+                print(f"  ok q{n}_{k:02d} ({out.stat().st_size} bytes, voice speed {spd})", flush=True)
                 return (n, k, True)
         except SystemExit as se:
             msg = str(se.code) if se.code else "TTS fatal error"

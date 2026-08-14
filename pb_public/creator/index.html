@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Fraunces:ital,opsz,wght@1,9..144,500;1,9..144,600&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/tailwind.css?v=26">
+<link rel="stylesheet" href="lib/tailwind.css?v=27">
 <style>
 :root{
   --bg:#f7f2e8; --panel:#fffdf8; --panel2:#f0e9d9; --line:#e3d9c1; --ink:#262218; --mut:#7f7866;
@@ -568,6 +568,14 @@ th.sortable:hover{color:var(--amber2)}
                                 <span class="img-num">{{ cfgData.tts_speed != null ? Number(cfgData.tts_speed).toFixed(2) : '1.00' }}</span>
                               </div>
                             </template>
+                            <template v-else-if="f.field==='tts_male_speed'||f.field==='tts_female_speed'||f.field==='tts_fallback_male_speed'||f.field==='tts_fallback_female_speed'">
+                              <div class="flex items-center gap-2.5">
+                                <span class="text-[10px] f-mono shrink-0" style="color:var(--mut)">0 = global</span>
+                                <input type="range" min="0" max="2" step="0.05" v-model.number="cfgData[f.field]" class="range flex-1">
+                                <button type="button" class="btn btn-ghost btn-sm px-1.5 text-[10px]" @click="cfgData[f.field]=0" title="Follow the global speech speed">auto</button>
+                                <span class="img-num text-[10px]" style="min-width:34px;text-align:right">{{ cfgData[f.field] ? Number(cfgData[f.field]).toFixed(2) : 'auto' }}</span>
+                              </div>
+                            </template>
                             <template v-else-if="f.field==='image_count'">
                               <div class="flex items-center gap-4">
                                 <input type="range" min="0" max="26" v-model.number="cfgData.image_count" class="range flex-1">
@@ -1009,7 +1017,7 @@ th.sortable:hover{color:var(--amber2)}
 
 <script src="lib/vue.global.prod.js"></script>
 <script src="lib/anime.min.js"></script>
-<script src="lib/icons.js?v=26"></script>
-<script src="app.min.js?v=26"></script>
+<script src="lib/icons.js?v=27"></script>
+<script src="app.min.js?v=27"></script>
 </body>
 </html>

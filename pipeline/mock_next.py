@@ -29,6 +29,7 @@ import io
 import json
 import os
 import pathlib
+import random
 import re
 import subprocess
 import sys
@@ -139,6 +140,12 @@ DEFAULTS = {
     "tts_natural_pacing": False,         # relaxed 0.92 speed + >=450ms gaps + pause after ?/!
     "tts_polish": False,                 # loudnorm + highpass + fades on merged clips
     "tts_atempo_models": "x-ai/grok-voice-tts-1.0",  # model fragments where speed is forced via ffmpeg atempo
+    "tts_male_speed": 0.0,               # per-voice speed (0 = follow tts_speed)
+    "tts_female_speed": 0.0,
+    "tts_fallback_male_speed": 0.0,
+    "tts_fallback_female_speed": 0.0,
+    "listening_blank_count": 5,          # random audio-only listening questions (options 1/2/3/4)
+    "image_grid_count": 6,               # image questions as 2x2 grid composites (options 1/2/3/4)
     "tts_voices": {},                          # optional speaker->voice map override
 }
 
@@ -450,11 +457,28 @@ HARD RULES:
 - EXACTLY {image_count} questions (the exam MUST stay between {image_count_min} and
   {image_count_max}, spread randomly through 1-{question_count}) MUST have requiresImage true
   plus a detailed imagePrompt (English: people/objects/actions/environment/camera angle/key clues).
+- EXACTLY {image_grid_count} of the image questions MUST be GRID questions ("grid": true):
+  the image is ONE flat colourful illustration composed of a 2x2 grid of FOUR DIFFERENT
+  everyday scenes or objects. Quadrant numbering: 1 = top-left, 2 = top-right, 3 = bottom-left,
+  4 = bottom-right. options MUST be EXACTLY ["1","2","3","4"] (numbers), and correct_answer is
+  the quadrant that matches the question stem or the listening audio. The imagePrompt MUST be a
+  detailed quadrant-by-quadrant description:
+  "A single flat colourful EPS-TOPIK style illustration split into a 2x2 grid. Top-left
+  (quadrant 1): <specific scene A>. Top-right (quadrant 2): <specific scene B>. Bottom-left
+  (quadrant 3): <specific scene C>. Bottom-right (quadrant 4): <specific scene D>. Bold clean
+  outlines, vivid colours, plain white background, NO numbers, NO labels, NO text inside the image."
+  Grid questions work for reading (stem describes one quadrant) AND listening (audio describes
+  one quadrant). Never draw numbers/labels inside the image - the app overlays them.
 - Reading mixes: fill-in-blank, grammar in context, vocabulary, sentence completion, conversation
   completion, honorifics, idioms, connectors, sentence ordering, reading comprehension
   (안내문/공지/이메일/광고/편지/일기), situation judgment, sign/menu/schedule/map/notice interpretation.
 - Listening (Q{listening_start}-{question_count}): each needs "listening": {"audioScript": [{"voice":"V1".."V4","text":"..."}],
-  "durationSeconds", "speakers", "situation"}. Situations rotate: phone, 방송, news, weather,
+  "durationSeconds", "speakers", "situation"}. SPEAKER COUNT IS RANDOMIZED: roughly half the
+  listening questions are ONE speaker (a male V1 or a female V2 alone - announcement/monologue,
+  2-4 sentences, all turns the SAME voice, "speakers": 1) and the rest are TWO speakers (any
+  combination: V1+V2, V1+V1 or V2+V2, "speakers": 2). The voice tags in audioScript MUST match
+  the speaker count and gender chosen.
+  Situations rotate: phone, 방송, news, weather,
   office, hospital, shopping, transportation, restaurant, school, interview, customer service.
   Spoken-style Korean: polite endings (~주세요, ~드릴게요, ~거든요), natural contractions,
   반말 ONLY between close friends/family and never mixed with 존댓말. 2-4 speakers, turns ≤ 2 sentences.
@@ -489,11 +513,23 @@ HARD RULES:
 - NEVER reuse the exact same question_text for two questions — vary the stems.
 - EXACTLY {image_count} questions (between {image_count_min} and {image_count_max}) MUST have
   requiresImage true plus a detailed English imagePrompt.
+- EXACTLY {image_grid_count} of the image questions MUST be GRID questions ("grid": true):
+  ONE flat colourful illustration composed of a 2x2 grid of FOUR DIFFERENT scenes/objects
+  (quadrant 1 top-left, 2 top-right, 3 bottom-left, 4 bottom-right). options EXACTLY
+  ["1","2","3","4"], correct_answer = the quadrant matching the stem/audio. imagePrompt MUST be
+  a detailed quadrant-by-quadrant description: "A single flat colourful EPS-TOPIK style
+  illustration split into a 2x2 grid. Top-left (quadrant 1): <scene A>. Top-right (quadrant 2):
+  <scene B>. Bottom-left (quadrant 3): <scene C>. Bottom-right (quadrant 4): <scene D>. Bold clean
+  outlines, vivid colours, plain white background, NO numbers, NO labels, NO text inside the image."
+  Never draw numbers in the image - the app overlays them.
 - Reading mixes: fill-in-blank, grammar in context, vocabulary, sentence completion, conversation
   completion, honorifics, idioms, connectors, sentence ordering, reading comprehension
   (안내문/공지/이메일/광고/편지/일기), situation judgment, sign/menu/schedule/map/notice interpretation.
 - Listening (Q{listening_start}-{question_count}): each needs "listening": {"audioScript": [{"voice":"V1".."V4","text":"..."}],
-  "durationSeconds", "speakers", "situation"}. Situations rotate: phone, 방송, news, weather,
+  "durationSeconds", "speakers", "situation"}. SPEAKER COUNT IS RANDOMIZED: roughly half are ONE
+  speaker (V1 male or V2 female alone - announcement/monologue, 2-4 sentences, same voice,
+  "speakers": 1) and the rest are TWO speakers (any V1/V2 combination, "speakers": 2). Voice tags
+  must match. Situations rotate: phone, 방송, news, weather,
   office, hospital, shopping, transportation, restaurant, school, interview, customer service.
   Spoken-style Korean: polite endings, natural contractions, 반말 ONLY between close friends.
   2-4 speakers, turns <= 2 sentences.
@@ -533,15 +569,23 @@ HARD RULES:
   question_text (each question stays standalone).
 - Listening (Q{listening_start}-{question_count}): if the paper contains a readable transcript for a
   question, use it verbatim as the audioScript. If the transcript is missing/empty (typical — audio
-  is never printed), write a natural 2-4 turn Korean dialogue between a male speaker (voice "V1")
-  and a female speaker (voice "V2") that matches the question stem, the picture and the correct
-  answer. Include "listening": {"audioScript": [...], "durationSeconds", "speakers": 2, "situation"}.
+  is never printed), write a natural script with RANDOMIZED speakers: roughly half are ONE speaker
+  (V1 male or V2 female alone — announcement/monologue, 2-4 sentences, same voice, "speakers": 1)
+  and the rest are TWO speakers (any V1/V2 combination, "speakers": 2). Include "listening":
+  {"audioScript": [...], "durationSeconds", "speakers", "situation"}.
 - Images: the extracted paper images are listed under PAPER IMAGES with the question they belong to.
   For a question with a paper image set requiresImage true AND pdfImage "<id>" (exact id from the
   list). imagePrompt may describe the expected picture from the question/answer context. Questions
   that need a picture but have no paper image: requiresImage true + normal imagePrompt (they will be
   generated fresh). The image count follows the paper — do not add or remove image questions beyond
   what the paper implies.
+- GRID questions: where the paper has picture-quadrant questions (one composite image with 4 sub
+  pictures and answer 1/2/3/4), rebuild them as GRID questions ("grid": true, options EXACTLY
+  ["1","2","3","4"], correct_answer = the quadrant index, imagePrompt = detailed quadrant-by-quadrant
+  description of the single 2x2 composite: top-left (1), top-right (2), bottom-left (3), bottom-right
+  (4); bold clean outlines, vivid colours, white background, NO numbers/labels/text inside the image).
+  If the paper has no such questions, create exactly {image_grid_count} fresh grid questions anyway
+  with "grid": true, options ["1","2","3","4"] and a quadrant-by-quadrant imagePrompt.
 - Ignore answer keys, instruction pages, scoring rules and anything that is not a question.
 - KOREAN ONLY (absolute): EVERYTHING the student reads — question_text, all 4 options,
   explanation and every listening audioScript turn — MUST be written in Korean Hangul.
@@ -590,6 +634,30 @@ def korean_issues(qs):
     return issues
 
 
+def apply_blank_questions(qs):
+    """Convert a random subset of listening questions to audio-only format:
+    minimal stem + options ["1","2","3","4"] + blank flag (student marks the
+    answer after hearing the audio). correct_answer + audioScript are kept."""
+    n = int(CFG.get("listening_blank_count") or 0)
+    if n <= 0 or not isinstance(qs, list):
+        return qs, 0
+    listen = [q for q in qs if isinstance(q, dict) and q.get("section") == "listening"]
+    random.shuffle(listen)
+    done = 0
+    for q in listen:
+        if done >= n:
+            break
+        num = q.get("number")
+        q["blank"] = True
+        q["question_text"] = "Q%s. 다음을 듣고 알맞은 것을 고르십시오." % num
+        q["options"] = ["1", "2", "3", "4"]
+        q["explanation"] = "듣기 문제입니다."
+        q["requiresImage"] = False
+        q["imagePrompt"] = ""
+        done += 1
+    return qs, done
+
+
 def normalize_exam(qs):
     """Coerce LLM quirks into the canonical schema (int answers, 보기 tags, script placement)."""
     circle = {"①": "0", "②": "1", "③": "2", "④": "3",
@@ -636,9 +704,10 @@ def repair_exam(key, qs, stats=None):
         if q.get("section") == "listening" and (not script or (isinstance(script, list) and not all((t or {}).get("text", "").strip() for t in script))):
             print(f"[repair] writing listening script for Q{q['number']}...")
             user = (
-                "다음 한국어 듣기 문제를 위한 자연스러운 대화(2-4턴, 턴당 최대 2문장, 구어체)를 작성하세요. "
+                "다음 한국어 듣기 문제를 위한 자연스러운 음성 스크립트를 작성하세요. "
+                "화자는 무작위로: 1명(남자 V1 또는 여자 V2 혼자, 2-4문장) 또는 2명(남/여 조합, 2-4턴, 턴당 최대 2문장, 구어체)입니다. "
                 'JSON만: {"audioScript": [{"voice": "V1"~"V4", "text": "..."}], '
-                '"durationSeconds": 15, "speakers": 2, "situation": "..."}\n'
+                '"durationSeconds": 15, "speakers": 1, "situation": "..."}\n'
                 f"문제: {q.get('question_text')}\n선택지: {q.get('options')}\n"
                 f"정답(인덱스): {q.get('correct_answer')}\n"
                 "대화 내용은 정답 선택지와 일치해야 합니다.")
@@ -786,10 +855,14 @@ def validate_exam(qs, stage="final"):
         else:
             seen_texts[qt] = n
         opts = q.get("options")
+        is_num_only = bool(q.get("blank")) or bool(q.get("grid"))
         if not isinstance(opts, list) or len(opts) != 4 or any(not o for o in opts):
             errs.append(f"Q{n}: need 4 non-empty options")
-        elif all(re.fullmatch(r"\d{1,2}|[①②③④]", str(o).strip()) for o in opts):
+        elif not is_num_only and all(re.fullmatch(r"\d{1,2}|[①②③④]", str(o).strip()) for o in opts):
             errs.append(f"Q{n}: options are placeholders (digits), not real Korean text")
+        if q.get("grid"):
+            if not q.get("requiresImage") or not q.get("imagePrompt"):
+                errs.append(f"Q{n}: grid question needs requiresImage + a quadrant-by-quadrant imagePrompt")
         if stage == "author":
             continue
         ca = q.get("correct_answer")
@@ -1504,6 +1577,10 @@ def final_summary(stats):
     if stats.get("pdf_parser"):
         line(f"pdf parse ({stats['pdf_parser']})",
              f"{stats.get('pdf_pages', 0)} pages · {stats.get('pdf_images', 0)} extracted images · {stats.get('pdf_parse_s', 0)}s")
+    if stats.get("blank_count"):
+        line("blank listening", f"{stats['blank_count']} audio-only questions (1/2/3/4)")
+    if stats.get("grid_count"):
+        line("grid image questions", f"{stats['grid_count']} (2x2 composite, 1/2/3/4)")
     if stats.get("dedup_checked"):
         line(f"dedup vs last {len(stats.get('dedup_sets_checked') or [])} mocks",
              f"{stats.get('dedup_repeats', 0)} repeats")
@@ -1610,6 +1687,7 @@ def main():
         "audio_total": 0, "img_ok": 0, "img_total": 0, "img_model": img_primary, "img_missing": [],
         "img_cost": 0.0, "img_credits": 0, "qfile": qfile, "llm_cost": 0.0,
         "pdf_parse_s": None, "pdf_parser": None, "pdf_pages": None, "pdf_images": None,
+        "blank_count": 0, "grid_count": 0,
         "stage_times": {},
     }
     t_all = time.time()
@@ -1795,6 +1873,21 @@ def main():
                     else:
                         print(f"[pdf] Q{q.get('number')}: pdfImage '{pi}' not in extracted images — will generate fresh")
                         q["pdfImage"] = ""
+
+        # grid question target: never more than the available image questions
+        img_available = sum(1 for q in qs if q.get("requiresImage"))
+        grid_target = int(CFG.get("image_grid_count") or 0)
+        if grid_target > img_available:
+            grid_target = img_available
+        CFG["image_grid_count"] = grid_target
+        stats["grid_count"] = sum(1 for q in qs if q.get("grid"))
+        print(f"[grid] target {grid_target} grid questions — author produced {stats['grid_count']}")
+
+        # blank listening questions: random audio-only subset (options 1/2/3/4)
+        qs, nb = apply_blank_questions(qs)
+        stats["blank_count"] = nb
+        if nb:
+            print(f"[blank] {nb} listening questions converted to audio-only (1/2/3/4)")
         stats["stage_times"]["author"] = stage_secs()
 
         # 1b. Choose proofreading model (config-driven when --config/$MOCK_CONFIG, else interactive)
@@ -1850,6 +1943,8 @@ def main():
             "mock": mock, "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "dry_mode": dm, "questions": len(qs),
             "gen_type": gen_type,
+            "blank_count": stats.get("blank_count", 0),
+            "grid_count": stats.get("grid_count", 0),
             "pdf_parser": stats.get("pdf_parser"),
             "pdf_pages": stats.get("pdf_pages"),
             "pdf_images": stats.get("pdf_images"),
@@ -1945,6 +2040,8 @@ def main():
         "mock": mock, "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "questions": stats["audio_total"] + sum(1 for q in qs if q.get("section") == "reading"),
         "gen_type": gen_type,
+        "blank_count": stats.get("blank_count", 0),
+        "grid_count": stats.get("grid_count", 0),
         "pdf_parser": stats.get("pdf_parser"),
         "pdf_pages": stats.get("pdf_pages"),
         "pdf_images": stats.get("pdf_images"),
