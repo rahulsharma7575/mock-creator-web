@@ -2199,6 +2199,9 @@ def main():
                     if isinstance(gqs, list):
                         gqs = [q for q in gqs if isinstance(q, dict)]
                     gqs = sanitize_exam(gqs)
+                    # author often emits 1/2/3/4 options without the format flag —
+                    # auto-tag BEFORE validation so the exam can pass authoring
+                    fix_numeric_option_questions(gqs)
                     gerrs = validate_exam(gqs, stage="author")
                     if not gerrs and dedup_texts:
                         reps = dedup_repeats(gqs, dedup_texts)
@@ -2263,6 +2266,9 @@ def main():
                     last_err = "previous generation failed or returned broken JSON — return complete valid JSON"
                     continue
                 qs = normalize_exam(qs)
+                # author often emits 1/2/3/4 options without the format flag —
+                # auto-tag BEFORE validation so the exam can pass authoring
+                fix_numeric_option_questions(qs)
                 errs = validate_exam(qs, stage="author")
                 if not errs and dedup_texts:
                     reps = dedup_repeats(qs, dedup_texts)
@@ -2303,6 +2309,11 @@ def main():
         if not qs or validate_exam(qs, stage="author"):
             errs = validate_exam(qs, stage="author") if qs else ["no questions returned"]
             sys.exit("FAILED: could not author a valid exam after attempts — " + "; ".join(errs[:12]))
+        got_pic = sum(1 for x in qs if isinstance(x, dict) and x.get("picture_options"))
+        if got_pic != target:
+            sys.exit(f"FAILED: could not author a valid exam after attempts — author produced "
+                     f"{got_pic} picture questions but exactly {target} are required "
+                     f"(listening_picture_count)")
 
         # paper mode: resolve pdfImage refs against the extracted images
         if gen_type == 3 and pdf_doc:
