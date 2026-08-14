@@ -108,7 +108,7 @@ CONFIG_MAP = {
     "tts_fallback_male_speed": "tts_fallback_male_speed",
     "tts_fallback_female_speed": "tts_fallback_female_speed",
     "listening_blank_count": "listening_blank_count",
-    "image_grid_count": "image_grid_count",
+    "listening_picture_count": "listening_picture_count",
     "image_style_prompt": "image_style_prompt",
     "audio_workers": "tts_workers",
     "active": "is_active",

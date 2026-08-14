@@ -101,7 +101,7 @@ SCHEMA = [
         f("image_count", "number", min=0, max=40),
         f("image_count_min", "number", min=0, max=40),
         f("image_count_max", "number", min=0, max=40),
-        f("image_grid_count", "number", min=0, max=15),
+        f("listening_picture_count", "number", min=0, max=15),
         f("difficulty_profile", "select", values=["creative+difficult", "creative+medium", "hard"], maxSelect=1),
         f("marks_per_question", "number", min=1, max=20),
         f("max_tokens", "number", min=0, max=100000),
@@ -269,7 +269,7 @@ DEFAULT_CONFIG = {
     "tts_fallback_male_speed": 0.0,
     "tts_fallback_female_speed": 0.0,
     "listening_blank_count": 5,
-    "image_grid_count": 6,
+    "listening_picture_count": 5,
     "image_style_prompt": "Simple flat vector illustration in the standard Korean EPS-TOPIK test style, VIVID COLOURFUL palette (never black-and-white, never muted), minimal clean line art, plain solid white background, simple everyday scene, centered single main subject, clear silhouette, no gradients, no photorealism, no text, no letters, no numbers, no watermark, no border",
     "audio_workers": 4,
     "prompts_json": {},
@@ -288,7 +288,7 @@ META_FIELDS = [
     ("image_style_prompt", "Image style prompt", "text", "Images", "Style instruction wrapped around every generated image (flat colourful EPS-TOPIK vector style by default)."),
     ("image_fallback", "Fallback image model", "text", "Images", "Deprecated - providers fall back automatically, keep empty"),
     ("image_count", "Image questions target", "number", "Images", "How many questions carry a picture, spread randomly across reading AND listening. Applies to RANDOM generation only - Paper PDF mode follows the paper."),
-    ("image_grid_count", "Picture grid questions", "number", "Images", "How many image questions become 2x2 grid composites (one image with 4 sub-pictures, options 1/2/3/4). Flat colourful EPS-TOPIK style."),
+    ("listening_picture_count", "Picture listening questions", "number", "Images", "How many LISTENING questions use 4 separate photos as options (audio plays, student taps the matching photo). Photos 1-4 appear in a 2x2 grid with the number overlaid. Flat colourful EPS-TOPIK style."),
     ("image_count_min", "Image questions min", "number", "Images", "Minimum (18)"),
     ("image_count_max", "Image questions max", "number", "Images", "Maximum (26)"),
     ("tts_model", "TTS model", "select", "Audio", "Model that reads the listening scripts aloud. Options load from the models API.", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]),
@@ -376,7 +376,7 @@ function ensureCollections() {
                       "tts_fallback_male_voice", "tts_fallback_female_voice", "tts_speed",
                       "tts_natural_pacing", "tts_polish", "tts_atempo_models",
                       "tts_male_speed", "tts_female_speed", "tts_fallback_male_speed",
-                      "tts_fallback_female_speed", "listening_blank_count", "image_grid_count",
+                      "tts_fallback_female_speed", "listening_blank_count", "listening_picture_count",
                       "image_style_prompt", "push_enabled"]
     var missingField = false
     for (var nfi = 0; nfi < needFields.length; nfi++) {
@@ -540,7 +540,7 @@ function ensureCollections() {
       ["tts_fallback_male_speed", "Fallback male speed", "number", "Audio", "Speed for the male voice when the fallback TTS model is used (0 = follow global).", null],
       ["tts_fallback_female_speed", "Fallback female speed", "number", "Audio", "Speed for the female voice when the fallback TTS model is used (0 = follow global).", null],
       ["listening_blank_count", "Blank listening questions", "number", "Audio", "Random listening questions (Q21-40) become audio-only: no question text, options are just 1/2/3/4, student marks the answer after hearing the audio.", null],
-      ["image_grid_count", "Picture grid questions", "number", "Images", "How many image questions become 2x2 grid composites (one image with 4 sub-pictures, options 1/2/3/4). Flat colourful EPS-TOPIK style.", null],
+      ["listening_picture_count", "Picture listening questions", "number", "Images", "How many LISTENING questions use 4 separate photos as options (audio plays, student taps the matching photo). Photos 1-4 appear in a 2x2 grid with the number overlaid. Flat colourful EPS-TOPIK style.", null],
       ["image_style_prompt", "Image style prompt", "text", "Images", "Style instruction wrapped around every generated image (flat colourful EPS-TOPIK vector style by default).", null],
       ["image_count", "Image questions target", "number", "Images", "How many questions carry a picture, spread randomly across reading AND listening. Applies to RANDOM generation only - Paper PDF mode follows the paper.", null]
     ]

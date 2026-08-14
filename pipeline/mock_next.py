@@ -145,7 +145,7 @@ DEFAULTS = {
     "tts_fallback_male_speed": 0.0,
     "tts_fallback_female_speed": 0.0,
     "listening_blank_count": 5,          # random audio-only listening questions (options 1/2/3/4)
-    "image_grid_count": 6,               # image questions as 2x2 grid composites (options 1/2/3/4)
+    "listening_picture_count": 5,        # listening questions with 4 SEPARATE photos as options (1/2/3/4)
     "tts_voices": {},                          # optional speaker->voice map override
 }
 
@@ -454,18 +454,18 @@ FORMAT_RULES = """UBT MOCK EXAM FORMAT - IDENTICAL FOR EVERY GENERATION MODE
   SAME voice, "speakers": 1) and the rest are TWO speakers (any V1/V2 combination -
   V1+V2, V1+V1 or V2+V2, "speakers": 2). The voice tags in audioScript MUST match the
   chosen speaker count and gender. V1 is always the male voice, V2 the female voice.
-- GRID IMAGE QUESTIONS: exactly {image_grid_count} of the requiresImage questions MUST
-  be GRID questions ("grid": true): ONE flat colourful illustration composed of a 2x2
-  grid of FOUR DIFFERENT scenes/objects. Quadrant numbering: 1 = top-left, 2 = top-right,
-  3 = bottom-left, 4 = bottom-right. options MUST be EXACTLY ["1","2","3","4"] (numbers)
-  and correct_answer is the quadrant index (0-3) that matches the stem or the audio.
-  The imagePrompt MUST be a detailed quadrant-by-quadrant description:
-  "A single flat colourful EPS-TOPIK style illustration split into a 2x2 grid. Top-left
-  (quadrant 1): <specific scene A>. Top-right (quadrant 2): <specific scene B>.
-  Bottom-left (quadrant 3): <specific scene C>. Bottom-right (quadrant 4): <specific
-  scene D>. Bold clean outlines, vivid colours, plain white background, NO numbers,
-  NO labels, NO text inside the image." The app overlays the 1-4 labels - never draw
-  them in the image. Grid questions work for reading AND listening.
+- PICTURE QUESTIONS: exactly {listening_picture_count} LISTENING questions MUST be PICTURE
+  questions ("picture_options": true, type "listening_picture"): FOUR SEPARATE images are the
+  options - the student hears the audio and taps the photo that matches. options MUST be EXACTLY
+  ["1","2","3","4"] (numbers = photo numbers), correct_answer is the photo index (0-3) whose
+  scene matches the audio, requiresImage is false (no main image), and "option_images" holds the
+  4 image descriptions. The author writes ALL 4 descriptions (English): the photo at
+  correct_answer matches the audio exactly; the other 3 are similar-but-wrong distractors (same
+  setting, different action/object). Each description = a flat colourful EPS-TOPIK style scene,
+  bold clean outlines, vivid colours, plain white background, NO numbers, NO labels, NO text. All
+  4 photos of one question share ONE consistent setting (same location, variations of the
+  action/object). The audioScript MUST clearly describe the correct photo's scene
+  (self-contained). These questions carry NO other image - their 4 option photos are all they get.
 - A random subset of listening questions will be shown AUDIO-ONLY (options 1/2/3/4,
   no text) - always write listening scripts as if they will be heard alone."""
 
@@ -488,18 +488,14 @@ HARD RULES:
 - EXACTLY {image_count} questions (the exam MUST stay between {image_count_min} and
   {image_count_max}, spread randomly through 1-{question_count}) MUST have requiresImage true
   plus a detailed imagePrompt (English: people/objects/actions/environment/camera angle/key clues).
-- EXACTLY {image_grid_count} of the image questions MUST be GRID questions ("grid": true):
-  the image is ONE flat colourful illustration composed of a 2x2 grid of FOUR DIFFERENT
-  everyday scenes or objects. Quadrant numbering: 1 = top-left, 2 = top-right, 3 = bottom-left,
-  4 = bottom-right. options MUST be EXACTLY ["1","2","3","4"] (numbers), and correct_answer is
-  the quadrant that matches the question stem or the listening audio. The imagePrompt MUST be a
-  detailed quadrant-by-quadrant description:
-  "A single flat colourful EPS-TOPIK style illustration split into a 2x2 grid. Top-left
-  (quadrant 1): <specific scene A>. Top-right (quadrant 2): <specific scene B>. Bottom-left
-  (quadrant 3): <specific scene C>. Bottom-right (quadrant 4): <specific scene D>. Bold clean
-  outlines, vivid colours, plain white background, NO numbers, NO labels, NO text inside the image."
-  Grid questions work for reading (stem describes one quadrant) AND listening (audio describes
-  one quadrant). Never draw numbers/labels inside the image - the app overlays them.
+- PICTURE LISTENING: exactly {listening_picture_count} LISTENING questions MUST be PICTURE
+  questions ("picture_options": true, type "listening_picture"): FOUR SEPARATE photos are the
+  options. options EXACTLY ["1","2","3","4"], correct_answer = the photo index (0-3) matching
+  the audio, requiresImage false, "option_images" = 4 DISTINCT English descriptions: photo at
+  correct_answer matches the audio, the other 3 are similar-but-wrong (same setting, different
+  action/object); all 4 share ONE consistent setting, flat colourful EPS-TOPIK style, bold clean
+  outlines, vivid colours, white background, NO numbers/labels/text in the images. The
+  audioScript must clearly describe the correct photo (self-contained).
 - Reading mixes: fill-in-blank, grammar in context, vocabulary, sentence completion, conversation
   completion, honorifics, idioms, connectors, sentence ordering, reading comprehension
   (안내문/공지/이메일/광고/편지/일기), situation judgment, sign/menu/schedule/map/notice interpretation.
@@ -545,15 +541,13 @@ HARD RULES:
 - NEVER reuse the exact same question_text for two questions — vary the stems.
 - EXACTLY {image_count} questions (between {image_count_min} and {image_count_max}) MUST have
   requiresImage true plus a detailed English imagePrompt.
-- EXACTLY {image_grid_count} of the image questions MUST be GRID questions ("grid": true):
-  ONE flat colourful illustration composed of a 2x2 grid of FOUR DIFFERENT scenes/objects
-  (quadrant 1 top-left, 2 top-right, 3 bottom-left, 4 bottom-right). options EXACTLY
-  ["1","2","3","4"], correct_answer = the quadrant matching the stem/audio. imagePrompt MUST be
-  a detailed quadrant-by-quadrant description: "A single flat colourful EPS-TOPIK style
-  illustration split into a 2x2 grid. Top-left (quadrant 1): <scene A>. Top-right (quadrant 2):
-  <scene B>. Bottom-left (quadrant 3): <scene C>. Bottom-right (quadrant 4): <scene D>. Bold clean
-  outlines, vivid colours, plain white background, NO numbers, NO labels, NO text inside the image."
-  Never draw numbers in the image - the app overlays them.
+- PICTURE LISTENING: exactly {listening_picture_count} LISTENING questions MUST be PICTURE
+  questions ("picture_options": true, type "listening_picture"): FOUR SEPARATE photos as the
+  options. options EXACTLY ["1","2","3","4"], correct_answer = photo index (0-3) matching the
+  audio, requiresImage false, "option_images" = 4 DISTINCT English descriptions (photo at
+  correct_answer matches the audio; the other 3 similar-but-wrong, same setting, different
+  action/object; all 4 share one consistent setting, flat colourful EPS-TOPIK, white background,
+  no numbers/labels/text in the images). The audioScript must clearly describe the correct photo.
 - Reading mixes: fill-in-blank, grammar in context, vocabulary, sentence completion, conversation
   completion, honorifics, idioms, connectors, sentence ordering, reading comprehension
   (안내문/공지/이메일/광고/편지/일기), situation judgment, sign/menu/schedule/map/notice interpretation.
@@ -612,13 +606,20 @@ HARD RULES:
   that need a picture but have no paper image: requiresImage true + normal imagePrompt (they will be
   generated fresh). The image count follows the paper — do not add or remove image questions beyond
   what the paper implies.
-- GRID questions: where the paper has picture-quadrant questions (one composite image with 4 sub
-  pictures and answer 1/2/3/4), rebuild them as GRID questions ("grid": true, options EXACTLY
-  ["1","2","3","4"], correct_answer = the quadrant index, imagePrompt = detailed quadrant-by-quadrant
-  description of the single 2x2 composite: top-left (1), top-right (2), bottom-left (3), bottom-right
-  (4); bold clean outlines, vivid colours, white background, NO numbers/labels/text inside the image).
-  If the paper has no such questions, create exactly {image_grid_count} fresh grid questions anyway
-  with "grid": true, options ["1","2","3","4"] and a quadrant-by-quadrant imagePrompt.
+- PICTURE QUESTIONS (old printed format = 4 separate photos per answer, exactly converted):
+  The paper's listening questions that have FOUR extracted photos (listed under PAPER PICTURE
+  PHOTOS) MUST become PICTURE questions ("picture_options": true, type "listening_picture"):
+  options EXACTLY ["1","2","3","4"], requiresImage false, correct_answer = the photo index whose
+  scene your audio describes, and "option_images" = the four EXACT photo ids from the PAPER
+  PICTURE PHOTOS list (order as listed). The photo captions tell you what each photo shows -
+  write the audioScript to clearly describe the photo you choose (self-contained), and set
+  correct_answer to that photo's index (0-3). Convert ALL questions listed under PAPER PICTURE
+  PHOTOS. If fewer than {listening_picture_count} picture questions exist in the paper, create
+  fresh ones to reach exactly {listening_picture_count}: "picture_options": true, options
+  ["1","2","3","4"], correct_answer = photo index matching your audio, and "option_images" = 4
+  DISTINCT English descriptions you write (the matching one + 3 similar-but-wrong distractors,
+  same setting, flat colourful EPS-TOPIK, no numbers/text in the images). If the paper has MORE
+  picture questions than {listening_picture_count}, convert all of them.
 - Ignore answer keys, instruction pages, scoring rules and anything that is not a question.
 - KOREAN ONLY (absolute): EVERYTHING the student reads — question_text, all 4 options,
   explanation and every listening audioScript turn — MUST be written in Korean Hangul.
@@ -668,10 +669,27 @@ def korean_issues(qs):
     return issues
 
 
+def _blank_ify(q):
+    num = q.get("number")
+    q["blank"] = True
+    q["picture_options"] = False
+    q["question_text"] = "Q%s. 다음을 듣고 알맞은 것을 고르십시오." % num
+    q["options"] = ["1", "2", "3", "4"]
+    q["explanation"] = "듣기 문제입니다."
+    q["requiresImage"] = False
+    q["imagePrompt"] = ""
+    q["option_images"] = []
+    return q
+
+
+def _is_photo_id(v):
+    return bool(re.fullmatch(r"(?:p\d+_img\d+|up_img\d+)", str(v or "").strip()))
+
+
 def fix_numeric_option_questions(qs):
     """The author sometimes emits options ["1","2","3","4"] without the format
-    flag. Auto-tag: image questions -> grid, listening questions -> blank
-    (audio-only). Returns how many were fixed."""
+    flag. Auto-tag: listening with 4 option image descriptions -> picture
+    question; listening without them -> blank (audio-only). Returns count."""
     fixed = 0
     for q in qs:
         opts = q.get("options") or []
@@ -679,78 +697,115 @@ def fix_numeric_option_questions(qs):
             continue
         if not all(re.fullmatch(r"[1-4]", str(o).strip()) for o in opts):
             continue
-        if q.get("grid") and (not q.get("requiresImage") or not q.get("imagePrompt")):
-            # author/proofread tagged grid without an actual image - demote
-            if q.get("section") == "listening":
-                q["grid"] = False
-                q["blank"] = True
-                q["question_text"] = "Q%s. 다음을 듣고 알맞은 것을 고르십시오." % q.get("number")
-                q["explanation"] = "듣기 문제입니다."
-                q["requiresImage"] = False
-                q["imagePrompt"] = ""
-                fixed += 1
-                continue
-            # reading grid without an image stays invalid - the retry message covers it
-        if q.get("grid") and q.get("requiresImage") and not q.get("imagePrompt"):
-            q["grid"] = False  # numeric options without a prompt are not a valid grid
-            fixed += 1
-        if q.get("grid") or q.get("blank"):
+        if q.get("blank") or q.get("picture_options"):
             continue
-        if q.get("requiresImage") and q.get("imagePrompt"):
-            q["grid"] = True
-            fixed += 1
-        elif q.get("section") == "listening":
-            q["blank"] = True
-            q["question_text"] = "Q%s. 다음을 듣고 알맞은 것을 고르십시오." % q.get("number")
-            q["explanation"] = "듣기 문제입니다."
+        if q.get("section") != "listening":
+            continue
+        imgs = q.get("option_images") or []
+        if isinstance(imgs, list) and len(imgs) >= 4 and all(str(x or "").strip() for x in imgs[:4]):
+            q["picture_options"] = True
+            q["type"] = "listening_picture"
             q["requiresImage"] = False
             q["imagePrompt"] = ""
+            fixed += 1
+        else:
+            _blank_ify(q)
             fixed += 1
     return fixed
 
 
-def repair_grid_prompts(key, qs):
-    """After proofread, restore grid questions whose imagePrompt/requiresImage got
-    dropped: listening grids degrade to blank (audio-only); other grids get the
-    quadrant-by-quadrant imagePrompt regenerated via the repair model."""
+def repair_picture_prompts(key, qs, paper_pics=None):
+    """After proofread, restore picture questions whose option_images got dropped:
+    listening pictures without 4 descriptions degrade to blank (audio-only);
+    generated pictures get their 4 descriptions regenerated via the repair model.
+    Paper pictures (photo ids) are restored from the extraction map when possible."""
     fixed = 0
     for q in qs:
-        if not q.get("grid"):
+        if not q.get("picture_options"):
             continue
-        if q.get("section") == "listening" and (not q.get("requiresImage") or not q.get("imagePrompt")):
-            q["grid"] = False
-            q["blank"] = True
-            q["question_text"] = "Q%s. 다음을 듣고 알맞은 것을 고르십시오." % q.get("number")
-            q["explanation"] = "듣기 문제입니다."
+        imgs = q.get("option_images") or []
+        ok = isinstance(imgs, list) and len(imgs) >= 4 and all(str(x or "").strip() for x in imgs[:4])
+        if ok:
+            continue
+        num = q.get("number")
+        # paper mode: restore from the extracted photo map
+        if paper_pics and num in paper_pics:
+            q["option_images"] = list(paper_pics[num][:4])
             q["requiresImage"] = False
             q["imagePrompt"] = ""
+            q["type"] = "listening_picture"
             fixed += 1
-            print(f"[repair] Q{q.get('number')}: image-less listening grid demoted to blank", flush=True)
+            print(f"[repair] Q{num}: paper picture photos restored", flush=True)
             continue
-        if not q.get("imagePrompt") or not q.get("requiresImage"):
-            num = q.get("number")
-            user = (
-                "다음 그리드(2x2) 그림 문제를 위해 영어 imagePrompt를 작성하세요. "
-                "하나의 2x2 합성 이미지: 1=좌상단, 2=우상단, 3=좌하단, 4=우하단, "
-                "정답 사분면이 문제와 일치해야 합니다. "
-                'JSON만: {"imagePrompt": "..."} (영어, 사분면별 상세 묘사, 숫자/글자 없음)\n'
-                f"문제: {q.get('question_text')}\n선택지: {q.get('options')}\n정답: {q.get('correct_answer')}\n"
-                '형식: "A single flat colourful EPS-TOPIK style illustration split into a 2x2 grid. '
-                'Top-left (quadrant 1): ... Top-right (quadrant 2): ... Bottom-left (quadrant 3): ... '
-                'Bottom-right (quadrant 4): ... Bold clean outlines, vivid colours, plain white '
-                'background, NO numbers, NO labels, NO text inside the image."')
-            try:
-                fixed_json, _ = chat_json(key, repair_cfg()["slug"], REPAIR_SYSTEM, user,
-                                          max_tokens=800, temperature=0.3, extra=repair_cfg()["extra"])
-                ip = str((fixed_json or {}).get("imagePrompt") or "").strip()
-                if ip and len(ip) > 60:
-                    q["imagePrompt"] = ip
-                    q["requiresImage"] = True
-                    fixed += 1
-                    print(f"[repair] Q{num}: grid imagePrompt regenerated", flush=True)
-            except Exception as e:
-                print(f"[repair] grid prompt failed Q{num}: {str(e)[:100]}", flush=True)
+        # no usable descriptions at all -> audio-only blank
+        if not any(str(x or "").strip() for x in imgs):
+            _blank_ify(q)
+            fixed += 1
+            print(f"[repair] Q{num}: picture question without photos demoted to blank", flush=True)
+            continue
+        # regenerate the missing descriptions via the repair model
+        user = (
+            "다음 듣기 그림 문제를 위해 4개의 사진 설명(option_images)을 영어로 작성하세요. "
+            "정답 사진(correct_answer 인덱스)은 음성이 설명하는 장면과 일치해야 하고, "
+            "나머지 3개는 비슷하지만 틀린 장면(같은 장소, 다른 동작/사물)이어야 합니다. "
+            "모두 동일한 flat colourful EPS-TOPIK 스타일, 흰 배경, 이미지 안 숫자/글자 없음. "
+            'JSON만: {"option_images": ["photo1 desc", "photo2 desc", "photo3 desc", "photo4 desc"]}\n'
+            f"문제: {q.get('question_text')}\n정답(인덱스): {q.get('correct_answer')}")
+        try:
+            fixed_json, _ = chat_json(key, repair_cfg()["slug"], REPAIR_SYSTEM, user,
+                                      max_tokens=1200, temperature=0.3, extra=repair_cfg()["extra"])
+            arr = (fixed_json or {}).get("option_images") or []
+            if isinstance(arr, list) and len(arr) >= 4 and all(str(x or "").strip() for x in arr[:4]):
+                q["option_images"] = [str(x).strip() for x in arr[:4]]
+                q["requiresImage"] = False
+                q["imagePrompt"] = ""
+                q["type"] = "listening_picture"
+                fixed += 1
+                print(f"[repair] Q{num}: picture descriptions regenerated", flush=True)
+        except Exception as e:
+            print(f"[repair] picture prompts failed Q{num}: {str(e)[:100]}", flush=True)
     return fixed
+
+
+def group_paper_pictures(pdf_doc):
+    """Group extracted paper images by their mapped question; return questions that
+    have >=4 photos as {qnum: [image ids in reading order]}."""
+    from collections import defaultdict
+    by_q = defaultdict(list)
+    for im in pdf_doc["images"]:
+        qn = im.get("nearest_question")
+        if isinstance(qn, int) and qn > 0:
+            by_q[qn].append(im)
+    out = {}
+    for qn, v in by_q.items():
+        if len(v) < 4:
+            continue
+        v.sort(key=lambda i: (i.get("bbox") or [0, 0, 0, 0])[1] * 1000 + (i.get("bbox") or [0, 0, 0, 0])[0])
+        out[qn] = [im["id"] for im in v[:4]]
+    return out
+
+
+def vision_caption(key, png_bytes):
+    """One short English sentence describing a picture (OpenRouter vision model)."""
+    data_uri = "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
+    payload = {
+        "model": "qwen/qwen2.5-vl-72b-instruct",
+        "messages": [{"role": "user", "content": [
+            {"type": "text", "text": "Describe this picture in ONE short English sentence "
+                                    "(who/what/action/location). No analysis, no commentary."},
+            {"type": "image_url", "image_url": {"url": data_uri}}]}],
+        "max_tokens": 120,
+        "temperature": 0.1,
+    }
+    r = httpx.post("https://openrouter.ai/api/v1/chat/completions",
+                   headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+                   json=payload, timeout=120)
+    r.raise_for_status()
+    return ((r.json().get("choices") or [{}])[0].get("message", {}).get("content") or "").strip()
+
+
+def picture_count_ok(qs, target):
+    return sum(1 for q in qs if isinstance(q, dict) and q.get("picture_options")) == target
 
 
 def apply_blank_questions(qs):
@@ -767,17 +822,11 @@ def apply_blank_questions(qs):
     random.shuffle(listen)
     done = 0
     for q in listen:
-        if q.get("blank"):
+        if q.get("blank") or q.get("picture_options"):
             continue
         if done >= n:
             break
-        num = q.get("number")
-        q["blank"] = True
-        q["question_text"] = "Q%s. 다음을 듣고 알맞은 것을 고르십시오." % num
-        q["options"] = ["1", "2", "3", "4"]
-        q["explanation"] = "듣기 문제입니다."
-        q["requiresImage"] = False
-        q["imagePrompt"] = ""
+        _blank_ify(q)
         done += 1
     return qs, existing + done
 
@@ -980,16 +1029,21 @@ def validate_exam(qs, stage="final"):
         else:
             seen_texts[qt] = n
         opts = q.get("options")
-        is_num_only = bool(q.get("blank")) or bool(q.get("grid"))
+        is_num_only = bool(q.get("blank")) or bool(q.get("picture_options"))
         if not isinstance(opts, list) or len(opts) != 4 or any(not o for o in opts):
             errs.append(f"Q{n}: need 4 non-empty options")
         elif not is_num_only and all(re.fullmatch(r"\d{1,2}|[①②③④]", str(o).strip()) for o in opts):
             errs.append(f"Q{n}: options are placeholders (digits) - write REAL Korean options. "
-                        f"If this is a GRID image question add \"grid\": true (with a quadrant-by-quadrant imagePrompt) "
-                        f"or if it is a listening AUDIO-ONLY question add \"blank\": true")
-        if q.get("grid"):
-            if not q.get("requiresImage") or not q.get("imagePrompt"):
-                errs.append(f"Q{n}: grid question needs requiresImage + a quadrant-by-quadrant imagePrompt")
+                        f"If this is a listening PICTURE question add \"picture_options\": true with "
+                        f"4 option_images descriptions, or an AUDIO-ONLY question add \"blank\": true")
+        if q.get("picture_options"):
+            if q.get("section") != "listening":
+                errs.append(f"Q{n}: picture questions must be listening")
+            imgs = q.get("option_images") or []
+            if not (isinstance(imgs, list) and len(imgs) >= 4 and all(str(x or "").strip() for x in imgs[:4])):
+                errs.append(f"Q{n}: picture question needs 4 non-empty option_images")
+            if q.get("requiresImage"):
+                errs.append(f"Q{n}: picture questions must not use a main image (requiresImage false)")
         if stage == "author":
             continue
         ca = q.get("correct_answer")
@@ -1271,6 +1325,60 @@ def upload_file(headers, record_id, field, filename, content, ctype):
     return r.status_code in (200, 201)
 
 
+def ensure_option_images_field(headers):
+    """Self-heal: make sure the client 'questions' collection has the option_images
+    multi-file field (4 photos, photo 1..4 in array order). Superuser PATCH is
+    idempotent — only adds the field when missing."""
+    try:
+        r = httpx.get(CFG["pb_base"] + "/api/collections/questions",
+                      headers=headers, timeout=30)
+        if r.status_code not in (200, 201):
+            print(f"[option_images] cannot read questions collection: HTTP {r.status_code}")
+            return False
+        col = r.json()
+        for f in col.get("fields", []):
+            if f.get("name") == "option_images":
+                return True
+        col["fields"].append({
+            "id": "optimg000000000",
+            "name": "option_images",
+            "type": "file",
+            "required": False,
+            "presentable": False,
+            "hidden": False,
+            "system": False,
+            "maxSelect": 4,
+            "maxSize": 5242880,
+            "mimeTypes": ["image/jpeg", "image/png", "image/webp"],
+            "thumbs": None,
+            "protected": False,
+        })
+        pr = httpx.patch(CFG["pb_base"] + "/api/collections/questions",
+                         headers=headers, json=col, timeout=60)
+        if pr.status_code not in (200, 201):
+            print(f"[option_images] field add failed: HTTP {pr.status_code}: {pr.text[:200]}")
+            return False
+        print("[option_images] field added to questions collection")
+        return True
+    except Exception as e:
+        print(f"[option_images] self-heal error: {str(e)[:150]}")
+        return False
+
+
+def upload_option_images(headers, record_id, files, field="option_images"):
+    """Upload 4 photos in ONE multipart PATCH under the same field name
+    (PB replaces the multi-file field; array order = photo 1..4).
+    files: [(filename, bytes, ctype), ...]"""
+    r = httpx.patch(CFG["pb_base"] + f"/api/collections/questions/records/{record_id}",
+                    headers=headers,
+                    files=[(field, (fn, content, ct)) for fn, content, ct in files],
+                    timeout=180)
+    if r.status_code not in (200, 201):
+        print(f"[option_images] upload -> {record_id} HTTP {r.status_code}: {r.text[:250]}")
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Images
 # ---------------------------------------------------------------------------
@@ -1386,8 +1494,10 @@ def to_webp(data, max_size=1024, quality=80):
     return buf.getvalue()
 
 
-def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_images=None):
-    """Generate TOPIK images for requiresImage questions.
+def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_images=None,
+               paper_photos=None):
+    """Generate TOPIK images for requiresImage questions + 4-photo option_images
+    for picture questions.
 
     Model chain (first working wins): primary provider (CFG img_model) ->
     then the other providers (z-image / OpenRouter flux / fal-ai) in order.
@@ -1395,10 +1505,13 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
     then ONE backfill pass for anything still missing.
     pdf_images: {qnum: {"png": bytes}} — questions whose image came from a parsed PDF:
     upscaled via fal-ai/recraft/upscale/crisp when enabled (raw fallback), never regenerated.
+    paper_photos: {qnum: {"ids": [...], "pngs": {id: bytes}}} — picture questions whose 4
+    photos came from the parsed PDF (upscaled, never regenerated).
     Returns (ok, cost, credits, missing_numbers)."""
     from PIL import Image  # noqa: F401 — ensure importable early
     import pdf_parser as P
     pdf_images = pdf_images or {}
+    paper_photos = paper_photos or {}
     primary = img_model or CFG.get("img_model") or "z-image"
     chain = img_chain(primary)
     img_retries = int(CFG.get("img_retries", 2))
@@ -1409,7 +1522,11 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
     upscale_on = bool(CFG.get("upscale_pdf_images", True))
     fal_key = os.environ.get("FAL_KEY") or ""
     jobs = []
+    pic_jobs = []
     for q, rid in zip(qs, record_ids):
+        if q.get("picture_options"):
+            pic_jobs.append((q["number"], rid, q))
+            continue
         if not q.get("requiresImage"):
             continue
         rec = httpx.get(CFG["pb_base"] + f"/api/collections/questions/records/{rid}",
@@ -1418,23 +1535,23 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
             continue  # resume: image already uploaded — skip (saves credits)
         prompt = f"{CFG['image_style_prompt']}. Scene: {q['imagePrompt']}."
         jobs.append((q["number"], rid, prompt))
-    if not jobs:
+    if not jobs and not pic_jobs:
         print("[images] no image questions")
         return 0, 0.0, 0, []
     if primary == "z-image":
         bal = magnific_mcp.check_balance()
         if bal:
             avail = (bal.get("credits") or {}).get("available", 0)
-            needed = len(jobs) * magnific_mcp.ZIMAGE_COST
-            print(f"[images] z-image: {len(jobs)} images x {magnific_mcp.ZIMAGE_COST} credits "
+            needed = (len(jobs) + len(pic_jobs) * 4) * magnific_mcp.ZIMAGE_COST
+            print(f"[images] z-image: {len(jobs) + len(pic_jobs) * 4} images x {magnific_mcp.ZIMAGE_COST} credits "
                   f"= {needed} credits (available: {avail})")
             if avail < needed:
                 sys.exit(f"ERROR: not enough Magnific credits ({avail} < {needed})")
         else:
-            print(f"[images] z-image (API mode): {len(jobs)} images x {magnific_mcp.ZIMAGE_COST} credits "
+            print(f"[images] z-image (API mode): {len(jobs) + len(pic_jobs) * 4} images x {magnific_mcp.ZIMAGE_COST} credits "
                   "(live balance check not available via API)")
     elif str(primary).startswith("fal-ai/"):
-        print(f"[images] fal.ai provider: {len(jobs)} image(s) x {CFG.get('fal_size', 512)}x{CFG.get('fal_size', 512)} "
+        print(f"[images] fal.ai provider: {len(jobs) + len(pic_jobs) * 4} image(s) x {CFG.get('fal_size', 512)}x{CFG.get('fal_size', 512)} "
               "(FAL_KEY from env, no Magnific balance check)")
     else:
         print(f"[images] model chain: {chain}")
@@ -1524,8 +1641,102 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
                 print(f"    q{num} {model} {why} -> falling back to {chain[mi + 1]}")
         return (num, False, 0, None)
 
+    def one_pic(num, rid, q):
+        """Picture question: 4 photos -> option_images (array order = photo 1..4).
+        Paper questions: upscale extracted PNGs (raw fallback), never regenerate.
+        Fresh questions: 4 generations from the descriptions, one chain pass each."""
+        chk = httpx.get(CFG["pb_base"] + f"/api/collections/questions/records/{rid}",
+                        headers=headers, params={"fields": "option_images"}, timeout=30)
+        if chk.status_code == 200:
+            have = chk.json().get("option_images") or []
+            if len(have) >= 4:
+                print(f"    q{num} resume: option_images already uploaded — skip")
+                return True
+        if num in paper_photos:
+            pp = paper_photos[num]
+            pngs = pp.get("pngs") or {}
+            files = []
+            for im_id in pp.get("ids", []):
+                png = pngs.get(im_id)
+                if not png:
+                    print(f"    q{num} missing extracted photo {im_id}")
+                    return False
+                webp_data = None
+                try:
+                    if upscale_on and fal_key:
+                        up_ok = upload_file(headers, rid, "option_images",
+                                            f"{im_id}.png", png, "image/png")
+                        if up_ok:
+                            chk2 = httpx.get(CFG["pb_base"] + f"/api/collections/questions/records/{rid}",
+                                             headers=headers, params={"fields": "option_images"}, timeout=30)
+                            fnames = chk2.json().get("option_images") or [] if chk2.status_code == 200 else []
+                            if fnames:
+                                url = CFG["pb_base"] + f"/api/files/questions/{rid}/{fnames[-1]}"
+                                webp_data = to_webp(P.upscale_image(url, fal_key), max_size=max_size, quality=quality)
+                                print(f"    q{num} {im_id} upscaled OK")
+                except Exception as e:
+                    print(f"    q{num} {im_id} upscale failed ({str(e)[:100]}) — raw")
+                    webp_data = None
+                if webp_data is None:
+                    webp_data = to_webp(png, max_size=max_size, quality=quality)
+                files.append((f"q{num}_{im_id}.webp", webp_data, "image/webp"))
+            if len(files) < 4:
+                return False
+            return upload_option_images(headers, rid, files)
+        descs = [str(x or "").strip() for x in (q.get("option_images") or [])[:4]]
+        if len(descs) < 4 or not all(descs):
+            print(f"    q{num} picture: need 4 descriptions, have {len(descs)}")
+            return False
+        files = []
+        used_sum = 0.0
+        for i, desc in enumerate(descs):
+            prompt = f"{CFG['image_style_prompt']}. Photo {i + 1}: {desc}."
+            data = None
+            for mi, model in enumerate(chain):
+                tries = img_retries if mi == 0 else fb_retries
+                for attempt in range(tries):
+                    try:
+                        if model == "nano-banana" or model == "black-forest-labs/flux.2-klein-4b":
+                            d2, u2 = gen_image_nano(key, prompt)
+                            used_sum += u2.get("cost", 0)
+                        elif str(model).startswith("fal-ai/"):
+                            d2, u2 = gen_image_fal(prompt)
+                            used_sum += u2
+                        else:
+                            url = gen_image_or(key, prompt, model)
+                            d2 = httpx.get(url, timeout=120).content
+                            used_sum += magnific_mcp.ZIMAGE_COST if model == "z-image" else 0
+                        if not d2 or len(d2) < 500:
+                            raise RuntimeError(f"image too small ({len(d2) if d2 else 0} bytes)")
+                        data = d2
+                        break
+                    except Exception as e:
+                        print(f"    q{num} photo{i + 1} {model} attempt {attempt + 1}: {str(e)[:120]}")
+                        time.sleep(2)
+                if data:
+                    break
+            if not data:
+                print(f"    q{num} photo{i + 1} FAILED on all models")
+                return False
+            webp = to_webp(data, max_size=max_size, quality=quality)
+            files.append((f"q{num}_p{i + 1}.webp", webp, "image/webp"))
+            (out_dir / f"q{num}_p{i + 1}.webp").write_bytes(webp)
+        nonlocal_cost[0] += used_sum
+        if not upload_option_images(headers, rid, files):
+            return False
+        if verify:
+            chk3 = httpx.get(CFG["pb_base"] + f"/api/collections/questions/records/{rid}",
+                             headers=headers, params={"fields": "option_images"}, timeout=30)
+            if chk3.status_code != 200 or len(chk3.json().get("option_images") or []) < 4:
+                print(f"    q{num} picture verify failed")
+                return False
+        return True
+
+    nonlocal_cost = [0.0]
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=CFG["img_workers"]) as ex:
-        for num, up, used, model in ex.map(one, jobs):
+        futures = [ex.submit(one, j) for j in jobs]
+        for num, up, used, model in (f.result() for f in futures):
             if model == "z-image":
                 credits += used
             else:
@@ -1537,11 +1748,27 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
                 missing.append(num)
                 print(f"[images] q{num} FAILED")
 
-    if missing:
-        print(f"[images] backfill pass for {len(missing)} missing...")
+    pic_missing = []
+    for num, rid, q in pic_jobs:
+        try:
+            if one_pic(num, rid, q):
+                ok += 1
+                print(f"[images] q{num} picture 4-photo OK")
+            else:
+                pic_missing.append(num)
+                print(f"[images] q{num} picture FAILED")
+        except Exception as e:
+            pic_missing.append(num)
+            print(f"[images] q{num} picture error: {str(e)[:140]}")
+    missing += pic_missing
+
+    if missing and len(pic_missing) != len(missing):
+        print(f"[images] backfill pass for {len(missing) - len(pic_missing)} missing...")
         for num, rid, prompt in jobs:
             if num not in missing:
                 continue
+            if num in pic_missing:
+                continue  # picture questions cannot be backfilled via the image field
             try:
                 url = gen_image_or(key, prompt, "z-image")
                 data = httpx.get(url, timeout=120).content
@@ -1704,10 +1931,10 @@ def final_summary(stats):
     if stats.get("pdf_parser"):
         line(f"pdf parse ({stats['pdf_parser']})",
              f"{stats.get('pdf_pages', 0)} pages · {stats.get('pdf_images', 0)} extracted images · {stats.get('pdf_parse_s', 0)}s")
+    if stats.get("picture_count"):
+        line("picture listening", f"{stats['picture_count']} photo questions (4-photo options)")
     if stats.get("blank_count"):
         line("blank listening", f"{stats['blank_count']} audio-only questions (1/2/3/4)")
-    if stats.get("grid_count"):
-        line("grid image questions", f"{stats['grid_count']} (2x2 composite, 1/2/3/4)")
     if stats.get("dedup_checked"):
         line(f"dedup vs last {len(stats.get('dedup_sets_checked') or [])} mocks",
              f"{stats.get('dedup_repeats', 0)} repeats")
@@ -1775,6 +2002,40 @@ def final_summary(stats):
     print("=" * 66)
 
 
+def _paper_picture_block(pdf_doc, key, paper_pics, paper_captions):
+    """Build the PAPER PICTURE PHOTOS prompt section: for each paper question with
+    4+ extracted photos, list the photo ids + short vision captions (so the author
+    can write audio matching the photo it chooses). Populates paper_pics/captions."""
+    groups = group_paper_pictures(pdf_doc)
+    img_by_id = {im["id"]: im for im in pdf_doc["images"]}
+    lines = []
+    cap_questions = 0
+    for qn in sorted(groups):
+        ids = groups[qn]
+        paper_pics[qn] = ids
+        caps = []
+        for im_id in ids:
+            im = img_by_id.get(im_id)
+            cap = ""
+            if im and cap_questions < 10:  # cap vision spend (4 calls per question)
+                try:
+                    cap = vision_caption(key, im["png"])
+                    cap = " ".join(cap.split())[:160]
+                except Exception as e:
+                    cap = ""
+                    print(f"[pdf] vision caption failed {im_id}: {str(e)[:90]}", flush=True)
+            caps.append(cap)
+        paper_captions[qn] = caps
+        if any(caps):
+            cap_questions += 1
+        cap_text = " | ".join("%d) %s" % (i + 1, caps[i] if caps[i] else "(no caption)") for i in range(len(ids)))
+        lines.append("Q%s: photos %s — %s" % (qn, ids, cap_text))
+    for qn, ids in list(paper_pics.items()):
+        if qn not in groups:
+            paper_pics[qn] = ids
+    return "\n".join(lines) if lines else "(no paper picture questions detected)"
+
+
 def main():
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -1814,12 +2075,15 @@ def main():
         "audio_total": 0, "img_ok": 0, "img_total": 0, "img_model": img_primary, "img_missing": [],
         "img_cost": 0.0, "img_credits": 0, "qfile": qfile, "llm_cost": 0.0,
         "pdf_parse_s": None, "pdf_parser": None, "pdf_pages": None, "pdf_images": None,
-        "blank_count": 0, "grid_count": 0,
+        "blank_count": 0, "picture_count": 0,
         "stage_times": {},
     }
     t_all = time.time()
     gen_type = int(CFG.get("gen_type", 1))
     pdf_doc = None
+    paper_pics = {}
+    paper_captions = {}
+    paper_img_map = {}
     def stage_secs():
         return int(time.time() - t_all)
 
@@ -1829,6 +2093,29 @@ def main():
         if validate_exam(qs):
             sys.exit("FAILED: existing questions file is invalid — delete it and re-run")
         stats["authored"] = False
+        # paper mode resume: re-parse the PDF so extracted photos are available
+        gen_type = int(CFG.get("gen_type", 1))
+        if gen_type >= 2:
+            import pdf_parser as P
+            pdf_path = str(CFG.get("pdf_path") or "").strip()
+            if pdf_path and os.path.exists(pdf_path):
+                pdf_doc = P.parse_pdf(pdf_path, gen_type=gen_type, parser="local",
+                                      upstage_key="", or_key=key, progress=lambda m: None)
+                stats["pdf_parser"] = pdf_doc["parser_used"]
+                stats["pdf_pages"] = len(pdf_doc["pages"])
+                stats["pdf_images"] = len(pdf_doc["images"])
+                # rebuild paper photo map from the questions file (photo ids in option_images)
+                valid_ids = set(i["id"] for i in pdf_doc["images"])
+                img_by_id = {i["id"]: i for i in pdf_doc["images"]}
+                for q in qs:
+                    if not q.get("picture_options"):
+                        continue
+                    ids = [str(x).strip() for x in (q.get("option_images") or [])
+                           if _is_photo_id(x) and str(x).strip() in valid_ids]
+                    if len(ids) >= 4:
+                        paper_img_map[q["number"]] = ids[:4]
+            else:
+                print("[resume] pdf_path missing — picture photos cannot be restored from the paper")
     else:
         # PDF generation modes: parse the uploaded document before authoring
         gen_type = int(CFG.get("gen_type", 1))
@@ -1866,10 +2153,20 @@ def main():
                     img_lines.append("%s -> question %s (page %d)" % (pi["id"], qn, pi.get("page", 0)))
                 user_prompt = (render_prompt(AUTHOR_USER_PAPER) + "\n\nPAPER CONTENT:\n" +
                                pdf_doc["text"] + "\n\nPAPER IMAGES:\n" +
-                               ("\n".join(img_lines) if img_lines else "(none extracted)"))
+                               ("\n".join(img_lines) if img_lines else "(none extracted)") +
+                               "\n\nPAPER PICTURE PHOTOS:\n" +
+                               _paper_picture_block(pdf_doc, key, paper_pics, paper_captions))
             user_builder = lambda: user_prompt
         else:
             user_prompt = render_prompt(AUTHOR_USER)
+
+        # picture-question target (paper: paper's own + top-up to the configured count)
+        listen_available = int(CFG.get("listening_count") or 0) or (int(CFG.get("question_count") or 40) - int(CFG.get("reading_count") or 20))
+        pic_target = int(CFG.get("listening_picture_count") or 0)
+        target = max(pic_target, len(paper_pics)) if paper_pics else pic_target
+        if target > listen_available:
+            target = listen_available
+        stats["pic_target"] = target
 
         # 1. Author - DUAL PROVIDER: Gemini (direct Google API) first, OpenRouter fallback
         qs, last_err, author_via = None, None, ""
@@ -1922,6 +2219,15 @@ def main():
                                         "text MUST be Korean Hangul; English is allowed ONLY in type and imagePrompt" % kerr)
                             continue
                     if not gerrs:
+                        got_pic = sum(1 for x in gqs if isinstance(x, dict) and x.get("picture_options"))
+                        if got_pic != target:
+                            stats["pic_rejects"] = stats.get("pic_rejects", 0) + 1
+                            print(f"[picture] gemini produced {got_pic} picture questions, need exactly {target} — retrying")
+                            last_err = ("you created %d listening PICTURE questions but EXACTLY %d are required. "
+                                        "Each picture question needs: \"picture_options\": true, options [\"1\",\"2\",\"3\",\"4\"], "
+                                        "correct_answer = the photo index matching your audio, requiresImage false, "
+                                        "and \"option_images\": [4 descriptions or exact paper photo ids]" % (got_pic, target))
+                            continue
                         qs = gqs
                         author_via = "gemini"
                         stats["author_attempt"] = attempt + 1
@@ -1977,6 +2283,15 @@ def main():
                                     "text MUST be Korean Hangul; English is allowed ONLY in type and imagePrompt" % kerr)
                         continue
                 if not errs:
+                    got_pic = sum(1 for x in qs if isinstance(x, dict) and x.get("picture_options"))
+                    if got_pic != target:
+                        stats["pic_rejects"] = stats.get("pic_rejects", 0) + 1
+                        print(f"[picture] author produced {got_pic} picture questions, need exactly {target} — retrying")
+                        last_err = ("you created %d listening PICTURE questions but EXACTLY %d are required. "
+                                    "Each picture question needs: \"picture_options\": true, options [\"1\",\"2\",\"3\",\"4\"], "
+                                    "correct_answer = the photo index matching your audio, requiresImage false, "
+                                    "and \"option_images\": [4 descriptions or exact paper photo ids]" % (got_pic, target))
+                        continue
                     stats["author_attempt"] = attempt + 1
                     stats["author_cost"] = usage.get("cost", 0.0)
                     author_via = "openrouter"
@@ -2001,20 +2316,35 @@ def main():
                         print(f"[pdf] Q{q.get('number')}: pdfImage '{pi}' not in extracted images — will generate fresh")
                         q["pdfImage"] = ""
 
-        # grid question target: never more than the available image questions
-        img_available = sum(1 for q in qs if q.get("requiresImage"))
-        grid_target = int(CFG.get("image_grid_count") or 0)
-        if grid_target > img_available:
-            grid_target = img_available
-        CFG["image_grid_count"] = grid_target
-        stats["grid_count"] = sum(1 for q in qs if q.get("grid"))
-        print(f"[grid] target {grid_target} grid questions — author produced {stats['grid_count']}")
+        # paper mode: resolve picture questions' photo ids -> extracted images
+        if gen_type == 3 and pdf_doc:
+            valid_ids = set(i["id"] for i in pdf_doc["images"])
+            for q in qs:
+                if q.get("picture_options"):
+                    imgs = q.get("option_images") or []
+                    resolved = [str(x).strip() for x in imgs if _is_photo_id(x) and str(x).strip() in valid_ids]
+                    if len(resolved) >= 4:
+                        q["option_images"] = resolved[:4]
+                        paper_img_map[q["number"]] = resolved[:4]
+                    else:
+                        # author wrote descriptions instead of ids -> generate fresh
+                        q["option_images"] = [str(x).strip() for x in imgs[:4] if str(x or "").strip()]
+                pi = str(q.get("pdfImage") or "")
+                if pi:
+                    if pi in valid_ids:
+                        q["requiresImage"] = True
+                    else:
+                        print(f"[pdf] Q{q.get('number')}: pdfImage '{pi}' not in extracted images — will generate fresh")
+                        q["pdfImage"] = ""
 
         # author sometimes emits 1/2/3/4 options without the format flag - auto-tag
         nfix = fix_numeric_option_questions(qs)
         if nfix:
-            print(f"[format] auto-tagged {nfix} questions with numeric options (grid/blank)")
-            stats["grid_count"] = sum(1 for q in qs if q.get("grid"))
+            print(f"[format] auto-tagged {nfix} questions with numeric options (picture/blank)")
+
+        # picture stats
+        stats["picture_count"] = sum(1 for q in qs if q.get("picture_options"))
+        print(f"[picture] {stats['picture_count']} picture questions (target {target})")
 
         # blank listening questions: random audio-only subset (options 1/2/3/4)
         qs, nb = apply_blank_questions(qs)
@@ -2046,10 +2376,10 @@ def main():
         if validate_exam(qs) and repaired is not None:
             print("[proofread] broke structure — reverting to repaired version")
             qs = repaired
-        # proofread can drop imagePrompt/requiresImage from grid questions - restore
-        gfix = repair_grid_prompts(key, qs)
+        # proofread can drop option_images/requiresImage from picture questions - restore
+        gfix = repair_picture_prompts(key, qs, paper_pics)
         if gfix:
-            print(f"[repair] {gfix} grid questions restored after proofread")
+            print(f"[repair] {gfix} picture questions restored after proofread")
         qs.sort(key=lambda q: q["number"])
         errs = validate_exam(qs)
         if errs:
@@ -2081,7 +2411,7 @@ def main():
             "dry_mode": dm, "questions": len(qs),
             "gen_type": gen_type,
             "blank_count": stats.get("blank_count", 0),
-            "grid_count": stats.get("grid_count", 0),
+            "picture_count": stats.get("picture_count", 0),
             "pdf_parser": stats.get("pdf_parser"),
             "pdf_pages": stats.get("pdf_pages"),
             "pdf_images": stats.get("pdf_images"),
@@ -2154,20 +2484,31 @@ def main():
 
     # 5. Images
     pdf_images_map = {}
+    paper_photos_map = {}
     if gen_type == 3 and pdf_doc:
         img_by_id = {i["id"]: i for i in pdf_doc["images"]}
         for q in qs:
             pi = str(q.get("pdfImage") or "")
             if pi and pi in img_by_id:
                 pdf_images_map[q["number"]] = {"png": img_by_id[pi]["png"]}
+        for qnum, ids in paper_img_map.items():
+            pp = {"ids": ids, "pngs": {i: img_by_id[i]["png"] for i in ids if i in img_by_id}}
+            if len(pp["pngs"]) == 4:
+                paper_photos_map[qnum] = pp
         if pdf_images_map:
             print(f"[images] {len(pdf_images_map)} extracted paper images will be upscaled (fal recraft/crisp)")
+        if paper_photos_map:
+            print(f"[images] {len(paper_photos_map)} paper picture questions use extracted photos")
+    if any(q.get("picture_options") for q in qs):
+        ensure_option_images_field(headers)
     print(f"[images] generating TOPIK images ({img_primary})...")
     i_ok, i_cost, i_credits, img_missing = run_images(
-        key, qs, ids, headers, base_dir, img_primary, pdf_images=pdf_images_map)
+        key, qs, ids, headers, base_dir, img_primary,
+        pdf_images=pdf_images_map, paper_photos=paper_photos_map)
     stats["img_ok"], stats["img_cost"], stats["img_credits"] = i_ok, i_cost, i_credits
     stats["img_missing"] = img_missing
     stats["img_total"] = sum(1 for q in qs if q.get("requiresImage"))
+    stats["pic_photo_total"] = sum(1 for q in qs if q.get("picture_options"))
     stats["stage_times"]["images"] = stage_secs()
     stats["llm_cost"] = stats["author_cost"] + stats["proof_cost"]
     stats["stage_times"]["total"] = stage_secs()
@@ -2178,7 +2519,7 @@ def main():
         "questions": stats["audio_total"] + sum(1 for q in qs if q.get("section") == "reading"),
         "gen_type": gen_type,
         "blank_count": stats.get("blank_count", 0),
-        "grid_count": stats.get("grid_count", 0),
+        "picture_count": stats.get("picture_count", 0),
         "pdf_parser": stats.get("pdf_parser"),
         "pdf_pages": stats.get("pdf_pages"),
         "pdf_images": stats.get("pdf_images"),
