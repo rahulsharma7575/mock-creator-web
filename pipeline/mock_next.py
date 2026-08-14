@@ -119,7 +119,9 @@ DEFAULTS = {
         "VIVID COLOURFUL palette (never black-and-white, never muted), minimal clean line art, "
         "plain solid white background, simple everyday scene, centered single main subject, "
         "clear silhouette, no gradients, no photorealism, "
-        "no text, no letters, no numbers, no watermark, no border"
+        "do NOT write the text 'EPS-TOPIK' or any exam title/logo in the image, "
+        "small incidental text is allowed only when the scene naturally requires it (e.g. storefront sign), "
+        "no watermark, no border"
     ),
     "image_verify_after": True,
     # audio / TTS — OpenRouter

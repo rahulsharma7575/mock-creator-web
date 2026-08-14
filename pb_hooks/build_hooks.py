@@ -270,7 +270,7 @@ DEFAULT_CONFIG = {
     "tts_fallback_female_speed": 0.0,
     "listening_blank_count": 5,
     "listening_picture_count": 5,
-    "image_style_prompt": "Simple flat vector illustration in the standard Korean EPS-TOPIK test style, VIVID COLOURFUL palette (never black-and-white, never muted), minimal clean line art, plain solid white background, simple everyday scene, centered single main subject, clear silhouette, no gradients, no photorealism, no text, no letters, no numbers, no watermark, no border",
+    "image_style_prompt": "Simple flat vector illustration in the standard Korean EPS-TOPIK test style, VIVID COLOURFUL palette (never black-and-white, never muted), minimal clean line art, plain solid white background, simple everyday scene, centered single main subject, clear silhouette, no gradients, no photorealism, do NOT write the text 'EPS-TOPIK' or any exam title/logo in the image, small incidental text is allowed only when the scene naturally requires it (e.g. storefront sign), no watermark, no border",
     "audio_workers": 4,
     "prompts_json": {},
     "active": True,

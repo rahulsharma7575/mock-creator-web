@@ -537,7 +537,7 @@ th.sortable:hover{color:var(--amber2)}
                             </template>
                             <template v-else-if="f.field==='tts_male_voice'||f.field==='tts_female_voice'||f.field==='tts_fallback_male_voice'||f.field==='tts_fallback_female_voice'">
                               <div class="flex gap-2 items-center">
-                                <input v-model.trim="cfgData[f.field]" class="input f-mono flex-1" list="voiceList" placeholder="Empty = auto-pick">
+                                <input v-model.trim="cfgData[f.field]" class="input f-mono flex-1" list="voiceList" :placeholder="voicePh(f.field)">
                                 <button type="button" class="btn btn-ghost btn-sm shrink-0 flex items-center" :class="cfgData[f.field]?'':'opacity-40'" :disabled="!cfgData[f.field]" :title="cfgData[f.field]?'Hear this voice':'Empty — the system auto-picks a voice'" @click="openVoicePreview(f.field)"><span v-html="ic('headphones',14)"></span></button>
                               </div>
                               <datalist id="voiceList"><option v-for="o in voiceOptions" :key="o" :value="o">{{ o }}</option></datalist>
@@ -566,14 +566,6 @@ th.sortable:hover{color:var(--amber2)}
                               <div class="flex items-center gap-4">
                                 <input type="range" min="0.5" max="2" step="0.05" v-model.number="cfgData.tts_speed" class="range flex-1">
                                 <span class="img-num">{{ cfgData.tts_speed != null ? Number(cfgData.tts_speed).toFixed(2) : '1.00' }}</span>
-                              </div>
-                            </template>
-                            <template v-else-if="f.field==='tts_male_speed'||f.field==='tts_female_speed'||f.field==='tts_fallback_male_speed'||f.field==='tts_fallback_female_speed'">
-                              <div class="flex items-center gap-2.5">
-                                <span class="text-[10px] f-mono shrink-0" style="color:var(--mut)">0 = global</span>
-                                <input type="range" min="0" max="2" step="0.05" v-model.number="cfgData[f.field]" class="range flex-1">
-                                <button type="button" class="btn btn-ghost btn-sm px-1.5 text-[10px]" @click="cfgData[f.field]=0" title="Follow the global speech speed">auto</button>
-                                <span class="img-num text-[10px]" style="min-width:34px;text-align:right">{{ cfgData[f.field] ? Number(cfgData[f.field]).toFixed(2) : 'auto' }}</span>
                               </div>
                             </template>
                             <template v-else-if="f.field==='image_count'">
