@@ -1192,25 +1192,57 @@ def dedup_repeats(qs, texts):
 DIFF_MAP = {"medium": "medium", "hard": "hard", "very hard": "hard"}
 
 
+def normalize_correct_answer(ca):
+    """PocketBase expects a JSON array of one 0-based index string: ["0"]..["3"].
+    Photo ① = ["0"], photo ④ = ["3"]. Never invent an answer; empty stays empty."""
+    if ca is None or isinstance(ca, bool):
+        return []
+    if isinstance(ca, (int, float)):
+        i = int(ca)
+        return [str(i)] if 0 <= i <= 3 else []
+    if isinstance(ca, str):
+        s = ca.strip()
+        if s in ("0", "1", "2", "3"):
+            return [s]
+        return []
+    if isinstance(ca, (list, tuple)):
+        if not ca:
+            return []
+        return normalize_correct_answer(ca[0])
+    return []
+
+
 def create_records(qs, headers):
-    """Batch-create questions missing a pbId (resume-safe). Returns newly created ids."""
+    """Batch-create questions missing a pbId (resume-safe). Returns newly created ids.
+
+    Picture questions MUST be posted as question_type=listening_picture +
+    picture_options=true + non-empty correct_answer (photo index). Omitting those
+    fields leaves defaults (single_choice / false / []) and the client never
+    renders the 4 option_images as tappable choices.
+    """
     ops = []
     for q in qs:
         if q.get("pbId"):
             continue
+        is_pic = bool(q.get("picture_options"))
+        ca = normalize_correct_answer(q.get("correct_answer"))
         body = {
             "section": q["section"],
             "subject": CFG["subject_id"],
             "question_text": q["question_text"],
-            "question_type": "single_choice",
-            "options": q["options"],
-            "correct_answer": q["correct_answer"],
+            "question_type": "listening_picture" if is_pic else "single_choice",
+            "picture_options": is_pic,
+            "options": q["options"] if not is_pic else (q.get("options") or ["1", "2", "3", "4"]),
+            "correct_answer": ca,
             "marks": int(q.get("marks") or CFG.get("marks_per_question", 1)),
             "negative_marks": int(CFG.get("negative_marks", 0)),
             "explanation": q.get("explanation", ""),
             "difficulty": DIFF_MAP.get(str(q.get("difficulty", "hard")).lower(), "hard"),
             "is_active": bool(CFG.get("is_active", True)),
         }
+        if is_pic and not ca:
+            print(f"[push] WARNING: picture question has NO correct_answer — "
+                  f"Q{q.get('number') or q.get('question_text', '')[:40]} will be ungradeable")
         ops.append({"method": "POST", "url": "/api/collections/questions/records", "body": body})
     if not ops:
         return []
@@ -1224,6 +1256,93 @@ def create_records(qs, headers):
             raise RuntimeError(f"record {i} failed: {json.dumps(p, ensure_ascii=False)[:200]}")
         ids.append(p["body"]["id"])
     return ids
+
+
+def ensure_picture_record_flags(headers, record_id, q):
+    """Repair picture flags without touching file fields.
+
+    Important: only PATCH the scalar flags. Never re-POST/PATCH a full body that
+    omits picture_options/correct_answer — that silently reverts them to defaults
+    and is what kept breaking display of already-uploaded option_images.
+    """
+    if not q.get("picture_options"):
+        return True
+    ca = normalize_correct_answer(q.get("correct_answer"))
+    fields = "picture_options,question_type,correct_answer,option_images,options"
+    chk = httpx.get(CFG["pb_base"] + f"/api/collections/questions/records/{record_id}",
+                    headers=headers, params={"fields": fields}, timeout=30)
+    if chk.status_code != 200:
+        print(f"[push] flag-check failed for {record_id}: HTTP {chk.status_code}")
+        return False
+    rec = chk.json()
+    need = {}
+    if not rec.get("picture_options"):
+        need["picture_options"] = True
+    if rec.get("question_type") != "listening_picture":
+        need["question_type"] = "listening_picture"
+    have_ca = rec.get("correct_answer") or []
+    if not have_ca and ca:
+        need["correct_answer"] = ca
+    opts = rec.get("options") or []
+    if opts != ["1", "2", "3", "4"]:
+        need["options"] = ["1", "2", "3", "4"]
+    if not need:
+        return True
+    # JSON-only PATCH — do not include file fields
+    pr = httpx.patch(CFG["pb_base"] + f"/api/collections/questions/records/{record_id}",
+                     headers=headers, json=need, timeout=30)
+    if pr.status_code not in (200, 201):
+        print(f"[push] flag repair {record_id} HTTP {pr.status_code}: {pr.text[:200]}")
+        return False
+    print(f"[push] repaired picture flags on {record_id}: {list(need.keys())}")
+    return True
+
+
+def self_check_picture_questions(qs, headers):
+    """GET each picture question and assert client-visible fields match the contract."""
+    bad = []
+    checked = 0
+    for q in qs:
+        if not q.get("picture_options"):
+            continue
+        rid = q.get("pbId")
+        if not rid:
+            bad.append((q.get("number"), "missing pbId"))
+            continue
+        checked += 1
+        r = httpx.get(CFG["pb_base"] + f"/api/collections/questions/records/{rid}",
+                      headers=headers,
+                      params={"fields": "picture_options,question_type,option_images,correct_answer,options"},
+                      timeout=30)
+        if r.status_code != 200:
+            bad.append((q.get("number"), f"HTTP {r.status_code}"))
+            continue
+        rec = r.json()
+        imgs = rec.get("option_images") or []
+        ca = rec.get("correct_answer") or []
+        errs = []
+        if not rec.get("picture_options"):
+            errs.append("picture_options!=true")
+        if rec.get("question_type") != "listening_picture":
+            errs.append(f"question_type={rec.get('question_type')!r}")
+        if len(imgs) < 4:
+            errs.append(f"option_images={len(imgs)}/4")
+        if not ca:
+            errs.append("correct_answer=[]")
+        if errs:
+            bad.append((q.get("number"), ", ".join(errs)))
+        else:
+            print(f"[push] self-check Q{q.get('number')} OK "
+                  f"type=listening_picture pics={len(imgs)} answer={ca}")
+    if checked == 0:
+        print("[push] self-check: no picture questions")
+        return True
+    if bad:
+        for num, why in bad:
+            print(f"[push] self-check FAIL Q{num}: {why}")
+        return False
+    print(f"[push] self-check: {checked}/{checked} picture questions match contract")
+    return True
 
 
 PLAN_FREE = "anzwnnqhbeapgcs"
@@ -1644,14 +1763,35 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
     def one_pic(num, rid, q):
         """Picture question: 4 photos -> option_images (array order = photo 1..4).
         Paper questions: upscale extracted PNGs (raw fallback), never regenerate.
-        Fresh questions: 4 generations from the descriptions, one chain pass each."""
-        chk = httpx.get(CFG["pb_base"] + f"/api/collections/questions/records/{rid}",
-                        headers=headers, params={"fields": "option_images"}, timeout=30)
+        Fresh questions: 4 generations from the descriptions, one chain pass each.
+
+        Resume path: if option_images already has 4 files, still confirm
+        picture_options=true + question_type=listening_picture + non-empty
+        correct_answer (flags can be stale while files remain).
+        """
+        chk = httpx.get(
+            CFG["pb_base"] + f"/api/collections/questions/records/{rid}",
+            headers=headers,
+            params={"fields": "option_images,picture_options,question_type,correct_answer"},
+            timeout=30,
+        )
         if chk.status_code == 200:
-            have = chk.json().get("option_images") or []
+            rec = chk.json()
+            have = rec.get("option_images") or []
             if len(have) >= 4:
-                print(f"    q{num} resume: option_images already uploaded — skip")
-                return True
+                flags_ok = (
+                    bool(rec.get("picture_options"))
+                    and rec.get("question_type") == "listening_picture"
+                    and bool(rec.get("correct_answer"))
+                )
+                if flags_ok:
+                    print(f"    q{num} resume: option_images + flags OK — skip")
+                    return True
+                print(f"    q{num} resume: 4 photos present but flags stale — repairing")
+                if ensure_picture_record_flags(headers, rid, q):
+                    return True
+                print(f"    q{num} resume: flag repair failed")
+                return False
         if num in paper_photos:
             pp = paper_photos[num]
             pngs = pp.get("pngs") or {}
@@ -1682,7 +1822,9 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
                 files.append((f"q{num}_{im_id}.webp", webp_data, "image/webp"))
             if len(files) < 4:
                 return False
-            return upload_option_images(headers, rid, files)
+            if not upload_option_images(headers, rid, files):
+                return False
+            return ensure_picture_record_flags(headers, rid, q)
         descs = [str(x or "").strip() for x in (q.get("option_images") or [])[:4]]
         if len(descs) < 4 or not all(descs):
             print(f"    q{num} picture: need 4 descriptions, have {len(descs)}")
@@ -1730,7 +1872,7 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
             if chk3.status_code != 200 or len(chk3.json().get("option_images") or []) < 4:
                 print(f"    q{num} picture verify failed")
                 return False
-        return True
+        return ensure_picture_record_flags(headers, rid, q)
 
     nonlocal_cost = [0.0]
 
@@ -2482,6 +2624,13 @@ def main():
     ids = [q["pbId"] for q in qs]
     stats["pb_count"] = len(ids)
 
+    # 3a. Repair picture flags on resume / any prior partial push.
+    # File uploads are multipart-only; a later JSON PATCH that omits
+    # picture_options/correct_answer silently reverts them — re-assert here.
+    for q, rid in zip(qs, ids):
+        if q.get("picture_options") and rid:
+            ensure_picture_record_flags(headers, rid, q)
+
     # 3b. Exam record + question links (admin dashboard visibility)
     exam_id, exam_created = create_exam(mock, qs, headers)
     stats["exam_created"] = exam_created
@@ -2524,6 +2673,9 @@ def main():
     stats["llm_cost"] = stats["author_cost"] + stats["proof_cost"]
     stats["stage_times"]["total"] = stage_secs()
 
+    # 5b. Contract self-check (picture questions must match client renderer)
+    stats["picture_self_check"] = self_check_picture_questions(qs, headers)
+
     # 6. Report
     report = {
         "mock": mock, "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -2543,6 +2695,7 @@ def main():
         "audio_uploaded": a_ok,
         "images_uploaded": i_ok, "image_model": img_primary,
         "images_missing": img_missing,
+        "picture_self_check": stats.get("picture_self_check"),
         "image_cost_usd": round(i_cost, 4), "image_credits": i_credits,
         "difficulty_profile": CFG.get("difficulty_profile", "creative+difficult"),
         "image_count": int(CFG.get("image_count", 22)),
