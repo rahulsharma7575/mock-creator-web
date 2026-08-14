@@ -301,8 +301,6 @@ def _upstage_parse(path, filename, max_pages, api_key, progress=None):
     elements = j.get("elements") or j.get("result", {}).get("elements") or []
     if not elements:
         raise PdfParseError("Upstage returned no elements")
-    if progress:
-        progress("Upstage done — %d elements" % len(elements))
     by_page = {}
     for el in elements:
         page_no = int(el.get("page") or 1)  # page is a direct field (coords have no page)
@@ -320,6 +318,9 @@ def _upstage_parse(path, filename, max_pages, api_key, progress=None):
             page["text"] += "\n\n" + str(text).strip()
     if not by_page:
         raise PdfParseError("Upstage parsed no pages")
+    if progress:
+        n_pages = len(by_page)
+        progress("Upstage done — %d elements, %d pages (≈ $0.01/page → $%.2f)" % (len(elements), n_pages, n_pages * 0.01))
     pages = [by_page[k] for k in sorted(by_page)]
     images = _upstage_figures(j)
     return pages, images

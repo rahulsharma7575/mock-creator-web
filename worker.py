@@ -47,6 +47,8 @@ POLL_INTERVAL = float(os.environ.get("POLL_INTERVAL", "10"))
 WORK_ROOT = pathlib.Path(os.environ.get("WORK_ROOT", "worker_data")).resolve()
 HERE = pathlib.Path(__file__).resolve().parent
 MOCK_NEXT = pathlib.Path(os.environ.get("MOCK_NEXT", str(HERE / "pipeline" / "mock_next.py")))
+if str(HERE / "pipeline") not in sys.path:
+    sys.path.insert(0, str(HERE / "pipeline"))  # for pdf_parser (pdf_test jobs)
 
 LOG_CAP = 24000          # max chars kept in the job log field
 LOG_FLUSH_LINES = 8      # flush log after this many new lines
@@ -395,9 +397,12 @@ def run_job(job):
     cfg["is_active"] = True  # pipeline pushes only when active
 
     # PDF generation modes (end-user app sends gen_type + the PDF file)
+    kind = job.get("kind", "full") or "full"
     gen_type = int(job.get("gen_type") or 1)
+    if kind == "pdf_test":
+        gen_type = max(gen_type, 3)  # parser tests default to paper mode
     cfg["gen_type"] = gen_type
-    if gen_type >= 2:
+    if gen_type >= 2 and kind != "pdf_test":
         cfg["question_count"] = 40
         cfg["reading_count"] = 20
         if gen_type == 3:
@@ -436,7 +441,7 @@ def run_job(job):
                 cfg["image_count_max"] = 0
         log(f"job {job_id}: dry run mode={dry_mode}, sample_size=3")
 
-    if cfg.get("push_enabled", True) and not cfg.get("pb_pass") and not os.environ.get("MOCK_PB_PASS"):
+    if kind != "pdf_test" and cfg.get("push_enabled", True) and not cfg.get("pb_pass") and not os.environ.get("MOCK_PB_PASS"):
         log(f"job {job_id}: push credentials missing for client {client_name}")
         patch_job(job_id, {
             "status": "failed",
@@ -489,6 +494,62 @@ def run_job(job):
     log_tail = ((log_tail + "\n") if log_tail else "") + (
         "[worker] dry_run=" + cfg.get("dry_mode", "full") + " started for " + client_name +
         " (count=" + str(cfg.get("question_count")) + ", difficulty=" + str(cfg.get("difficulty_profile")) + ")")
+
+    # ---- parser quick-test: parse only, no authoring/push ----
+    if kind == "pdf_test":
+        def log_job(m):
+            nonlocal log_tail
+            log_tail += "\n" + m
+            log_tail = log_tail[-LOG_CAP:]
+            try:
+                patch_job(job_id, {"log": log_tail})
+            except Exception:
+                pass
+            log(m)
+
+        import base64
+        import io
+        log_job(f"[worker {int(time.time() - t0)}s] PDF parser test — parser '{cfg.get('pdf_parser', 'auto')}'")
+        try:
+            import pdf_parser as P
+            from PIL import Image
+            doc = P.parse_pdf(pdf_path, gen_type=gen_type,
+                              parser=str(cfg.get("pdf_parser") or "auto"),
+                              upstage_key=os.environ.get("UPSTAGE_API_KEY", ""),
+                              or_key=os.environ.get("OPENROUTER_API_KEY", ""),
+                              progress=lambda m: log_job("[pdf] " + m))
+            thumbs = []
+            for im in doc["images"]:
+                if len(thumbs) >= 24:
+                    break
+                try:
+                    pil = Image.open(io.BytesIO(im["png"])).convert("RGB")
+                    pil.thumbnail((160, 160))
+                    buf = io.BytesIO()
+                    pil.save(buf, "JPEG", quality=70)
+                    qn = im.get("nearest_question")
+                    thumbs.append({"id": im["id"], "page": im.get("page"),
+                                   "question": qn if isinstance(qn, int) and qn > 0 else None,
+                                   "b64": base64.b64encode(buf.getvalue()).decode("ascii")})
+                except Exception:
+                    continue
+            report = {
+                "parser_used": doc["parser_used"],
+                "pages": len(doc["pages"]),
+                "images": thumbs,
+                "text_chars": len(doc["text"]),
+                "excluded_pages": doc["stats"].get("excluded_pages", []),
+                "time_ms": int((time.time() - t0) * 1000),
+            }
+            patch_job(job_id, {"status": "done", "log": log_tail, "report": report, "error": ""})
+            log(f"job {job_id}: pdf_test done ({doc['parser_used']}, {len(doc['pages'])} pages, {len(thumbs)} thumbs)")
+        except Exception as e:
+            log_tail += f"\n[worker] pdf test failed: {e}"
+            log_tail = log_tail[-LOG_CAP:]
+            patch_job(job_id, {"status": "failed", "log": log_tail,
+                               "error": "pdf test failed: %s" % str(e)[:1900]})
+            log(f"job {job_id}: pdf_test FAILED: {e}")
+        return
 
     env = dict(os.environ)
     env.setdefault("PYTHONUTF8", "1")

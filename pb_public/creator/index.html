@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Fraunces:ital,opsz,wght@1,9..144,500;1,9..144,600&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/tailwind.css?v=25">
+<link rel="stylesheet" href="lib/tailwind.css?v=26">
 <style>
 :root{
   --bg:#f7f2e8; --panel:#fffdf8; --panel2:#f0e9d9; --line:#e3d9c1; --ink:#262218; --mut:#7f7866;
@@ -263,6 +263,12 @@ th.sortable:hover{color:var(--amber2)}
     <main class="flex-1 overflow-y-auto">
       <div class="p-6 lg:p-9 max-w-6xl mx-auto">
 
+        <!-- deploy health banner: schema migrations not applied -->
+        <div v-if="health && !health.migrations_ok" class="mb-5 px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 flex-wrap" style="background:rgba(226,114,63,.12);color:var(--amber2)">
+          <span v-html="ic('alertTriangle',13)"></span>Schema migrations not applied (missing: {{ (health.missing||[]).join(', ') }}) — opening any page fixes it.
+          <button class="btn btn-ghost btn-sm ml-auto" @click="loadHealth"><span v-html="ic('refresh',11)"></span>Re-check</button>
+        </div>
+
         <!-- persistent top bar: global client + API status -->
         <div class="flex items-center gap-3 flex-wrap pb-6">
           <span class="text-[11px] f-mono uppercase tracking-widest" style="color:var(--mut)">Client</span>
@@ -489,7 +495,24 @@ th.sortable:hover{color:var(--amber2)}
                       <div v-if="g==='PDF'" class="mb-3 flex items-center gap-2 flex-wrap">
                         <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1.5" style="background:rgba(47,125,79,.1);color:var(--green)"><span v-html="ic('fileText',12)"></span>Book & Paper modes always generate 40 questions (20 reading · 20 listening)</span>
                         <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--panel2);color:var(--mut)">Book mode: never easy questions</span>
+                        <input ref="pdfTestInput" type="file" accept=".pdf" class="hidden" @change="testParser">
+                        <button class="btn btn-ghost btn-sm" :disabled="pdfTest.busy" @click="$refs.pdfTestInput.click()"><span v-if="pdfTest.busy" class="spinner"></span><span v-html="ic('search',12)"></span>Test parser</button>
                       </div>
+                      <div v-if="g==='PDF' && pdfTest.result" class="mb-3 rounded-xl p-3 text-xs" style="background:var(--panel2)">
+                        <div class="f-mono flex items-center gap-2 flex-wrap" style="color:var(--green)">
+                          <span v-html="ic('checkCircle',13)"></span>
+                          <b>{{ pdfTest.result.parser_used }}</b> · {{ pdfTest.result.pages }} pages · {{ pdfTest.result.text_chars }} chars · {{ (pdfTest.result.time_ms/1000).toFixed(1) }}s
+                          <template v-if="pdfTest.result.excluded_pages && pdfTest.result.excluded_pages.length"> · excluded pages: {{ pdfTest.result.excluded_pages.join(',') }}</template>
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                          <div v-for="im in pdfTest.result.images" :key="im.id" class="text-center">
+                            <img :src="'data:image/jpeg;base64,'+im.b64" class="rounded" style="width:110px;background:#fff" :title="im.id">
+                            <div class="text-[10px] f-mono" style="color:var(--mut)">{{ im.id }} · Q{{ im.question!=null ? im.question : '?' }}</div>
+                          </div>
+                          <div v-if="!pdfTest.result.images || !pdfTest.result.images.length" class="text-[11px]" style="color:var(--mut)">No images extracted by this parser.</div>
+                        </div>
+                      </div>
+                      <div v-if="g==='PDF' && pdfTest.error" class="mb-3 text-xs flex items-center gap-1.5" style="color:var(--red)"><span v-html="ic('alertTriangle',12)"></span>{{ pdfTest.error }}</div>
                       <div v-if="g==='Images'" class="mb-3 flex items-center gap-2 flex-wrap">
                         <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--panel2);color:var(--mut)">API keys & balances live in the top-right API status menu</span>
                       </div>
@@ -749,6 +772,8 @@ th.sortable:hover{color:var(--amber2)}
               <button type="button" class="btn btn-ghost btn-sm px-2.5 py-1 text-[11px] shrink-0" @click="openJobPdf(drawerJob)">Open PDF</button>
             </div>
           </div>
+          <button class="btn btn-ghost btn-sm" @click="copyJobLog" title="Copy the full log"><span v-html="ic('copy',12)"></span>Copy log</button>
+          <button class="btn btn-ghost btn-sm" @click="downloadJobLog" title="Download the log as a file"><span v-html="ic('download',12)"></span>Log</button>
           <button class="btn btn-ghost btn-sm" @click="drawerJob=null"><span v-html="ic('x',13)"></span>Close</button>
         </div>
 
@@ -984,7 +1009,7 @@ th.sortable:hover{color:var(--amber2)}
 
 <script src="lib/vue.global.prod.js"></script>
 <script src="lib/anime.min.js"></script>
-<script src="lib/icons.js?v=25"></script>
-<script src="app.min.js?v=25"></script>
+<script src="lib/icons.js?v=26"></script>
+<script src="app.min.js?v=26"></script>
 </body>
 </html>

@@ -83,6 +83,9 @@ TTS_DEFAULTS = {
     "tts_rate": 44100,
     "tts_gap_ms": 400,
     "tts_speed": 1.0,    # speech speed (0.5-2.0); 1.0 = normal
+    "tts_natural_pacing": False,   # relaxed 0.92 speed + >=450ms gaps + extra pause after ?/!
+    "tts_polish": False,           # loudnorm + highpass + fades on the merged clip
+    "tts_atempo_models": "",       # comma list of model fragments where speed is forced via ffmpeg atempo
     "tts_workers": 4,
     "tts_voices": {},
     "tts_male_voice": "",    # PDF dialogue speaker V1 (male) - empty = auto per model
@@ -275,8 +278,10 @@ def duration(ffprobe: str, path: Path) -> float:
         return 0.0
 
 
-def merge_clips(ffmpeg: str, clips: list, dest: Path, gap_ms: int) -> bool:
-    """Merge clips into one audio with fixed gaps, precisely aligned (adelay + amix)."""
+def merge_clips(ffmpeg: str, clips: list, dest: Path, gap_ms: int, gaps: list = None) -> bool:
+    """Merge clips into one audio with fixed gaps (plus optional per-boundary extras),
+    precisely aligned (adelay + amix)."""
+    gaps = gaps or []
     if not clips:
         return False
     if len(clips) == 1:
@@ -291,7 +296,8 @@ def merge_clips(ffmpeg: str, clips: list, dest: Path, gap_ms: int) -> bool:
     durs = [duration(ffprobe, c) for c in clips]
     delays = [0]
     for i in range(1, len(clips)):
-        delays.append(delays[i - 1] + durs[i - 1] + gap_ms / 1000.0)
+        extra = (gaps[i - 1] if i - 1 < len(gaps) else 0) or 0
+        delays.append(delays[i - 1] + durs[i - 1] + (gap_ms + extra) / 1000.0)
     total = delays[-1] + durs[-1]
 
     inputs = []
@@ -308,6 +314,34 @@ def merge_clips(ffmpeg: str, clips: list, dest: Path, gap_ms: int) -> bool:
         capture_output=True,
     )
     return r.returncode == 0 and dest.exists()
+
+
+def _apply_atempo(ffmpeg: str, path: Path, speed: float) -> bool:
+    """Pitch-preserving speed change (ffmpeg atempo) - forces speed on models that
+    ignore the provider-side speed parameter (e.g. grok voice)."""
+    tmp = path.with_suffix(path.suffix + ".tmp.mp3")
+    r = subprocess.run(
+        [ffmpeg, "-y", "-i", str(path), "-filter:a", "atempo=%.3f" % speed, "-b:a", "128k", str(tmp)],
+        capture_output=True)
+    if r.returncode != 0 or not tmp.exists():
+        return False
+    tmp.replace(path)
+    return True
+
+
+def _polish_mp3(ffmpeg: str, path: Path) -> bool:
+    """Audio polish post-pass: loudness normalization + rumble high-pass + click-free fades."""
+    tmp = path.with_suffix(path.suffix + ".tmp.mp3")
+    r = subprocess.run(
+        [ffmpeg, "-y", "-i", str(path),
+         "-af", "loudnorm=I=-16:TP=-1.5:LRA=11,highpass=f=60,"
+                "afade=t=in:st=0:d=0.015,areverse,afade=t=in:st=0:d=0.015,areverse",
+         "-b:a", "128k", str(tmp)],
+        capture_output=True)
+    if r.returncode != 0 or not tmp.exists():
+        return False
+    tmp.replace(path)
+    return True
 
 
 def resolve_mock_paths(mock: int) -> tuple:
@@ -419,7 +453,7 @@ def main() -> None:
 
     done = 0
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        futs = {pool.submit(_gen, j, tts, args, cfg): j for j in jobs}
+        futs = {pool.submit(_gen, j, tts, args, cfg, ffmpeg): j for j in jobs}
         for fut in as_completed(futs):
             n, k, ok = fut.result()
             if ok:
@@ -427,6 +461,18 @@ def main() -> None:
             else:
                 print(f"  FAIL q{n} line{k}", flush=True)
     print(f"Synthesized {done}/{len(jobs)} clips")
+
+    # natural pacing preset: relaxed speed when untouched, bigger minimum gap,
+    # extra pause after ? / ! turns
+    natural = bool(cfg.get("tts_natural_pacing"))
+    if natural:
+        if float(cfg.get("tts_speed") or 1.0) == 1.0:
+            cfg["tts_speed"] = 0.92
+            print("[audio] natural pacing: speed -> 0.92 (explicit speed always wins)", flush=True)
+        if args.gap < 450:
+            args.gap = 450
+            print(f"[audio] natural pacing: gap -> 450ms", flush=True)
+    polish = bool(cfg.get("tts_polish"))
 
     by_num = {}
     for j in jobs:
@@ -440,8 +486,18 @@ def main() -> None:
         if len(clips) != len(group):
             fail_c += 1
             continue
+        extras = []
+        if natural:
+            for i, j in enumerate(group[:-1]):
+                t = str(j[3] or "").rstrip()
+                extras.append(120 if t.endswith(("?", "!")) else 0)
         dest = out_dir / f"q{num}_{rand8()}.mp3"
-        if merge_clips(ffmpeg, clips, dest, args.gap):
+        if merge_clips(ffmpeg, clips, dest, args.gap, extras):
+            if polish:
+                if _polish_mp3(ffmpeg, dest):
+                    print(f"  polish q{num} OK", flush=True)
+                else:
+                    print(f"  polish q{num} failed - keeping raw merge", flush=True)
             results[f"Q{num}"] = dest.name
             ok_c += 1
         else:
@@ -454,7 +510,7 @@ def main() -> None:
     print(f"Map written -> {map_file}")
 
 
-def _gen(job, tts, args, cfg):
+def _gen(job, tts, args, cfg, ffmpeg):
     n, k, voice, text, out = job
     if out.exists() and out.stat().st_size > 2000:
         return (n, k, True)
@@ -479,6 +535,15 @@ def _gen(job, tts, args, cfg):
         try:
             spd = float(cfg.get("tts_speed") or 1.0)
             if synth(tts, text, voice, out, model, fallback_model, fallback_voice, speed=spd):
+                # force speed via ffmpeg atempo for models that ignore the provider param
+                atempo_cfg = str(cfg.get("tts_atempo_models") or "").strip()
+                if spd != 1.0 and atempo_cfg:
+                    ml = model.lower()
+                    if any(frag.strip().lower() and frag.strip().lower() in ml for frag in atempo_cfg.split(",")):
+                        if _apply_atempo(ffmpeg, out, spd):
+                            print(f"    q{n}_{k:02d}: speed forced via atempo ({spd})", flush=True)
+                        else:
+                            print(f"    q{n}_{k:02d}: atempo failed - keeping provider speed", flush=True)
                 print(f"  ok q{n}_{k:02d} ({out.stat().st_size} bytes)", flush=True)
                 return (n, k, True)
         except SystemExit as se:

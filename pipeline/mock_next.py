@@ -114,10 +114,11 @@ DEFAULTS = {
     "img_max_size": 1024,
     "img_timeout_s": 240,
     "image_style_prompt": (
-        "Simple flat vector illustration in the standard Korean TOPIK test style, "
-        "minimal clean line art, plain solid white background, simple everyday scene, "
-        "centered single main subject, clear silhouette, no text, no letters, no numbers, "
-        "no watermark, no border"
+        "Simple flat vector illustration in the standard Korean EPS-TOPIK test style, "
+        "VIVID COLOURFUL palette (never black-and-white, never muted), minimal clean line art, "
+        "plain solid white background, simple everyday scene, centered single main subject, "
+        "clear silhouette, no gradients, no photorealism, "
+        "no text, no letters, no numbers, no watermark, no border"
     ),
     "image_verify_after": True,
     # audio / TTS — OpenRouter
@@ -135,6 +136,9 @@ DEFAULTS = {
     "tts_rate": 44100,
     "tts_gap_ms": 400,
     "tts_speed": 1.0,                    # speech speed (0.5-2.0); 1.0 = normal
+    "tts_natural_pacing": False,         # relaxed 0.92 speed + >=450ms gaps + pause after ?/!
+    "tts_polish": False,                 # loudnorm + highpass + fades on merged clips
+    "tts_atempo_models": "x-ai/grok-voice-tts-1.0",  # model fragments where speed is forced via ffmpeg atempo
     "tts_voices": {},                          # optional speaker->voice map override
 }
 

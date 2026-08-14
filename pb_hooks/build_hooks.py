@@ -85,6 +85,7 @@ SCHEMA = [
         f("llm_repair_model", "text", max=200),
         f("image_primary", "text", max=200),
         f("image_fallback", "text", max=200),
+        f("image_style_prompt", "text", max=2000),
         f("tts_model", "text", max=200),
         f("tts_fallback_model", "text", max=200),
         f("tts_fallback_voice", "text", max=200),
@@ -119,6 +120,9 @@ SCHEMA = [
         f("audio_gap_ms", "number", min=0, max=5000),
         f("sample_rate", "number", min=8000, max=48000),
         f("tts_speed", "number", min=0.5, max=2.0),
+        f("tts_natural_pacing", "bool"),
+        f("tts_polish", "bool"),
+        f("tts_atempo_models", "text", max=500),
         f("audio_workers", "number", min=1, max=16),
         f("prompts_json", "json", maxSize=2097152),
         f("active", "bool"),
@@ -146,7 +150,7 @@ SCHEMA = [
         f("client", "relation", required=True,
           collectionId=COLLECTION_IDS["mock_clients"], maxSelect=1, minSelect=0),
         f("status", "select", values=["queued", "running", "done", "failed"], maxSelect=1),
-        f("kind", "select", values=["full", "dry_questions", "dry_images", "dry_audio"], maxSelect=1),
+        f("kind", "select", values=["full", "dry_questions", "dry_images", "dry_audio", "pdf_test"], maxSelect=1),
         f("gen_type", "number", min=1, max=3),
         {"id": "f_pdf", "name": "pdf", "type": "file", "required": False,
          "presentable": False, "hidden": False, "primaryKey": False,
@@ -251,6 +255,10 @@ DEFAULT_CONFIG = {
     "audio_gap_ms": 300,
     "sample_rate": 44100,
     "tts_speed": 1.0,
+    "tts_natural_pacing": False,
+    "tts_polish": False,
+    "tts_atempo_models": "x-ai/grok-voice-tts-1.0",
+    "image_style_prompt": "Simple flat vector illustration in the standard Korean EPS-TOPIK test style, VIVID COLOURFUL palette (never black-and-white, never muted), minimal clean line art, plain solid white background, simple everyday scene, centered single main subject, clear silhouette, no gradients, no photorealism, no text, no letters, no numbers, no watermark, no border",
     "audio_workers": 4,
     "prompts_json": {},
     "active": True,
@@ -265,6 +273,7 @@ META_FIELDS = [
     ("dedup_enabled", "Check duplicates against previous mockups", "bool", "LLM", "Compares new questions against the last N mock exams in the end-user app and steers the author away from repeats"),
     ("dedup_sets", "Check last N mockups", "number", "LLM", "How many of the latest mock exams to check for duplicates (default 5)"),
     ("image_primary", "Image provider", "select", "Images", "fal-ai (Fal.ai) | z-image (Magnific) | black-forest-labs/flux.2-klein-4b (OpenRouter)", ["fal-ai/z-image/turbo", "z-image", "black-forest-labs/flux.2-klein-4b"]),
+    ("image_style_prompt", "Image style prompt", "text", "Images", "Style instruction wrapped around every generated image (flat colourful EPS-TOPIK vector style by default)."),
     ("image_fallback", "Fallback image model", "text", "Images", "Deprecated - providers fall back automatically, keep empty"),
     ("image_count", "Image questions target", "number", "Images", "How many questions carry a picture, spread randomly across reading AND listening. Applies to RANDOM generation only - Paper PDF mode follows the paper."),
     ("image_count_min", "Image questions min", "number", "Images", "Minimum (18)"),
@@ -292,6 +301,9 @@ META_FIELDS = [
     ("audio_gap_ms", "Gap between clips (ms)", "number", "Audio", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."),
     ("sample_rate", "Sample rate (Hz)", "number", "Audio", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."),
     ("tts_speed", "Speech speed", "number", "Audio", "1.0 = normal · 0.8 = slower · 1.2 = faster · range 0.5-2.0. Models that don't support speed ignore it."),
+    ("tts_natural_pacing", "Natural pacing", "bool", "Audio", "Relaxed human rhythm: speed 0.92 when speed is untouched, gaps >= 450ms, extra pause after ? and ! turns."),
+    ("tts_polish", "Audio polish", "bool", "Audio", "Post-pass on merged clips: loudness normalization + rumble filter + click-free fades."),
+    ("tts_atempo_models", "Force-speed models", "text", "Audio", "Comma list of model fragments where speed is forced via ffmpeg atempo (pitch-preserving), e.g. x-ai/grok-voice-tts-1.0."),
     ("active", "Config enabled", "bool", "General", "Use this config"),
 ]
 
@@ -343,7 +355,9 @@ function ensureCollections() {
     // fields.getByName() for detection and importCollections to apply changes.
     var cfgCol4 = $app.findCollectionByNameOrId("mock_config")
     var needFields = ["pdf_parser", "upscale_pdf_images", "tts_male_voice", "tts_female_voice",
-                      "tts_fallback_male_voice", "tts_fallback_female_voice", "tts_speed", "push_enabled"]
+                      "tts_fallback_male_voice", "tts_fallback_female_voice", "tts_speed",
+                      "tts_natural_pacing", "tts_polish", "tts_atempo_models",
+                      "image_style_prompt", "push_enabled"]
     var missingField = false
     for (var nfi = 0; nfi < needFields.length; nfi++) {
       var hasIt = false
@@ -360,7 +374,7 @@ function ensureCollections() {
     var pdfFieldOk = false
     try {
       var pf = cfgCol4.fields.getByName("pdf_parser")
-      var pfv = (pf && (pf.options || {}).values) || []
+      var pfv = (pf && ((pf.options && pf.options.values) || pf.values)) || []
       pdfFieldOk = pfv.indexOf("upstage") >= 0 && pfv.indexOf("mistral") >= 0
     } catch (errF) { pdfFieldOk = false }
     // always import when any field is missing OR the pdf_parser select values are stale
@@ -498,6 +512,10 @@ function ensureCollections() {
       ["tts_fallback_female_voice", "Fallback female listening voice", "text", "Audio", "Voice for the female speaker (V2) when the run falls back to the fallback TTS model. Leave empty to auto-pick per fallback model.", null],
       ["push_enabled", "Upload to teacher app", "bool", "Push", "On = exams are uploaded to the end-user app after generation | Off = generated locally only, nothing is uploaded", null],
       ["tts_speed", "Speech speed", "number", "Audio", "1.0 = normal · 0.8 = slower · 1.2 = faster · range 0.5-2.0. Models that don't support speed ignore it.", null],
+      ["tts_natural_pacing", "Natural pacing", "bool", "Audio", "Relaxed human rhythm: speed 0.92 when speed is untouched, gaps >= 450ms, extra pause after ? and ! turns.", null],
+      ["tts_polish", "Audio polish", "bool", "Audio", "Post-pass on merged clips: loudness normalization + rumble filter + click-free fades.", null],
+      ["tts_atempo_models", "Force-speed models", "text", "Audio", "Comma list of model fragments where speed is forced via ffmpeg atempo (pitch-preserving), e.g. x-ai/grok-voice-tts-1.0.", null],
+      ["image_style_prompt", "Image style prompt", "text", "Images", "Style instruction wrapped around every generated image (flat colourful EPS-TOPIK vector style by default).", null],
       ["image_count", "Image questions target", "number", "Images", "How many questions carry a picture, spread randomly across reading AND listening. Applies to RANDOM generation only - Paper PDF mode follows the paper.", null]
     ]
     var mColM = $app.findCollectionByNameOrId("mock_config_meta")
@@ -577,6 +595,43 @@ HANDLERS = []
 def route(name, method, path, middleware, body):
     HANDLERS.append((name, method, path, middleware, body))
 
+
+# GET /api/creator/health - public - reports whether schema migrations have applied
+# (deploy-time early warning: a stale DB shows missing fields here, and opening any
+# creator page runs ensureCollections which self-heals)
+route(
+    "health", "GET", "/api/creator/health", None,
+    """
+try {
+  ensureCollections()
+  var version = "26"
+  var checkField = function (col, name) {
+    try {
+      var c = $app.findCollectionByNameOrId(col)
+      return !!c.fields.getByName(name)
+    } catch (err) { return false }
+  }
+  var cfgNeed = ["pdf_parser", "upscale_pdf_images", "tts_male_voice", "tts_female_voice",
+                 "tts_fallback_male_voice", "tts_fallback_female_voice", "tts_speed",
+                 "tts_natural_pacing", "tts_polish", "tts_atempo_models",
+                 "image_style_prompt", "push_enabled"]
+  var jobsNeed = ["gen_type", "pdf"]
+  var missing = []
+  for (var i = 0; i < cfgNeed.length; i++) { if (!checkField("mock_config", cfgNeed[i])) missing.push("mock_config." + cfgNeed[i]) }
+  for (var j = 0; j < jobsNeed.length; j++) { if (!checkField("mock_jobs", jobsNeed[j])) missing.push("mock_jobs." + jobsNeed[j]) }
+  var pdfOk = false
+  try {
+    var pf = $app.findCollectionByNameOrId("mock_config").fields.getByName("pdf_parser")
+    var pv = (pf && ((pf.options && pf.options.values) || pf.values)) || []
+    pdfOk = pv.indexOf("upstage") >= 0 && pv.indexOf("mistral") >= 0
+  } catch (errF) {}
+  if (!pdfOk) missing.push("mock_config.pdf_parser (values)")
+  return e.json(200, { ok: missing.length === 0, version: version, migrations_ok: missing.length === 0, missing: missing })
+} catch (err) {
+  return e.json(500, { error: String(err) })
+}
+""",
+)
 
 # GET /api/creator/ping - no auth, no schema - diagnostic: are hooks even loading?
 route(
@@ -878,9 +933,14 @@ try {
   difficulty = dm
   var kind = (q.get("kind") || "full").trim()
   if (kind === "dry") kind = "dry_questions"
-  if (["full","dry_questions","dry_images","dry_audio"].indexOf(kind) === -1) kind = "full"
+  if (["full","dry_questions","dry_images","dry_audio","pdf_test"].indexOf(kind) === -1) kind = "full"
   var focus = (q.get("focus") || "").trim()
   if (focus.length > 500) focus = focus.substring(0, 500)
+  var parserQ = (q.get("parser") || "").trim()
+  if (["auto", "local", "upstage", "mistral"].indexOf(parserQ) === -1) parserQ = ""
+  var ov = {}
+  if (focus) ov.focus = focus
+  if (parserQ) ov.pdf_parser = parserQ
   var gen = 1
   try { gen = parseInt(q.get("gen_type") || "1", 10) } catch (err) {}
   if (isNaN(gen) || gen < 1 || gen > 3) gen = 1
@@ -902,7 +962,7 @@ try {
   job.set("gen_type", gen)
   job.set("count", count)
   job.set("difficulty", difficulty)
-  job.set("overrides", focus ? { "focus": focus } : {})
+  job.set("overrides", ov)
   if (pdfFiles.length > 0) { try { job.set("pdf", pdfFiles[0]) } catch (err) {} }
   $app.save(job)
   return e.json(200, {
@@ -914,6 +974,7 @@ try {
     count: count,
     difficulty: difficulty,
     focus: focus,
+    parser: parserQ,
     pdf: pdfName
   })
 } catch (err) {
