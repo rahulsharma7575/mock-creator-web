@@ -1347,6 +1347,24 @@ def normalize_correct_answer(ca):
     return []
 
 
+def _enable_target_batch(headers):
+    """Best-effort: enable the Batch API on the target PocketBase (superuser).
+    PocketBase ships with batch DISABLED by default; a 403 on /api/batch means
+    it was never switched on. We PATCH /api/settings once and retry."""
+    try:
+        r = httpx.patch(CFG["pb_base"] + "/api/settings", headers=headers,
+                        json={"batch": {"enabled": True, "maxRequests": 200}}, timeout=30)
+        if r.status_code in (200, 201):
+            print("[push] batch API was disabled on the target — enabled it automatically")
+            return True
+        print(f"[push] could not enable batch API automatically (HTTP {r.status_code}) — "
+              f"enable it in the target admin (Settings > Batch API)")
+        return False
+    except Exception as e:
+        print(f"[push] batch API enable attempt failed: {str(e)[:120]}")
+        return False
+
+
 def create_records(qs, headers):
     """Batch-create questions missing a pbId (resume-safe). Returns newly created ids.
 
@@ -1382,6 +1400,9 @@ def create_records(qs, headers):
     if not ops:
         return []
     r = httpx.post(CFG["pb_base"] + "/api/batch", headers=headers, json={"requests": ops}, timeout=120)
+    if r.status_code == 403 and "atch" in r.text and _enable_target_batch(headers):
+        time.sleep(0.5)
+        r = httpx.post(CFG["pb_base"] + "/api/batch", headers=headers, json={"requests": ops}, timeout=120)
     if r.status_code != 200:
         raise RuntimeError(f"batch create failed HTTP {r.status_code}: {r.text[:400]}")
     per = r.json()  # top-level list of {"status": 200, "body": {record}}
@@ -2326,6 +2347,47 @@ def _paper_picture_block(pdf_doc, key, paper_pics, paper_captions):
     return "\n".join(lines) if lines else "(no paper picture questions detected)"
 
 
+def preflight_checks():
+    """Non-fatal pre-flight diagnostics printed once at run start.
+
+    Catches the common env/config mistakes BEFORE they burn attempts on a
+    full run (missing keys, wrong TTS sample rate, wrong image provider, etc).
+    Warnings only — the critical key presence is already enforced by api_key()."""
+    print("— preflight —")
+    gen_type = int(CFG.get("gen_type") or 1)
+
+    if not gemini_api_key():
+        print("  [WARN] GEMINI_API_KEY missing — Gemini author will fall back to OpenRouter")
+
+    img_primary = str(CFG.get("img_model") or "z-image")
+    if img_primary == "z-image":
+        print("  [WARN] image provider z-image (Magnific) — no local key check; ensure credits exist")
+    elif str(img_primary).startswith("fal-ai/"):
+        if os.environ.get("FAL_KEY"):
+            print("  [OK] FAL_KEY present")
+        else:
+            print("  [WARN] FAL_KEY not set — fal image generation will fail and fall back")
+    if bool(CFG.get("upscale_pdf_images", True)) and not os.environ.get("FAL_KEY"):
+        print("  [WARN] upscale_pdf_images is ON but FAL_KEY is unset — paper images fall back to raw")
+
+    tts_model = str(CFG.get("tts_model") or "")
+    want = None
+    if "mai-voice" in tts_model or "gemini" in tts_model:
+        want = 24000
+    elif "fish" in tts_model or "grok" in tts_model:
+        want = 44100
+    if want and int(CFG.get("sample_rate") or 0) != want:
+        print(f"  [WARN] tts_model {tts_model} expects {want} Hz sample rate but config has "
+              f"{CFG.get('sample_rate')} — audio will play too fast/slow")
+
+    if gen_type == 3:
+        parser = str(CFG.get("pdf_parser") or "auto")
+        if parser == "upstage" and not os.environ.get("UPSTAGE_API_KEY"):
+            print("  [WARN] pdf_parser=upstage but UPSTAGE_API_KEY unset — falls back to local/mistral")
+
+    print("— preflight done —")
+
+
 def main():
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -2345,6 +2407,7 @@ def main():
     img_primary = args.img_model or CFG.get("img_model") or "z-image"
 
     key = api_key()
+    preflight_checks()
     mock = args.mock or next_mock_number()
     dm = str(CFG.get("dry_mode") or "questions")
     if args.dry_run:
