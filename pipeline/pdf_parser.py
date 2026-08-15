@@ -492,6 +492,24 @@ def parse_pdf(path, gen_type=3, parser="auto", upstage_key="", or_key="", max_pa
     local_pages, local_images = [], []
     local_error = ""
 
+    def _merge_local_images(online_images, parser_name, progress):
+        """Paper mode: if an online parser produced 0 images, reuse the NATIVE
+        images extracted by PyMuPDF (the reliable source — online OCR tiers
+        often return figures as text/tables or miss them entirely)."""
+        if online_images or not want_images:
+            return online_images
+        if local_images:
+            imgs = list(local_images)
+        else:
+            try:
+                _, imgs = _pymupdf_parse(path, max_pages, True, None)
+            except Exception:
+                imgs = []
+        if imgs and progress:
+            progress("%s text OK but 0 images — reused %d native images from PyMuPDF"
+                     % (parser_name, len(imgs)))
+        return imgs
+
     def try_local():
         nonlocal local_pages, local_images, local_error
         try:
@@ -517,7 +535,8 @@ def parse_pdf(path, gen_type=3, parser="auto", upstage_key="", or_key="", max_pa
         try:
             up_pages, up_images = _upstage_parse(path, filename, max_pages, upstage_key, progress)
             if up_pages and _doc_usable(up_pages):
-                return _finalize(up_pages, up_images, gen_type, "upstage", progress)
+                return _finalize(up_pages, _merge_local_images(up_images, "Upstage", progress),
+                                 gen_type, "upstage", progress)
             if progress:
                 progress("Upstage output failed the quality gate, trying the next parser")
         except PdfParseError as e:
@@ -533,7 +552,8 @@ def parse_pdf(path, gen_type=3, parser="auto", upstage_key="", or_key="", max_pa
         try:
             mi_pages, mi_images = _vision_ocr(path, max_pages, or_key, local_pages, progress)
             if mi_pages and _doc_usable(mi_pages):
-                return _finalize(mi_pages, mi_images, gen_type, "mistral", progress)
+                return _finalize(mi_pages, _merge_local_images(mi_images, "Mistral", progress),
+                                 gen_type, "mistral", progress)
             if progress:
                 progress("Mistral (vision OCR) output failed the quality gate")
         except PdfParseError as e:

@@ -219,12 +219,28 @@ def load_config(path=None):
 
 
 def render_prompt(template):
-    """Fill {placeholders} in a prompt template from the active config."""
+    """Fill {placeholders} in a prompt template from the active config.
+
+    The hard 'MUST' counts (picture listening / blank listening / images) are
+    clamped to what THIS exam can actually contain. Dry runs use 3-question
+    samples (e.g. dry images = 3 reading, 0 listening), so an unclamped
+    "exactly 5 picture LISTENING questions" makes the model invent listening
+    sections that fail validation and burn all retries."""
     out = template
     r = int(CFG.get("reading_count", 20))
     q = int(CFG.get("question_count", 40))
-    ls = int(CFG.get("reading_count", 20)) + 1
-    if r <= 0:
+    listen_count = max(0, q - r)
+    ls = r + 1
+    pic = int(CFG.get("listening_picture_count") or 0)
+    if pic > listen_count:
+        pic = listen_count
+    blank = int(CFG.get("listening_blank_count") or 0)
+    if blank > listen_count:
+        blank = listen_count
+    if listen_count <= 0:
+        section_order = (f'ALL questions are section "reading" (Q1-{q}) — '
+                         f'there are NO listening questions in this exam, so NO picture/blank listening questions either')
+    elif r <= 0:
         section_order = f'ALL questions are section "listening" (Q1-{q}) - no reading section'
     else:
         section_order = f'Q1-{r} section "reading", Q{ls}-{q} section "listening"'
@@ -234,7 +250,9 @@ def render_prompt(template):
            "focus_note": ("The teacher needs to test this specific area — give questions that match: " +
                           str(CFG.get("focus"))).strip() if str(CFG.get("focus") or "").strip() else "",
            "listening_start": ls,
-           "section_order": section_order}
+           "section_order": section_order,
+           "listening_picture_count": pic,
+           "listening_blank_count": blank}
     for k, v in ctx.items():
         if isinstance(v, (str, int, float)):
             out = out.replace("{" + k + "}", str(v))
