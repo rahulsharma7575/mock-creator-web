@@ -308,7 +308,7 @@ createApp({
     },
     cardState(g){const list=this.groupIssues[g]||[];if(list.some(i=>i.w==='err'))return'err';if(list.some(i=>i.w==='warn'))return'warn';if(this.verified[g])return'ok';return'idle';},
     groupIssueList(g){return this.groupIssues[g]||[];},
-    hiddenField(f){return['image_count_min','image_count_max','is_active','shuffle_questions','shuffle_options','negative_marks','push_subject_id','push_exam_type','image_fallback','tts_voices','question_count','reading_count','marks_per_question','difficulty_profile','tts_fallback_voice','audio_workers'].includes(f.field);},
+    hiddenField(f){return['image_count_min','image_count_max','is_active','shuffle_questions','shuffle_options','negative_marks','push_subject_id','push_exam_type','image_fallback','tts_voices','question_count','reading_count','marks_per_question','difficulty_profile','tts_fallback_voice','audio_workers','author_provider'].includes(f.field);},
     toggleGroup(g){this.openGroup=this.openGroup===g?'':g;this.$nextTick(()=>this.deckEnter());},
     viewEnter(){
       if(!window.anime)return;
