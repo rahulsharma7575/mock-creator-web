@@ -352,7 +352,7 @@ createApp({
     async loadUpstageStatus(){try{const r=await api('/api/creator/upstage-status');this.upstageStatus=r;}catch(e){this.upstageStatus=null;}},
     async testPush(){try{const r=await api('/api/creator/push-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base:this.cfgData?this.cfgData.push_pb_base:'',email:this.cfgData?this.cfgData.push_pb_email:'',pass:this.cfgData?this.cfgData.push_pb_pass:''})});this.pushStatus=r;}catch(e){this.pushStatus={connected:false,message:'verify call failed: '+e.message};}},
     pushSummary(){const p=this.pushStatus;if(!p)return '';let s='Connected to '+String(p.url||'').replace('https://','').replace('http://','')+' with '+p.total_exams+' mockups';if(p.published!==undefined)s+=' ('+p.published+' published, '+p.draft+' draft)';return s;},
-    geminiModels(){return['gemini-3.6-flash','gemini-3.5-flash','gemini-3.5-flash-lite','gemini-2.5-pro'];},
+    geminiModels(){return['google/gemini-3.6-flash','google/gemini-3.5-flash','google/gemini-3.5-flash-lite','google/gemini-2.5-pro'];},
     dryKindLabel(k){return k==='dry_questions'?'Questions':k==='dry_images'?'Images':k==='dry_audio'?'Audio':(k||'—');},
     dryCost(d){const r=(d&&d.report)||{};const c=r.total_llm_cost_usd!=null?r.total_llm_cost_usd:r.llm_cost;return c?`$${Number(c).toFixed(3)}`:'—';},
     dryFalCost(d){const r=(d&&d.report)||{};const c=r.fal_cost||0;const im=String(r.img_model||'');return c&&im.startsWith('fal-ai/')?`$${Number(c).toFixed(4)}`:'—';},

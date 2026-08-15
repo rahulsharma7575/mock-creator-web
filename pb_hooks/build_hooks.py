@@ -223,7 +223,7 @@ DEFAULT_CONFIG = {
     "name": "default",
     "llm_author_model": "google/gemini-2.5-flash",
     "author_provider": "gemini",
-    "gemini_model": "gemini-3.5-flash",
+    "gemini_model": "google/gemini-3.5-flash",
     "dedup_enabled": True,
     "dedup_sets": 5,
     "llm_proofread_model": "qwen/qwen3.5-flash-02-23",
@@ -277,7 +277,7 @@ DEFAULT_CONFIG = {
 }
 
 META_FIELDS = [
-    ("gemini_model", "Gemini author model", "text", "LLM", "Primary author model - direct Google Gemini API (needs GEMINI_API_KEY in the container): gemini-3.6-flash, gemini-3.5-flash, gemini-3.5-flash-lite, gemini-2.5-pro"),
+    ("gemini_model", "Gemini author model", "text", "LLM", "Primary author model - direct Google Gemini API (needs GEMINI_API_KEY in the container). OpenRouter-style names (the google/ prefix is stripped automatically): google/gemini-3.6-flash, google/gemini-3.5-flash, google/gemini-3.5-flash-lite, google/gemini-2.5-pro"),
     ("author_provider", "Author provider", "select", "LLM", "gemini = Gemini API first (primary) with OpenRouter auto-fallback | openrouter = skip Gemini", ["gemini", "openrouter"]),
     ("llm_author_model", "OpenRouter fallback author", "text", "LLM", "OpenRouter model used ONLY when the Gemini author fails or quota is exceeded"),
     ("llm_proofread_model", "Proofread LLM", "text", "LLM", "OpenRouter model for proofreading (always via OpenRouter)"),
@@ -512,7 +512,7 @@ function ensureCollections() {
     var mGem = $app.findFirstRecordByData("mock_config_meta", "field", "gemini_model")
     mGem.set("label", "Gemini author model")
     mGem.set("ftype", "text")
-    mGem.set("help", "Primary author model - direct Google Gemini API (needs GEMINI_API_KEY in the container): gemini-3.6-flash, gemini-3.5-flash, gemini-3.5-flash-lite, gemini-2.5-pro")
+    mGem.set("help", "Primary author model - direct Google Gemini API (needs GEMINI_API_KEY in the container). OpenRouter-style names (the google/ prefix is stripped automatically): google/gemini-3.6-flash, google/gemini-3.5-flash, google/gemini-3.5-flash-lite, google/gemini-2.5-pro")
     mGem.set("group", "LLM")
     $app.save(mGem)
   } catch (errQ) {}

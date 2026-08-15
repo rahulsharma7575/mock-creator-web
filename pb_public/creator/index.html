@@ -584,7 +584,7 @@ th.sortable:hover{color:var(--amber2)}
                               <span class="tip" v-if="f.field==='push_pb_pass'">?<span class="ttip">Admin password of the teacher app PocketBase. Leave empty + toggle Upload off to generate exams locally.</span></span>
                             </label>
                             <template v-if="f.field==='gemini_model'">
-                              <input v-model.trim="cfgData[f.field]" class="input f-mono" list="geminiModelList" placeholder="gemini-3.5-flash">
+                              <input v-model.trim="cfgData[f.field]" class="input f-mono" list="geminiModelList" placeholder="google/gemini-3.5-flash">
                               <datalist id="geminiModelList"><option v-for="o in geminiModels()" :key="o" :value="o">{{ o }}</option></datalist>
                             </template>
                             <template v-else-if="f.field==='tts_model'||f.field==='tts_fallback_model'">
@@ -1123,7 +1123,7 @@ th.sortable:hover{color:var(--amber2)}
 
 <script src="lib/vue.global.prod.js"></script>
 <script src="lib/anime.min.js"></script>
-<script src="lib/icons.js?v=31"></script>
-<script src="app.min.js?v=31"></script>
+<script src="lib/icons.js?v=32"></script>
+<script src="app.min.js?v=32"></script>
 </body>
 </html>

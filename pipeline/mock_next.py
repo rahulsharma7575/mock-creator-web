@@ -87,7 +87,7 @@ DEFAULTS = {
     "fal_size": 512,                         # Fal.ai square image size (1:1)
     # question creator (author) — dual provider: Gemini primary, OpenRouter fallback
     "author_provider": "gemini",             # gemini | openrouter (gemini tried first, auto-fallback on quota/error)
-    "gemini_model": "gemini-3.5-flash",      # Gemini author model (gemini-3.6-flash / gemini-3.5-flash / gemini-3.5-flash-lite / gemini-2.5-pro)
+    "gemini_model": "google/gemini-3.5-flash",  # Gemini author model — OpenRouter-style (google/ prefix auto-stripped)
     "gemini_api": "https://generativelanguage.googleapis.com/v1beta",
     "author_model": "google/gemini-2.5-flash",   # OpenRouter author (fallback when Gemini fails/quota exceeded)
     "author_retries": 3,
@@ -338,11 +338,15 @@ def gemini_status():
 
 def gemini_author(system, user, model):
     """Author via the DIRECT Google Gemini API. Raises GeminiQuotaError on quota,
-    GeminiAuthError on bad key, GeminiModelError on bad model."""
+    GeminiAuthError on bad key, GeminiModelError on bad model.
+
+    Accepts OpenRouter-style names (google/gemini-3.5-flash) — the 'google/'
+    prefix is stripped before the API call, which expects bare ids."""
     key = gemini_api_key()
     if not key:
         raise GeminiAuthError("GEMINI_API_KEY is not set")
     api = CFG.get("gemini_api", "https://generativelanguage.googleapis.com/v1beta")
+    api_model = str(model).strip().split("/")[-1]
     body = {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user}]}],
@@ -352,12 +356,12 @@ def gemini_author(system, user, model):
             "responseMimeType": "application/json",
         },
     }
-    r = httpx.post(f"{api}/models/{model}:generateContent", params={"key": key},
+    r = httpx.post(f"{api}/models/{api_model}:generateContent", params={"key": key},
                    json=body, timeout=int(CFG.get("llm_timeout_s", 600)))
     if r.status_code == 429 or "RESOURCE_EXHAUSTED" in r.text:
         raise GeminiQuotaError("Gemini quota exceeded (429)")
     if r.status_code == 404:
-        raise GeminiModelError(f"Gemini model '{model}' not found")
+        raise GeminiModelError(f"Gemini model '{model}' not found (API id '{api_model}')")
     if r.status_code in (400, 401, 403):
         raise GeminiAuthError(f"Gemini key rejected (HTTP {r.status_code}): {r.text[:200]}")
     if r.status_code != 200:
@@ -834,12 +838,22 @@ def apply_blank_questions(qs):
 
 
 def normalize_exam(qs):
-    """Coerce LLM quirks into the canonical schema (int answers, 보기 tags, script placement)."""
+    """Coerce LLM quirks into the canonical schema (int answers, 보기 tags, script placement).
+
+    Defensive: LLMs sometimes return a JSON *object* keyed by question number
+    (iterating it yields string keys) or mix strings into the array — skip
+    anything that is not a dict instead of crashing."""
     circle = {"①": "0", "②": "1", "③": "2", "④": "3",
               "1.": "0", "2.": "1", "3.": "2", "4.": "3",
               "a": "0", "b": "1", "c": "2", "d": "3",
               "A": "0", "B": "1", "C": "2", "D": "3"}
+    dropped = 0
+    clean = []
     for q in qs:
+        if not isinstance(q, dict):
+            dropped += 1
+            continue
+        clean.append(q)
         ca = q.get("correct_answer")
         def norm_one(c):
             s = str(c).strip()
@@ -861,7 +875,9 @@ def normalize_exam(qs):
             if isinstance(lis.get("audioScript"), str):
                 lis["audioScript"] = [{"voice": "V1", "text": t.strip()}
                                       for t in lis["audioScript"].splitlines() if t.strip()]
-    return qs
+    if dropped:
+        print(f"[exam] dropped {dropped} non-question entries from the LLM output")
+    return clean
 
 
 REPAIR_SYSTEM = "You are a Korean EPS-TOPIK exam writer. Output ONLY valid JSON."
@@ -1079,6 +1095,11 @@ def llm_author(key, attempt, model_cfg, extra_user="", user_builder=None):
             if isinstance(qs.get(k), list):
                 qs = qs[k]
                 break
+        else:
+            # e.g. {"1": {...}, "2": {...}} — take the values when all are dicts
+            vals = [v for v in qs.values() if isinstance(v, dict)]
+            if vals and len(vals) == len(qs):
+                qs = vals
     if isinstance(qs, list):
         qs = [q for q in qs if isinstance(q, dict)]
     return sanitize_exam(qs), usage
@@ -2304,8 +2325,10 @@ def main():
         else:
             user_prompt = render_prompt(AUTHOR_USER)
 
-        # picture-question target (paper: paper's own + top-up to the configured count)
-        listen_available = int(CFG.get("listening_count") or 0) or (int(CFG.get("question_count") or 40) - int(CFG.get("reading_count") or 20))
+        # picture-question target (paper: paper's own + top-up to the configured count).
+        # listen_available is the REAL listening-question count of THIS exam —
+        # dry runs (3 questions) must never demand more pictures than exist.
+        listen_available = max(0, int(CFG.get("question_count") or 40) - int(CFG.get("reading_count") or 20))
         pic_target = int(CFG.get("listening_picture_count") or 0)
         target = max(pic_target, len(paper_pics)) if paper_pics else pic_target
         if target > listen_available:
@@ -2368,13 +2391,17 @@ def main():
                     if not gerrs:
                         got_pic = sum(1 for x in gqs if isinstance(x, dict) and x.get("picture_options"))
                         if got_pic != target:
-                            stats["pic_rejects"] = stats.get("pic_rejects", 0) + 1
-                            print(f"[picture] gemini produced {got_pic} picture questions, need exactly {target} — retrying")
-                            last_err = ("you created %d listening PICTURE questions but EXACTLY %d are required. "
-                                        "Each picture question needs: \"picture_options\": true, options [\"1\",\"2\",\"3\",\"4\"], "
-                                        "correct_answer = the photo index matching your audio, requiresImage false, "
-                                        "and \"option_images\": [4 descriptions or exact paper photo ids]" % (got_pic, target))
-                            continue
+                            if args.dry_run:
+                                print(f"[picture] dry run: gemini produced {got_pic} picture questions "
+                                      f"(full runs require exactly {target}) — continuing")
+                            else:
+                                stats["pic_rejects"] = stats.get("pic_rejects", 0) + 1
+                                print(f"[picture] gemini produced {got_pic} picture questions, need exactly {target} — retrying")
+                                last_err = ("you created %d listening PICTURE questions but EXACTLY %d are required. "
+                                            "Each picture question needs: \"picture_options\": true, options [\"1\",\"2\",\"3\",\"4\"], "
+                                            "correct_answer = the photo index matching your audio, requiresImage false, "
+                                            "and \"option_images\": [4 descriptions or exact paper photo ids]" % (got_pic, target))
+                                continue
                         qs = gqs
                         author_via = "gemini"
                         stats["author_attempt"] = attempt + 1
@@ -2435,13 +2462,17 @@ def main():
                 if not errs:
                     got_pic = sum(1 for x in qs if isinstance(x, dict) and x.get("picture_options"))
                     if got_pic != target:
-                        stats["pic_rejects"] = stats.get("pic_rejects", 0) + 1
-                        print(f"[picture] author produced {got_pic} picture questions, need exactly {target} — retrying")
-                        last_err = ("you created %d listening PICTURE questions but EXACTLY %d are required. "
-                                    "Each picture question needs: \"picture_options\": true, options [\"1\",\"2\",\"3\",\"4\"], "
-                                    "correct_answer = the photo index matching your audio, requiresImage false, "
-                                    "and \"option_images\": [4 descriptions or exact paper photo ids]" % (got_pic, target))
-                        continue
+                        if args.dry_run:
+                            print(f"[picture] dry run: author produced {got_pic} picture questions "
+                                  f"(full runs require exactly {target}) — continuing")
+                        else:
+                            stats["pic_rejects"] = stats.get("pic_rejects", 0) + 1
+                            print(f"[picture] author produced {got_pic} picture questions, need exactly {target} — retrying")
+                            last_err = ("you created %d listening PICTURE questions but EXACTLY %d are required. "
+                                        "Each picture question needs: \"picture_options\": true, options [\"1\",\"2\",\"3\",\"4\"], "
+                                        "correct_answer = the photo index matching your audio, requiresImage false, "
+                                        "and \"option_images\": [4 descriptions or exact paper photo ids]" % (got_pic, target))
+                            continue
                     stats["author_attempt"] = attempt + 1
                     stats["author_cost"] = usage.get("cost", 0.0)
                     author_via = "openrouter"
@@ -2454,7 +2485,7 @@ def main():
             errs = validate_exam(qs, stage="author") if qs else ["no questions returned"]
             sys.exit("FAILED: could not author a valid exam after attempts — " + "; ".join(errs[:12]))
         got_pic = sum(1 for x in qs if isinstance(x, dict) and x.get("picture_options"))
-        if got_pic != target:
+        if got_pic != target and not args.dry_run:
             sys.exit(f"FAILED: could not author a valid exam after attempts — author produced "
                      f"{got_pic} picture questions but exactly {target} are required "
                      f"(listening_picture_count)")
