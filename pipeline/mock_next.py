@@ -895,6 +895,60 @@ def apply_blank_questions(qs):
     return qs, existing + done
 
 
+# Speaker cast patterns. V1 = the configured male voice, V2 = female voice.
+# Each listening question gets ONE random cast regardless of what the author
+# LLM wrote (authors default to male-only; this enforces the variety). The
+# _gen() speed logic in the audio builder keys off V1/V2, so configured
+# per-voice speeds are respected automatically for every cast.
+SPEAKER_CASTS = ("M", "F", "MF", "FM")
+
+
+def randomize_listening_speakers(qs):
+    """Assign a random speaker cast to every listening question's audioScript.
+
+    Casts (uniform):
+      M  — male speaker alone         (all turns V1, speakers 1)
+      F  — female speaker alone       (all turns V2, speakers 1)
+      MF — two speakers, male first   (V1,V2 alternating, speakers 2)
+      FM — two speakers, female first (V2,V1 alternating, speakers 2)
+
+    The script TEXT is untouched — only the voice tags + speakers field are
+    rewritten, so any dialogue reads from either speaker. Applies to ALL
+    generators (random / book PDF / printed paper PDF)."""
+    casts = list(SPEAKER_CASTS)
+    random.shuffle(casts)
+    changed = 0
+    for q in qs:
+        if not isinstance(q, dict) or str(q.get("section", "")).strip().lower() != "listening":
+            continue
+        lis = q.get("listening")
+        if not isinstance(lis, dict):
+            continue
+        script = lis.get("audioScript")
+        if not isinstance(script, list):
+            continue
+        turns = [t for t in script if isinstance(t, dict) and str(t.get("text", "")).strip()]
+        if not turns:
+            continue
+        cast = random.choice(casts)
+        if cast in ("M", "F"):
+            voice = "V1" if cast == "M" else "V2"
+            for t in turns:
+                t["voice"] = voice
+            lis["speakers"] = 1
+        else:
+            first = "V1" if cast == "MF" else "V2"
+            second = "V2" if cast == "MF" else "V1"
+            for i, t in enumerate(turns):
+                t["voice"] = first if i % 2 == 0 else second
+            lis["speakers"] = 2
+        changed += 1
+    if changed:
+        print(f"[audio] {changed} listening scripts cast to random speakers "
+              f"(male / female / MF / FM)")
+    return changed
+
+
 def normalize_exam(qs):
     """Coerce LLM quirks into the canonical schema (int answers, 보기 tags, script placement).
 
@@ -2657,6 +2711,8 @@ def main():
         gfix = repair_picture_prompts(key, qs, paper_pics)
         if gfix:
             print(f"[repair] {gfix} picture questions restored after proofread")
+        # enforce random speaker cast on every listening script (male / female / MF / FM)
+        randomize_listening_speakers(qs)
         qs.sort(key=lambda q: q["number"])
         errs = validate_exam(qs)
         if errs:
