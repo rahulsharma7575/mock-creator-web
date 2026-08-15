@@ -2791,8 +2791,8 @@ def main():
             pi = str(q.get("pdfImage") or "")
             if pi and pi in img_by_id:
                 pdf_images_map[q["number"]] = {"png": img_by_id[pi]["png"]}
-        for qnum, ids in paper_img_map.items():
-            pp = {"ids": ids, "pngs": {i: img_by_id[i]["png"] for i in ids if i in img_by_id}}
+        for qnum, ph_ids in paper_img_map.items():
+            pp = {"ids": ph_ids, "pngs": {i: img_by_id[i]["png"] for i in ph_ids if i in img_by_id}}
             if len(pp["pngs"]) == 4:
                 paper_photos_map[qnum] = pp
         if pdf_images_map:
