@@ -49,7 +49,7 @@ ANSWER_KEY_WORDS = ["정답", "답안", "답지", "모범답안", "해답", "정
 INSTRUCTION_WORDS = ["시험 안내", "유의사항", "응시", "지시문", "예시", "sample", "instruction", "시험지 유형", "지원자", "주의사항"]
 COPYRIGHT_WORDS = ["저작권", "copyright", "판권"]
 
-MAX_IMAGES = 20
+MAX_IMAGES = 40
 MIN_IMG_PX = 48
 FULL_PAGE_RATIO = 0.65
 BOOK_SLICE_PAGES = 60
