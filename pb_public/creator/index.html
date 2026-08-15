@@ -44,6 +44,25 @@ body::after{
 ::-webkit-scrollbar-track{background:transparent}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
 .panel2{background:var(--panel2);border:1px solid var(--line);border-radius:12px}
+.pdf-drop{border:2px dashed var(--line);border-radius:16px;padding:34px 20px;text-align:center;cursor:pointer;transition:all .2s}
+.pdf-drop:hover,.pdf-drop.drag{border-color:var(--amber);background:var(--soft)}
+.pdf-drop-ico{color:var(--amber2);opacity:.85}
+.pdf-drop-t{font-weight:700;margin-top:10px}
+.pdf-drop-s{font-size:11.5px;color:var(--mut);margin-top:6px;line-height:1.5}
+.pdf-chip{display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+.pdf-thumb{border:1px solid var(--line);border-radius:12px;padding:7px;background:var(--panel)}
+.audio-wrap{display:flex;flex-direction:column;gap:1.1rem}
+.audio-dual{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem}
+@media(min-width:768px){.audio-dual{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.audio-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 16px 18px;box-shadow:var(--shadow)}
+.audio-card-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--amber2);border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+.audio-card-b{display:flex;flex-direction:column;gap:16px}
+.audio-speed{display:flex;align-items:center;gap:10px;margin-top:9px;padding-top:9px;border-top:1px dashed var(--line)}
+.audio-speed-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);flex-shrink:0;min-width:38px}
+.audio-settings{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem 1.25rem;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
+@media(min-width:768px){.audio-settings{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.range{accent-color:var(--amber);cursor:pointer}
+.img-num{font-family:'JetBrains Mono',monospace;font-size:12px;min-width:40px;text-align:right;color:var(--amber2);font-weight:700}
 .btn{border-radius:12px;font-weight:600;transition:all .18s;cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:7px;border:none}
 .btn:active{transform:translateY(1px) scale(.99)}
 .btn:disabled{opacity:.55;cursor:not-allowed}
@@ -495,30 +514,66 @@ th.sortable:hover{color:var(--amber2)}
                       <div v-if="g==='PDF'" class="mb-3 flex items-center gap-2 flex-wrap">
                         <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg flex items-center gap-1.5" style="background:rgba(47,125,79,.1);color:var(--green)"><span v-html="ic('fileText',12)"></span>Book & Paper modes always generate 40 questions (20 reading · 20 listening)</span>
                         <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--panel2);color:var(--mut)">Book mode: never easy questions</span>
-                        <input ref="pdfTestInput" type="file" accept=".pdf" class="hidden" @change="testParser">
-                        <button class="btn btn-ghost btn-sm" :disabled="pdfTest.busy" @click="$refs.pdfTestInput.click()"><span v-if="pdfTest.busy" class="spinner"></span><span v-html="ic('search',12)"></span>Test parser</button>
+                        <input ref="pdfTestInput" type="file" accept=".pdf" class="hidden" @change="onPdfPick">
+                        <button class="btn btn-amber btn-sm" :disabled="pdfTest.busy" @click="openPdfTest"><span v-html="ic('search',12)"></span>Dry test parser…</button>
                       </div>
-                      <div v-if="g==='PDF' && pdfTest.result" class="mb-3 rounded-xl p-3 text-xs" style="background:var(--panel2)">
-                        <div class="f-mono flex items-center gap-2 flex-wrap" style="color:var(--green)">
-                          <span v-html="ic('checkCircle',13)"></span>
-                          <b>{{ pdfTest.result.parser_used }}</b> · {{ pdfTest.result.pages }} pages · {{ pdfTest.result.text_chars }} chars · {{ (pdfTest.result.time_ms/1000).toFixed(1) }}s
-                          <template v-if="pdfTest.result.excluded_pages && pdfTest.result.excluded_pages.length"> · excluded pages: {{ pdfTest.result.excluded_pages.join(',') }}</template>
-                        </div>
-                        <div class="mt-2 flex flex-wrap gap-2">
-                          <div v-for="im in pdfTest.result.images" :key="im.id" class="text-center">
-                            <img :src="'data:image/jpeg;base64,'+im.b64" class="rounded" style="width:110px;background:#fff" :title="im.id">
-                            <div class="text-[10px] f-mono" style="color:var(--mut)">{{ im.id }} · Q{{ im.question!=null ? im.question : '?' }}</div>
-                          </div>
-                          <div v-if="!pdfTest.result.images || !pdfTest.result.images.length" class="text-[11px]" style="color:var(--mut)">No images extracted by this parser.</div>
-                        </div>
-                      </div>
-                      <div v-if="g==='PDF' && pdfTest.error" class="mb-3 text-xs flex items-center gap-1.5" style="color:var(--red)"><span v-html="ic('alertTriangle',12)"></span>{{ pdfTest.error }}</div>
                       <div v-if="g==='Images'" class="mb-3 flex items-center gap-2 flex-wrap">
                         <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" style="background:var(--panel2);color:var(--mut)">API keys & balances live in the top-right API status menu</span>
                       </div>
-                      <div :class="g==='Audio' ? 'audio-grid' : 'acc-grid'">
-                        <template v-for="f in (g==='Audio'?audioOrdered():metaByGroup(g))" :key="f.field">
-                          <div v-if="!hiddenField(f) && f.field!=='dedup_sets'" class="acc-field" :class="[f.field==='prompts_json'?'full':'', g==='Audio'?audioCol(f.field):'']">
+                      <div :class="g==='Audio' ? 'audio-wrap' : 'acc-grid'">
+                        <template v-if="g==='Audio'">
+                          <div class="audio-dual">
+                            <div class="audio-card">
+                              <div class="audio-card-h"><span v-html="ic('mic',14)"></span>Primary TTS</div>
+                              <div class="audio-card-b">
+                                <div class="acc-field">
+                                  <label class="lbl">{{ mf('tts_model').label }}<span class="tip" v-if="mf('tts_model').help">?<span class="ttip">{{ mf('tts_model').help }}</span></span></label>
+                                  <input v-model.trim="cfgData.tts_model" class="input f-mono" list="ttsModelList" placeholder="Type a model or pick one…">
+                                </div>
+                                <div v-for="v in audioVoices(true)" :key="v.key" class="acc-field">
+                                  <label class="lbl">{{ v.label }}<span class="tip">?<span class="ttip">{{ v.tip }}</span></span></label>
+                                  <div class="flex gap-2 items-center">
+                                    <input v-model.trim="cfgData[v.key]" class="input f-mono flex-1" list="voiceList" :placeholder="voicePh(v.key)">
+                                    <button type="button" class="btn btn-ghost btn-sm shrink-0 flex items-center" :class="cfgData[v.key]?'':'opacity-40'" :disabled="!cfgData[v.key]" :title="cfgData[v.key]?'Hear this voice':'Empty — the system auto-picks a voice'" @click="openVoicePreview(v.key)"><span v-html="ic('headphones',14)"></span></button>
+                                  </div>
+                                  <div class="audio-speed">
+                                    <span class="audio-speed-lbl">Speed</span>
+                                    <input type="range" min="0.5" max="2" step="0.05" v-model.number="cfgData[v.speed]" class="range flex-1">
+                                    <span class="img-num">{{ Number(cfgData[v.speed]||1).toFixed(2) }}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="audio-card">
+                              <div class="audio-card-h"><span v-html="ic('refresh',14)"></span>Fallback TTS</div>
+                              <div class="audio-card-b">
+                                <div class="acc-field">
+                                  <label class="lbl">{{ mf('tts_fallback_model').label }}<span class="tip" v-if="mf('tts_fallback_model').help">?<span class="ttip">{{ mf('tts_fallback_model').help }}</span></span></label>
+                                  <input v-model.trim="cfgData.tts_fallback_model" class="input f-mono" list="ttsModelList" placeholder="Type a model or pick one…">
+                                </div>
+                                <div v-for="v in audioVoices(false)" :key="v.key" class="acc-field">
+                                  <label class="lbl">{{ v.label }}<span class="tip">?<span class="ttip">{{ v.tip }}</span></span></label>
+                                  <div class="flex gap-2 items-center">
+                                    <input v-model.trim="cfgData[v.key]" class="input f-mono flex-1" list="voiceList" :placeholder="voicePh(v.key)">
+                                    <button type="button" class="btn btn-ghost btn-sm shrink-0 flex items-center" :class="cfgData[v.key]?'':'opacity-40'" :disabled="!cfgData[v.key]" :title="cfgData[v.key]?'Hear this voice':'Empty — the system auto-picks a voice'" @click="openVoicePreview(v.key)"><span v-html="ic('headphones',14)"></span></button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="audio-settings">
+                            <div v-for="f in audioSettings()" :key="f.field" class="acc-field">
+                              <label class="lbl">{{ f.label }}<span class="tip" v-if="f.help">?<span class="ttip">{{ f.help }}</span></span></label>
+                              <div v-if="f.ftype==='bool'" class="toggle" :class="{on:!!cfgData[f.field]}" @click="cfgData[f.field]=!cfgData[f.field]"></div>
+                              <input v-else :type="f.ftype==='number'?'number':'text'" v-model="cfgData[f.field]" class="input f-mono">
+                              <div v-if="hintText(f)" class="hint">{{ hintText(f) }}</div>
+                            </div>
+                          </div>
+                          <datalist id="ttsModelList"><option v-for="o in ttsOptions" :key="o" :value="o">{{ o }}</option></datalist>
+                          <datalist id="voiceList"><option v-for="o in voiceOptions" :key="o" :value="o">{{ o }}</option></datalist>
+                        </template>
+                        <template v-else v-for="f in metaByGroup(g)" :key="f.field">
+                          <div v-if="!hiddenField(f) && f.field!=='dedup_sets'" class="acc-field" :class="[f.field==='prompts_json'?'full':'']">
                             <label class="lbl">
                               {{ f.label }}
                               <span class="tip" v-if="f.help">?<span class="ttip">{{ f.help }}</span></span>
@@ -992,6 +1047,63 @@ th.sortable:hover{color:var(--amber2)}
       </div>
     </div>
 
+    <!-- PDF parser dry test popup -->
+    <div v-if="pdfTest.open" class="fixed inset-0 z-[55] flex items-center justify-center p-4" style="background:rgba(24,21,16,.45);backdrop-filter:blur(3px)" @click.self="pdfTest.busy?null:closePdfTest()">
+      <div class="panel rounded-2xl p-6 w-full max-w-2xl" style="max-height:88vh;overflow-y:auto">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="f-disp font-bold flex items-center gap-2"><span v-html="ic('fileText',18)" style="color:var(--purple)"></span>PDF parser dry test</h3>
+          <button class="btn btn-ghost btn-sm" :disabled="pdfTest.busy" @click="closePdfTest"><span v-html="ic('x',13)"></span></button>
+        </div>
+
+        <div v-if="!pdfTest.busy && !pdfTest.result && !pdfTest.error" class="pdf-drop" :class="{drag:pdfTest.drag}" @click="pdfPick" @dragover.prevent="pdfTest.drag=true" @dragleave="pdfTest.drag=false" @drop.prevent="pdfDrop">
+          <div class="pdf-drop-ico" v-html="ic('upload',26)"></div>
+          <div class="pdf-drop-t">Drop a PDF here or click to browse</div>
+          <div class="pdf-drop-s">Runs parser <b style="color:var(--amber2)">{{ (cfgData&&cfgData.pdf_parser)||'auto' }}</b> against a real job — pages, text, images and question mapping in about a minute</div>
+        </div>
+
+        <div v-if="pdfTest.busy" class="text-center py-10">
+          <div class="spinner" style="width:28px;height:28px;border-width:3px"></div>
+          <div class="mt-4 f-mono text-sm font-bold">Parsing “{{ pdfTest.fileName }}”…</div>
+          <div class="text-xs mt-1" style="color:var(--mut)">job <span class="f-mono">{{ pdfTest.job }}</span> · results appear here when done</div>
+          <div class="text-[11px] mt-3" style="color:var(--mut)">You can close this window — the job keeps running and results land on the Jobs page.</div>
+        </div>
+
+        <template v-if="pdfTest.result">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="pdf-chip" style="background:rgba(47,125,79,.12);color:var(--green)"><span v-html="ic('checkCircle',12)"></span> {{ pdfTest.result.parser_used || '—' }}</span>
+            <span class="pdf-chip">{{ pdfTest.result.pages||0 }} pages</span>
+            <span class="pdf-chip">{{ (pdfTest.result.text_chars||0).toLocaleString() }} chars</span>
+            <span class="pdf-chip">{{ ((pdfTest.result.time_ms||0)/1000).toFixed(1) }}s</span>
+            <span class="pdf-chip" v-if="pdfTest.result.excluded_pages && pdfTest.result.excluded_pages.length" style="color:var(--amber2)">{{ pdfTest.result.excluded_pages.length }} excluded pages</span>
+          </div>
+          <div class="mt-4 text-[11px] font-bold uppercase tracking-widest" style="color:var(--mut)">Extracted images ({{ (pdfTest.result.images||[]).length }})</div>
+          <div v-if="(pdfTest.result.images||[]).length" class="mt-2 grid" style="grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px">
+            <div v-for="im in pdfTest.result.images" :key="im.id" class="pdf-thumb">
+              <img :src="'data:image/jpeg;base64,'+im.b64" class="rounded-lg w-full" style="background:#fff" :title="im.id">
+              <div class="text-[10px] f-mono mt-1 flex justify-between" style="color:var(--mut)"><span>{{ im.id }}</span><span v-if="im.question!=null" style="color:var(--amber2)">Q{{ im.question }}</span><span v-else>p{{ im.page }}</span></div>
+            </div>
+          </div>
+          <div v-else class="text-[11px] mt-2" style="color:var(--mut)">No images extracted by this parser.</div>
+          <div class="flex gap-2 justify-end mt-5">
+            <button class="btn btn-ghost btn-sm" @click="runAgain"><span v-html="ic('refresh',13)"></span>Test another</button>
+            <button class="btn btn-amber btn-sm" @click="closePdfTest">Done</button>
+          </div>
+        </template>
+
+        <div v-if="pdfTest.error" class="text-sm flex items-start gap-2 p-4 rounded-xl" style="background:rgba(198,69,58,.08);color:var(--red);border:1px solid rgba(198,69,58,.25)">
+          <span v-html="ic('alertTriangle',15)" class="mt-0.5 shrink-0"></span>
+          <div>
+            <div class="font-bold">Parser test failed</div>
+            <div class="mt-1 text-xs">{{ pdfTest.error }}</div>
+            <div class="mt-3 flex gap-2">
+              <button class="btn btn-ghost btn-sm" @click="runAgain"><span v-html="ic('refresh',12)"></span>Try again</button>
+              <button class="btn btn-ghost btn-sm" @click="closePdfTest"><span v-html="ic('x',12)"></span>Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Toasts -->
     <div class="toast-stack">
       <div v-for="t in toasts" :key="t.id" class="toast-card" :class="'t-'+t.type">
@@ -1009,7 +1121,7 @@ th.sortable:hover{color:var(--amber2)}
 
 <script src="lib/vue.global.prod.js"></script>
 <script src="lib/anime.min.js"></script>
-<script src="lib/icons.js?v=29"></script>
-<script src="app.min.js?v=29"></script>
+<script src="lib/icons.js?v=30"></script>
+<script src="app.min.js?v=30"></script>
 </body>
 </html>
