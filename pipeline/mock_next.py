@@ -244,6 +244,32 @@ def render_prompt(template):
         section_order = f'ALL questions are section "listening" (Q1-{q}) - no reading section'
     else:
         section_order = f'Q1-{r} section "reading", Q{ls}-{q} section "listening"'
+    is_paper = int(CFG.get("gen_type", 1)) == 3
+    if is_paper:
+        # Printed-paper mode: the paper decides — configuration is for random generation only.
+        picture_format_rule = ("PICTURE QUESTIONS: strictly follow the paper — convert EVERY listening "
+                               "question that has 4 extracted photos (see PAPER PICTURE PHOTOS). Do NOT "
+                               "create or drop picture questions beyond what the paper implies.")
+        picture_topup_rule = ("The paper decides the picture-question count: convert EVERY question listed "
+                              "under PAPER PICTURE PHOTOS (options [\"1\",\"2\",\"3\",\"4\"], correct_answer = "
+                              "photo index matching your audio, option_images = the exact photo ids) — do NOT "
+                              "create additional picture questions beyond the paper.")
+    else:
+        picture_format_rule = (f"PICTURE QUESTIONS: exactly {pic} LISTENING questions MUST be PICTURE "
+                               f"questions (\"picture_options\": true, type \"listening_picture\"): FOUR SEPARATE images "
+                               f"are the options - the student hears the audio and taps the photo that matches. options "
+                               f'MUST be EXACTLY ["1","2","3","4"] (numbers = photo numbers), correct_answer is the photo '
+                               f"index (0-3) whose scene matches the audio, requiresImage is false (no main image), and "
+                               f'"option_images" holds the 4 image descriptions. The author writes ALL 4 descriptions '
+                               f"(English): the photo at correct_answer matches the audio exactly; the other 3 are "
+                               f"similar-but-wrong distractors (same setting, different action/object). Each description = "
+                               f"a flat colourful EPS-TOPIK style scene, bold clean outlines, vivid colours, plain white "
+                               f"background, NO numbers, NO labels, NO text. All 4 photos of one question share ONE "
+                               f"consistent setting. The audioScript MUST clearly describe the correct photo. These "
+                               f"questions carry NO other image.")
+        picture_topup_rule = (f"If fewer than {pic} picture questions exist, create fresh ones to reach exactly {pic}: "
+                              f"same format rules (options [\"1\",\"2\",\"3\",\"4\"], correct_answer = photo index matching "
+                              f"your audio, 4 DISTINCT English option_images descriptions).")
     ctx = {"FORMAT_RULES": FORMAT_RULES,
            **CFG,
            "difficulty_note": DIFFICULTY_PROFILES.get(CFG.get("difficulty_profile"), ""),
@@ -252,7 +278,9 @@ def render_prompt(template):
            "listening_start": ls,
            "section_order": section_order,
            "listening_picture_count": pic,
-           "listening_blank_count": blank}
+           "listening_blank_count": blank,
+           "picture_format_rule": picture_format_rule,
+           "picture_topup_rule": picture_topup_rule}
     for k, v in ctx.items():
         if isinstance(v, (str, int, float)):
             out = out.replace("{" + k + "}", str(v))
@@ -478,18 +506,7 @@ FORMAT_RULES = """UBT MOCK EXAM FORMAT - IDENTICAL FOR EVERY GENERATION MODE
   SAME voice, "speakers": 1) and the rest are TWO speakers (any V1/V2 combination -
   V1+V2, V1+V1 or V2+V2, "speakers": 2). The voice tags in audioScript MUST match the
   chosen speaker count and gender. V1 is always the male voice, V2 the female voice.
-- PICTURE QUESTIONS: exactly {listening_picture_count} LISTENING questions MUST be PICTURE
-  questions ("picture_options": true, type "listening_picture"): FOUR SEPARATE images are the
-  options - the student hears the audio and taps the photo that matches. options MUST be EXACTLY
-  ["1","2","3","4"] (numbers = photo numbers), correct_answer is the photo index (0-3) whose
-  scene matches the audio, requiresImage is false (no main image), and "option_images" holds the
-  4 image descriptions. The author writes ALL 4 descriptions (English): the photo at
-  correct_answer matches the audio exactly; the other 3 are similar-but-wrong distractors (same
-  setting, different action/object). Each description = a flat colourful EPS-TOPIK style scene,
-  bold clean outlines, vivid colours, plain white background, NO numbers, NO labels, NO text. All
-  4 photos of one question share ONE consistent setting (same location, variations of the
-  action/object). The audioScript MUST clearly describe the correct photo's scene
-  (self-contained). These questions carry NO other image - their 4 option photos are all they get.
+- {picture_format_rule}
 - A random subset of listening questions will be shown AUDIO-ONLY (options 1/2/3/4,
   no text) - always write listening scripts as if they will be heard alone."""
 
@@ -635,15 +652,10 @@ HARD RULES:
   PHOTOS) MUST become PICTURE questions ("picture_options": true, type "listening_picture"):
   options EXACTLY ["1","2","3","4"], requiresImage false, correct_answer = the photo index whose
   scene your audio describes, and "option_images" = the four EXACT photo ids from the PAPER
-  PICTURE PHOTOS list (order as listed). The photo captions tell you what each photo shows -
+  PICTURE   PHOTOS list (order as listed). The photo captions tell you what each photo shows -
   write the audioScript to clearly describe the photo you choose (self-contained), and set
   correct_answer to that photo's index (0-3). Convert ALL questions listed under PAPER PICTURE
-  PHOTOS. If fewer than {listening_picture_count} picture questions exist in the paper, create
-  fresh ones to reach exactly {listening_picture_count}: "picture_options": true, options
-  ["1","2","3","4"], correct_answer = photo index matching your audio, and "option_images" = 4
-  DISTINCT English descriptions you write (the matching one + 3 similar-but-wrong distractors,
-  same setting, flat colourful EPS-TOPIK, no numbers/text in the images). If the paper has MORE
-  picture questions than {listening_picture_count}, convert all of them.
+  PHOTOS. {picture_topup_rule}
 - Ignore answer keys, instruction pages, scoring rules and anything that is not a question.
 - KOREAN ONLY (absolute): EVERYTHING the student reads — question_text, all 4 options,
   explanation and every listening audioScript turn — MUST be written in Korean Hangul.
@@ -1296,6 +1308,10 @@ def create_records(qs, headers):
         if p.get("status") != 200:
             raise RuntimeError(f"record {i} failed: {json.dumps(p, ensure_ascii=False)[:200]}")
         ids.append(p["body"]["id"])
+    for rid in ids:
+        if not re.fullmatch(r"[a-z0-9]{15}", str(rid)):
+            raise RuntimeError(f"batch create returned a malformed record id {rid!r} — "
+                               f"refusing to store it as pbId")
     return ids
 
 
@@ -2357,7 +2373,14 @@ def main():
         # dry runs (3 questions) must never demand more pictures than exist.
         listen_available = max(0, int(CFG.get("question_count") or 40) - int(CFG.get("reading_count") or 20))
         pic_target = int(CFG.get("listening_picture_count") or 0)
-        target = max(pic_target, len(paper_pics)) if paper_pics else pic_target
+        if gen_type == 3:
+            # Printed-paper mode: the paper strictly decides picture questions —
+            # configuration (listening_picture_count) applies to random generation only.
+            target = len(paper_pics)
+            print(f"[picture] paper mode: {target} picture question(s) from the paper "
+                  f"(config target {pic_target} ignored for paper)")
+        else:
+            target = max(pic_target, len(paper_pics)) if paper_pics else pic_target
         if target > listen_available:
             target = listen_available
         stats["pic_target"] = target
@@ -2665,9 +2688,25 @@ def main():
         final_summary(stats)
         return
 
-    # 3. PocketBase records
+    # 3. PocketBase records — SELF-HEALING: any stored pbId that no longer
+    # exists on the server (stale/corrupt, e.g. an image id written by an
+    # older run) is dropped and the record re-created. Without this, every
+    # upload PATCHes a dead id and silently fails (404), which is exactly
+    # the "[upload] image -> p9_img3 HTTP 404" failure.
     headers = pb_headers()
     missing = [q for q in qs if not q.get("pbId")]
+    stale = []
+    if not missing:
+        for q in qs:
+            chk = httpx.get(CFG["pb_base"] + f"/api/collections/questions/records/{q['pbId']}",
+                            headers=headers, params={"fields": "id"}, timeout=30)
+            if chk.status_code != 200:
+                stale.append(q)
+        if stale:
+            print(f"[pb] {len(stale)} stored pbIds are dead on the server — recreating those records")
+            for q in stale:
+                q.pop("pbId", None)
+            missing = stale
     if missing:
         print(f"[pb] creating {len(missing)} missing question records...")
         ids = create_records(qs, headers)
