@@ -75,7 +75,7 @@ createApp({
     cfgClient:'',cfg:null,cfgLoading:false,cfgSaving:false,cfgSavedAt:'',cfgRaw:false,cfgRawText:'',cfgRawErr:'',
     cfgData:{},showPass:false,valIssues:[],valChecked:false,cfgSnapshot:null,
     groupIssues:{},verified:{},openGroup:'Exam',vmCache:{},dryBusy:null,
-    orModels:{},orStatus:'loading',gClient:'',apiMenu:false,magnificStatus:null,upstageStatus:null,health:null,
+    orModels:{},orStatus:'loading',gClient:'',apiMenu:false,magnificStatus:null,upstageStatus:null,health:null,geminiChk:{busy:false,ok:null,msg:'',status:0},
     pdfTest:{open:false,drag:false,busy:false,job:null,result:null,error:'',fileName:''},
     voicePreview:{open:false,field:'',text:'',busy:false,error:'',usedFallback:false},
   }},
@@ -204,6 +204,26 @@ createApp({
         this.vmCache[slug]=out;return out;
       }
     },
+    async verifyGeminiModel(slug){
+      if(!slug)return{ok:true,status:200,message:''};
+      try{
+        const r=await api('/api/creator/verify-gemini-model?model='+encodeURIComponent(slug));
+        return{ok:r.ok,status:r.status,message:r.message||'',model:r.model||''};
+      }catch(e){
+        return{ok:null,status:-1,message:e.status===404?'Gemini verify endpoint not deployed - Pull the latest build and redeploy':'verify-gemini-model failed: '+e.message};
+      }
+    },
+    async checkGeminiModel(){
+      const m=String(this.cfgData&&this.cfgData.gemini_model||'').trim();
+      if(!m){this.geminiChk={busy:false,ok:null,msg:'Type a Gemini model name first',status:0};return;}
+      this.geminiChk={busy:true,ok:null,msg:'',status:0};
+      const r=await this.verifyGeminiModel(m);
+      let msg=r.message||'';
+      if(!msg&&r.ok===true)msg='valid — Gemini accepted the model';
+      else if(!msg&&r.ok===false)msg='model not found (HTTP '+(r.status||'?')+')';
+      else if(!msg&&r.ok===null)msg='could not verify (HTTP '+(r.status||'?')+')';
+      this.geminiChk={busy:false,ok:r.ok,msg,status:r.status};
+    },
     async checkIssues(groups){
       const c=this.cfgData;if(!c)return;
       const scope=groups?new Set(groups):null;
@@ -224,6 +244,14 @@ createApp({
           const r=await this.verifyModel(v);
           if(r.exists===false)add(g,'err',`Model "${v}" is NOT on OpenRouter (probe said: ${r.message||'not found'})`);
           else if(r.exists===null)add(g,'warn',`Cannot verify "${v}" right now: ${r.message}`);
+        }
+        if(g==='LLM'){
+          const gm=String(c.gemini_model||'').trim();
+          if(gm){
+            const r=await this.verifyGeminiModel(gm);
+            if(r.ok===false)add('LLM','err',`Gemini model "${gm}" is NOT valid (${r.message||('HTTP '+(r.status||'?'))})`);
+            else if(r.ok===null)add('LLM','warn',`Cannot verify Gemini model "${gm}": ${r.message||('HTTP '+(r.status||'?'))}`);
+          }
         }
       }
       if(!scope||scope.has('Images')){
@@ -352,7 +380,7 @@ createApp({
     async loadUpstageStatus(){try{const r=await api('/api/creator/upstage-status');this.upstageStatus=r;}catch(e){this.upstageStatus=null;}},
     async testPush(){try{const r=await api('/api/creator/push-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base:this.cfgData?this.cfgData.push_pb_base:'',email:this.cfgData?this.cfgData.push_pb_email:'',pass:this.cfgData?this.cfgData.push_pb_pass:''})});this.pushStatus=r;}catch(e){this.pushStatus={connected:false,message:'verify call failed: '+e.message};}},
     pushSummary(){const p=this.pushStatus;if(!p)return '';let s='Connected to '+String(p.url||'').replace('https://','').replace('http://','')+' with '+p.total_exams+' mockups';if(p.published!==undefined)s+=' ('+p.published+' published, '+p.draft+' draft)';return s;},
-    geminiModels(){return['google/gemini-3.6-flash','google/gemini-3.5-flash','google/gemini-3.5-flash-lite','google/gemini-2.5-pro'];},
+    geminiModels(){return['google/gemini-2.5-flash','google/gemini-3.6-flash','google/gemini-3.5-flash','google/gemini-3.5-flash-lite','google/gemini-2.5-pro'];},
     dryKindLabel(k){return k==='dry_questions'?'Questions':k==='dry_images'?'Images':k==='dry_audio'?'Audio':(k||'—');},
     dryCost(d){const r=(d&&d.report)||{};const c=r.total_llm_cost_usd!=null?r.total_llm_cost_usd:r.llm_cost;return c?`$${Number(c).toFixed(3)}`:'—';},
     dryFalCost(d){const r=(d&&d.report)||{};const c=r.fal_cost||0;const im=String(r.img_model||'');return c&&im.startsWith('fal-ai/')?`$${Number(c).toFixed(4)}`:'—';},

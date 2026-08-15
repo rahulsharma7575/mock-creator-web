@@ -87,7 +87,7 @@ DEFAULTS = {
     "fal_size": 512,                         # Fal.ai square image size (1:1)
     # question creator (author) — dual provider: Gemini primary, OpenRouter fallback
     "author_provider": "gemini",             # gemini | openrouter (gemini tried first, auto-fallback on quota/error)
-    "gemini_model": "google/gemini-3.5-flash",  # Gemini author model — OpenRouter-style (google/ prefix auto-stripped)
+    "gemini_model": "google/gemini-2.5-flash",  # PRIMARY author via direct Gemini API (google/ prefix auto-stripped)
     "gemini_api": "https://generativelanguage.googleapis.com/v1beta",
     "author_model": "google/gemini-2.5-flash",   # OpenRouter author (fallback when Gemini fails/quota exceeded)
     "author_retries": 3,
@@ -2547,7 +2547,10 @@ def main():
         gmodel = str(CFG.get("gemini_model") or "gemini-3.5-flash").strip()
         gkey = gemini_api_key()
         gretries = int(CFG.get("author_retries", 3))
-        if str(CFG.get("author_provider", "gemini")) == "gemini" and gkey:
+        if gkey:
+            # Author ladder (fixed): Gemini is ALWAYS the primary author when a
+            # GEMINI_API_KEY is present; any failure falls back to the OpenRouter
+            # author below. The old author_provider toggle was removed.
             for attempt in range(gretries):
                 print(f"[author] gemini ({gmodel}) attempt {attempt + 1}...")
                 try:

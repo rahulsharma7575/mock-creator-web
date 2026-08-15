@@ -223,7 +223,7 @@ DEFAULT_CONFIG = {
     "name": "default",
     "llm_author_model": "google/gemini-2.5-flash",
     "author_provider": "gemini",
-    "gemini_model": "google/gemini-3.5-flash",
+    "gemini_model": "google/gemini-2.5-flash",
     "dedup_enabled": True,
     "dedup_sets": 5,
     "llm_proofread_model": "qwen/qwen3.5-flash-02-23",
@@ -277,8 +277,8 @@ DEFAULT_CONFIG = {
 }
 
 META_FIELDS = [
-    ("gemini_model", "Gemini author model", "text", "LLM", "Primary author model - direct Google Gemini API (needs GEMINI_API_KEY in the container). OpenRouter-style names (the google/ prefix is stripped automatically): google/gemini-3.6-flash, google/gemini-3.5-flash, google/gemini-3.5-flash-lite, google/gemini-2.5-pro"),
-    ("author_provider", "Author provider", "select", "LLM", "gemini = Gemini API first (primary) with OpenRouter auto-fallback | openrouter = skip Gemini", ["gemini", "openrouter"]),
+    ("gemini_model", "Gemini author model", "text", "LLM", "PRIMARY author via the direct Google Gemini API (needs GEMINI_API_KEY in the container). Any official Gemini model name works — the google/ prefix is stripped automatically. Default google/gemini-2.5-flash. Verify it with the check button / Verify on this card."),
+    ("llm_author_model", "OpenRouter fallback author", "text", "LLM", "OpenRouter model used ONLY when the Gemini author fails, has no key, or quota is exceeded"),
     ("llm_author_model", "OpenRouter fallback author", "text", "LLM", "OpenRouter model used ONLY when the Gemini author fails or quota is exceeded"),
     ("llm_proofread_model", "Proofread LLM", "text", "LLM", "OpenRouter model for proofreading (always via OpenRouter)"),
     ("llm_repair_model", "Repair LLM", "text", "LLM", "OpenRouter model for repair pass"),
@@ -500,19 +500,15 @@ function ensureCollections() {
     if (changed2) $app.save(cfgCol2)
   } catch (errG) {}
   try {
+    // author_provider dropdown was removed - purge any stale meta row so the UI stops showing it
     var mProv = $app.findFirstRecordByData("mock_config_meta", "field", "author_provider")
-    mProv.set("label", "Author provider")
-    mProv.set("ftype", "select")
-    mProv.set("options", ["gemini", "openrouter"])
-    mProv.set("help", "gemini = Gemini API first (primary) with OpenRouter auto-fallback | openrouter = skip Gemini")
-    mProv.set("group", "LLM")
-    $app.save(mProv)
+    if (mProv) $app.delete(mProv)
   } catch (errP) {}
   try {
     var mGem = $app.findFirstRecordByData("mock_config_meta", "field", "gemini_model")
     mGem.set("label", "Gemini author model")
     mGem.set("ftype", "text")
-    mGem.set("help", "Primary author model - direct Google Gemini API (needs GEMINI_API_KEY in the container). OpenRouter-style names (the google/ prefix is stripped automatically): google/gemini-3.6-flash, google/gemini-3.5-flash, google/gemini-3.5-flash-lite, google/gemini-2.5-pro")
+    mGem.set("help", "PRIMARY author via the direct Google Gemini API (needs GEMINI_API_KEY in the container). Any official Gemini model name works - the google/ prefix is stripped automatically. Default google/gemini-2.5-flash. Use the check button / the card's Verify to probe the model live.")
     mGem.set("group", "LLM")
     $app.save(mGem)
   } catch (errQ) {}
@@ -753,6 +749,40 @@ try {
     if (okGen) models.push({ name: String(m.name || "").replace("models/", ""), input_limit: m.inputTokenLimit, output_limit: m.outputTokenLimit })
   }
   return e.json(200, { ok: true, valid: true, models: models, message: "" })
+} catch (err) {
+  return e.json(500, { error: String(err) })
+}
+""",
+)
+
+# GET /api/creator/verify-gemini-model - superuser only - REAL probe of the
+# primary author model against the Gemini API (1-token generateContent call).
+# Classifies: 200 = valid; "not found/does not exist" = wrong model name;
+# anything else (401/400 key, 429 quota, 5xx transient) = unverifiable/warn.
+route(
+    "verify-gemini-model", "GET", "/api/creator/verify-gemini-model", "$apis.requireSuperuserAuth()",
+    """
+try {
+  var model = (e.request.url.query().get("model") || "").trim()
+  if (!model) return e.json(400, { error: "model query param required" })
+  var key = $os.getenv("GEMINI_API_KEY") || ""
+  if (!key) return e.json(200, { ok: null, status: 0, message: "GEMINI_API_KEY is not set in the container" })
+  var apiModel = model.split("/").pop()
+  var res = $http.send({
+    url: "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(apiModel) + ":generateContent?key=" + encodeURIComponent(key),
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }], generationConfig: { maxOutputTokens: 1 } }),
+    timeout: 40
+  })
+  var status = res.statusCode || 0
+  var msg = ""
+  try { var j = JSON.parse(res.raw || "{}"); msg = (j.error && j.error.message) || (j.message) || "" } catch (errJ) {}
+  var ok = null
+  if (status === 200) ok = true
+  else if (/not found|does not exist|not a valid|is not available|invalid model|unsupported model/i.test(msg)) ok = false
+  else ok = null
+  return e.json(200, { ok: ok, status: status, message: String(msg).slice(0, 220), model: apiModel })
 } catch (err) {
   return e.json(500, { error: String(err) })
 }

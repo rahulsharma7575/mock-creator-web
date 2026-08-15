@@ -584,8 +584,14 @@ th.sortable:hover{color:var(--amber2)}
                               <span class="tip" v-if="f.field==='push_pb_pass'">?<span class="ttip">Admin password of the teacher app PocketBase. Leave empty + toggle Upload off to generate exams locally.</span></span>
                             </label>
                             <template v-if="f.field==='gemini_model'">
-                              <input v-model.trim="cfgData[f.field]" class="input f-mono" list="geminiModelList" placeholder="google/gemini-3.5-flash">
+                              <div class="flex gap-2 items-center">
+                                <input v-model.trim="cfgData[f.field]" class="input f-mono flex-1" list="geminiModelList" placeholder="google/gemini-2.5-flash">
+                                <button type="button" class="btn btn-ghost btn-sm shrink-0 flex items-center" :disabled="geminiChk.busy" :title="'Live-probe this Gemini model against the API'" @click="checkGeminiModel"><span v-if="geminiChk.busy" class="spinner"></span><span v-html="ic('check',14)"></span></button>
+                              </div>
                               <datalist id="geminiModelList"><option v-for="o in geminiModels()" :key="o" :value="o">{{ o }}</option></datalist>
+                              <div v-if="geminiChk.msg" class="text-[11.5px] mt-1.5 flex items-center gap-1.5" :style="geminiChk.ok===false?'color:var(--red)':geminiChk.ok===true?'color:var(--green)':'color:var(--amber2)'">
+                                <span v-html="ic(geminiChk.ok===false?'x':geminiChk.ok===true?'check':'info',12)"></span>{{ geminiChk.msg }}
+                              </div>
                             </template>
                             <template v-else-if="f.field==='tts_model'||f.field==='tts_fallback_model'">
                               <input v-model.trim="cfgData[f.field]" class="input f-mono" list="ttsModelList" placeholder="Type a model or pick one…">
@@ -1123,7 +1129,7 @@ th.sortable:hover{color:var(--amber2)}
 
 <script src="lib/vue.global.prod.js"></script>
 <script src="lib/anime.min.js"></script>
-<script src="lib/icons.js?v=32"></script>
-<script src="app.min.js?v=32"></script>
+<script src="lib/icons.js?v=33"></script>
+<script src="app.min.js?v=33"></script>
 </body>
 </html>
