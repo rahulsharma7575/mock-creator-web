@@ -99,10 +99,12 @@ TTS_DEFAULTS = {
 }
 
 # Auto speaker voices per TTS model family (used for PDF-mode dialogues):
-# fish-audio free endpoint -> free named voices (V4 = Energetic male, V2 = E-girl female)
+# fish-audio free endpoint -> free named voices (V1 = Energetic male, V2 = Hannah female)
 # MAI Voice 2 -> native Korean male/female voices
+# NOTE: the fish female default MUST match the /creator UI placeholder
+# (voicePh -> 9a9cf47702da476aa4629e2506d4a857). Keep them in sync.
 DIALOGUE_VOICE_DEFAULTS = {
-    "fish": {"V1": "802e3bc2b27e49c2995d23ef70e6ac89", "V2": "ca3007f96ae7499ab87d27ea3599956a"},
+    "fish": {"V1": "802e3bc2b27e49c2995d23ef70e6ac89", "V2": "9a9cf47702da476aa4629e2506d4a857"},
     "mai": {"V1": "ko-KR-InJoon:MAI-Voice-2", "V2": "ko-KR-Haena:MAI-Voice-2"},
 }
 

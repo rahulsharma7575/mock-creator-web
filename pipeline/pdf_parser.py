@@ -41,6 +41,7 @@ HANGUL_RE = re.compile(r"[가-힣ㄱ-ㅎㅏ-ㅣ]")
 LETTER_RE = re.compile(r"[A-Za-z가-힣ㄱ-ㅎㅏ-ㅣ]")
 QNUM_RE = re.compile(r"^\s*([1-9][0-9]{0,2})\s*[.)]")
 HTML_IMG_RE = re.compile(r'src\s*=\s*"data:image/([a-zA-Z0-9.+-]+);base64,([^"]+)"')
+MARKDOWN_IMG_RE = re.compile(r'!\[[^\]]*\]\(\s*data:image/([a-zA-Z0-9.+-]+);base64,([^)]+)\)')
 
 # page classification keywords — answer-key / instruction / copyright pages are excluded
 # from the paper rebuild (their content is not questions).
@@ -331,11 +332,18 @@ def _upstage_figures(j):
 
     Upstage schema (verified live 2026-08): elements carry `category` (not `type`) and
     `page` directly; coordinates are normalized {x,y} only, so bbox proximity mapping is
-    not possible on this path — the author assigns images by page/context instead."""
+    not possible on this path — the author assigns images by page/context instead.
+
+    Base64 can arrive in several places depending on the API mode:
+      * content.figure_base64 / content.base64 / content.image_base64 (direct fields)
+      * inline data-URIs inside content.markdown/html/text (output_format=markdown
+        embeds figures as ![..](data:image/...;base64,..) — this is where they
+        actually appear; the base64_encoding param alone is not enough)
+    """
     out = []
-    elements = j.get("elements") or []
+    elements = j.get("elements") or (j.get("result") or {}).get("elements") or []
     for el in elements:
-        if str(el.get("category") or "").lower() not in ("figure", "chart"):
+        if str(el.get("category") or "").lower() not in ("figure", "chart", "image"):
             continue
         content = el.get("content") or {}
         page_no = int(el.get("page") or 1)
@@ -345,6 +353,13 @@ def _upstage_figures(j):
             if isinstance(v, str) and v:
                 b64 = v.split(",", 1)[-1]
                 break
+        if not b64:
+            for txt_key in ("markdown", "html", "text"):
+                txt = str(content.get(txt_key) or "")
+                m = MARKDOWN_IMG_RE.search(txt) or HTML_IMG_RE.search(txt)
+                if m:
+                    b64 = m.group(2)
+                    break
         if not b64:
             html = str(content.get("figure_html") or content.get("html") or "")
             m = HTML_IMG_RE.search(html)

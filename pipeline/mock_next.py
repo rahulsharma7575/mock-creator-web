@@ -1995,7 +1995,11 @@ def _short(model):
 
 
 def dry_images_pass(key, qs, base_dir):
-    """Dry-run images: generate for requiresImage questions, save locally, NO upload."""
+    """Dry-run images: generate for requiresImage questions, save locally, NO upload.
+
+    Parallel (same img_workers as the real pass) — z-image/Magnific is a slow
+    queue (~30-70s/image); sequential generation is what made dry runs take
+    3+ minutes."""
     from PIL import Image  # noqa: F401 — same import check as the real pass
     primary = CFG.get("img_model") or "z-image"
     chain = img_chain(primary)
@@ -2006,39 +2010,44 @@ def dry_images_pass(key, qs, base_dir):
     if not jobs:
         print("[dry][images] no image questions in this sample")
         return 0, 0.0, 0
-    print(f"[dry][images] {len(jobs)} image(s) to generate locally via {chain[0]}")
-    ok = 0
-    cost = 0.0
-    credits = 0
-    for num, prompt in jobs:
+    print(f"[dry][images] {len(jobs)} image(s) to generate locally via {chain[0]} "
+          f"(workers={CFG.get('img_workers', 3)})")
+    results = [None] * len(jobs)
+
+    def one(idx):
+        num, prompt = jobs[idx]
         fprompt = f"{CFG['image_style_prompt']}. Scene: {prompt}."
-        done = False
         for model in chain:
             try:
                 if model == "nano-banana" or model == "black-forest-labs/flux.2-klein-4b":
                     data, usage = gen_image_nano(key, fprompt)
-                    cost += usage.get("cost", 0)
+                    used_cost = usage.get("cost", 0)
+                    used_credits = 0
                 elif str(model).startswith("fal-ai/"):
-                    data, used = gen_image_fal(fprompt)
-                    cost += used
+                    data, used_cost = gen_image_fal(fprompt)
+                    used_credits = 0
                 else:
                     url = gen_image_or(key, fprompt, model)
                     data = httpx.get(url, timeout=120).content
-                    if model == "z-image":
-                        credits += magnific_mcp.ZIMAGE_COST
+                    used_cost = 0.0
+                    used_credits = magnific_mcp.ZIMAGE_COST if model == "z-image" else 0
                 if not data or len(data) < 500:
                     raise RuntimeError(f"image too small ({len(data) if data else 0} bytes)")
                 webp = to_webp(data, max_size=int(CFG.get("img_max_size", 1024)),
                                quality=int(CFG.get("img_quality", 80)))
                 (out_dir / f"q{num}.webp").write_bytes(webp)
                 print(f"[dry][images] Q{num}: generated q{num}.webp via {model} (saved locally, not uploaded)")
-                ok += 1
-                done = True
-                break
+                return True, used_cost, used_credits
             except Exception as e:
                 print(f"[dry][images] Q{num} via {model} failed: {str(e)[:110]}")
-        if not done:
-            print(f"[dry][images] Q{num}: FAILED on all models")
+        return False, 0.0, 0
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=int(CFG.get("img_workers", 3))) as ex:
+        for idx, (okq, used_cost, used_credits) in enumerate(ex.map(one, range(len(jobs)))):
+            results[idx] = (okq, used_cost, used_credits)
+    ok = sum(1 for r in results if r[0])
+    cost = sum(r[1] for r in results)
+    credits = sum(r[2] for r in results)
     print(f"[dry][images] {ok}/{len(jobs)} images generated locally "
           f"({credits} Magnific credits, ${cost:.4f} OpenRouter)")
     return ok, cost, credits
