@@ -146,8 +146,14 @@ DEFAULTS = {
     "tts_female_speed": 0.0,
     "tts_fallback_male_speed": 0.0,
     "tts_fallback_female_speed": 0.0,
-    "listening_blank_count": 5,          # random audio-only listening questions (options 1/2/3/4)
-    "listening_picture_count": 5,        # listening questions with 4 SEPARATE photos as options (1/2/3/4)
+    "listening_blank_count": 5,          # resolved blank count (see bands below; runtime-picked)
+    "listening_picture_count": 5,        # resolved picture count (see bands below; runtime-picked)
+    "listening_picture_min": 5,          # EPS-TOPIK band: 5-8 picture listening questions
+    "listening_picture_max": 8,
+    "listening_blank_min": 4,            # EPS-TOPIK band: 4-6 blank (audio-only) listening questions
+    "listening_blank_max": 6,
+    "reading_image_count": 10,           # default # of the 20 reading questions that carry a single image
+    "gemini_vision_scan": True,          # paper mode: feed rendered question pages to Gemini author (multimodal)
     "tts_voices": {},                          # optional speaker->voice map override
 }
 
@@ -382,20 +388,29 @@ def gemini_status():
     return {"ok": True, "valid": True, "models": models, "message": ""}
 
 
-def gemini_author(system, user, model):
+def gemini_author(system, user, model, vision=None):
     """Author via the DIRECT Google Gemini API. Raises GeminiQuotaError on quota,
     GeminiAuthError on bad key, GeminiModelError on bad model.
 
     Accepts OpenRouter-style names (google/gemini-3.5-flash) — the 'google/'
-    prefix is stripped before the API call, which expects bare ids."""
+    prefix is stripped before the API call, which expects bare ids.
+    vision (optional): list of PNG bytes of rendered PDF question pages. Gemini
+    is multimodal, so the paper pages are fed as inline images alongside the
+    prompt — the model then SEEs the source paper: it verifies image->question
+    mapping, recognizes 4-photo listening questions even from a partial
+    extraction, and fills missing photo descriptions coherently."""
     key = gemini_api_key()
     if not key:
         raise GeminiAuthError("GEMINI_API_KEY is not set")
     api = CFG.get("gemini_api", "https://generativelanguage.googleapis.com/v1beta")
     api_model = str(model).strip().split("/")[-1]
+    parts = [{"text": user}]
+    for png in (vision or [])[:20]:
+        parts.append({"inline_data": {"mime_type": "image/png",
+                                      "data": base64.b64encode(png).decode("ascii")}})
     body = {
         "systemInstruction": {"parts": [{"text": system}]},
-        "contents": [{"role": "user", "parts": [{"text": user}]}],
+        "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {
             "maxOutputTokens": int(CFG.get("author_max_tokens", 32000)),
             "temperature": 0.7,
@@ -831,18 +846,26 @@ def repair_picture_prompts(key, qs, paper_pics=None):
     return fixed
 
 
-def group_paper_pictures(pdf_doc):
-    """Group extracted paper images by their mapped question; return questions that
-    have >=4 photos as {qnum: [image ids in reading order]}."""
+def group_paper_pictures(pdf_doc, listen_start=None):
+    """Group extracted paper images by their mapped question; return listening-range
+    questions that have >=1 extracted photo as {qnum: [image ids in reading order]}
+    (cap 4). Questions BELOW listen_start are the reading section — their single
+    images are handled as pdfImage (main image), never as photo-options.
+
+    No more '>=4 or drop': if the paper's 4-photo grid was only partially extracted
+    (1-3 photos) the question is still returned here, and the caller tops it up to a
+    full 4 photos by generating the missing slots."""
     from collections import defaultdict
     by_q = defaultdict(list)
     for im in pdf_doc["images"]:
         qn = im.get("nearest_question")
         if isinstance(qn, int) and qn > 0:
+            if listen_start is not None and qn < listen_start:
+                continue
             by_q[qn].append(im)
     out = {}
     for qn, v in by_q.items():
-        if len(v) < 4:
+        if not v:
             continue
         v.sort(key=lambda i: (i.get("bbox") or [0, 0, 0, 0])[1] * 1000 + (i.get("bbox") or [0, 0, 0, 0])[0])
         out[qn] = [im["id"] for im in v[:4]]
@@ -1952,20 +1975,35 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
                     return True
                 print(f"    q{num} resume: flag repair failed")
                 return False
+        paper_pngs = {}
         if num in paper_photos:
-            pp = paper_photos[num]
-            pngs = pp.get("pngs") or {}
-            files = []
-            for im_id in pp.get("ids", []):
-                png = pngs.get(im_id)
+            paper_pngs = paper_photos[num].get("pngs") or {}
+
+        # Build 4 option slots: slot = ("paper", id) when the author's value is a
+        # valid extracted photo, otherwise ("gen", description) -> generate.
+        raw = [str(x or "").strip() for x in (q.get("option_images") or [])[:4]]
+        while len(raw) < 4:
+            raw.append(f"photo {len(raw) + 1} matching the audio scene")
+        slots = []
+        paper_used = 0
+        for v in raw:
+            if v in paper_pngs:
+                slots.append(("paper", v, None))
+                paper_used += 1
+            else:
+                slots.append(("gen", None, v))
+        files = []
+        used_sum = 0.0
+        for i, (kind, pid, desc) in enumerate(slots):
+            if kind == "paper":
+                png = paper_pngs.get(pid)
                 if not png:
-                    print(f"    q{num} missing extracted photo {im_id}")
+                    print(f"    q{num} missing extracted photo {pid}")
                     return False
                 webp_data = None
                 try:
                     if upscale_on and fal_key:
-                        up_ok = upload_file(headers, rid, "option_images",
-                                            f"{im_id}.png", png, "image/png")
+                        up_ok = upload_file(headers, rid, "option_images", f"{pid}.png", png, "image/png")
                         if up_ok:
                             chk2 = httpx.get(CFG["pb_base"] + f"/api/collections/questions/records/{rid}",
                                              headers=headers, params={"fields": "option_images"}, timeout=30)
@@ -1973,26 +2011,19 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
                             if fnames:
                                 url = CFG["pb_base"] + f"/api/files/questions/{rid}/{fnames[-1]}"
                                 webp_data = to_webp(P.upscale_image(url, fal_key), max_size=max_size, quality=quality)
-                                print(f"    q{num} {im_id} upscaled OK")
+                                print(f"    q{num} {pid} upscaled OK")
                 except Exception as e:
-                    print(f"    q{num} {im_id} upscale failed ({str(e)[:100]}) — raw")
+                    print(f"    q{num} {pid} upscale failed ({str(e)[:100]}) — raw")
                     webp_data = None
                 if webp_data is None:
                     webp_data = to_webp(png, max_size=max_size, quality=quality)
-                files.append((f"q{num}_{im_id}.webp", webp_data, "image/webp"))
-            if len(files) < 4:
-                return False
-            if not upload_option_images(headers, rid, files):
-                return False
-            return ensure_picture_record_flags(headers, rid, q)
-        descs = [str(x or "").strip() for x in (q.get("option_images") or [])[:4]]
-        if len(descs) < 4 or not all(descs):
-            print(f"    q{num} picture: need 4 descriptions, have {len(descs)}")
-            return False
-        files = []
-        used_sum = 0.0
-        for i, desc in enumerate(descs):
-            prompt = f"{CFG['image_style_prompt']}. Photo {i + 1}: {desc}."
+                files.append((f"q{num}_p{i + 1}.webp", webp_data, "image/webp"))
+                continue
+            # generate this slot (paper missing OR fully fresh question)
+            d = str(desc or "").strip()
+            if not d or _is_photo_id(d):
+                d = f"Photo {i + 1}: the scene that matches the audio (flat colourful EPS-TOPIK)"
+            prompt = f"{CFG['image_style_prompt']}. Photo {i + 1}: {d}."
             data = None
             for mi, model in enumerate(chain):
                 tries = img_retries if mi == 0 else fb_retries
@@ -2024,6 +2055,9 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
             files.append((f"q{num}_p{i + 1}.webp", webp, "image/webp"))
             (out_dir / f"q{num}_p{i + 1}.webp").write_bytes(webp)
         nonlocal_cost[0] += used_sum
+        if len(files) != 4:
+            print(f"    q{num} picture: assembled {len(files)}/4 option images")
+            return False
         if not upload_option_images(headers, rid, files):
             return False
         if verify:
@@ -2032,6 +2066,7 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
             if chk3.status_code != 200 or len(chk3.json().get("option_images") or []) < 4:
                 print(f"    q{num} picture verify failed")
                 return False
+        print(f"    q{num} {'hybrid: %d paper photo(s) + %d generated' % (paper_used, 4 - paper_used) if paper_used else '4 photos generated'}")
         return ensure_picture_record_flags(headers, rid, q)
 
     nonlocal_cost = [0.0]
@@ -2313,11 +2348,14 @@ def final_summary(stats):
     print("=" * 66)
 
 
-def _paper_picture_block(pdf_doc, key, paper_pics, paper_captions):
-    """Build the PAPER PICTURE PHOTOS prompt section: for each paper question with
-    4+ extracted photos, list the photo ids + short vision captions (so the author
-    can write audio matching the photo it chooses). Populates paper_pics/captions."""
-    groups = group_paper_pictures(pdf_doc)
+def _paper_picture_block(pdf_doc, key, paper_pics, paper_captions, listen_start=None):
+    """Build the PAPER PICTURE PHOTOS prompt section: for each listening-range paper
+    question with extracted photos, list the photo ids + short vision captions (so the
+    author can write audio matching the photo it chooses). Populates paper_pics/captions.
+
+    Partial grids (1-3 photos) are listed and tagged 'MISSING k' so the author knows
+    slots -4 will be GENERATED to match the same setting."""
+    groups = group_paper_pictures(pdf_doc, listen_start)
     img_by_id = {im["id"]: im for im in pdf_doc["images"]}
     lines = []
     cap_questions = 0
@@ -2340,7 +2378,10 @@ def _paper_picture_block(pdf_doc, key, paper_pics, paper_captions):
         if any(caps):
             cap_questions += 1
         cap_text = " | ".join("%d) %s" % (i + 1, caps[i] if caps[i] else "(no caption)") for i in range(len(ids)))
-        lines.append("Q%s: photos %s — %s" % (qn, ids, cap_text))
+        missing = max(0, 4 - len(ids))
+        suffix = (f" — MISSING {missing} more photo(s), you must include 4 option_images "
+                  f"for this question: reuse these ids and DESCRIBE the missing ones so they are generated") if missing else " (complete 4 photos)"
+        lines.append("Q%s: photos %s%s — %s%s" % (qn, ids, " (extracted %d/%d)" % (len(ids), 4), cap_text, suffix))
     for qn, ids in list(paper_pics.items()):
         if qn not in groups:
             paper_pics[qn] = ids
@@ -2386,6 +2427,42 @@ def preflight_checks():
             print("  [WARN] pdf_parser=upstage but UPSTAGE_API_KEY unset — falls back to local/mistral")
 
     print("— preflight done —")
+
+
+def pick_listening_bands(listen_available, is_paper):
+    """Resolve the number of picture + blank listening questions for THIS exam.
+
+    EPS-TOPIK structure: 20 listening = 5-8 picture + 4-6 blank + the rest
+    normal (random TTS). Counts are picked at random INSIDE the configurable
+    bands, clamped to the real listening-questions count, and written back to
+    CFG so render_prompt / apply_blank_questions / the picture gate all agree.
+
+    Paper mode: the picture count is handled separately by paper_pics (the
+    paper decides); only the blank band is resolved here."""
+    from random import randint
+    pmin = int(CFG.get("listening_picture_min") or 5)
+    pmax = int(CFG.get("listening_picture_max") or 8)
+    bmin = int(CFG.get("listening_blank_min") or 4)
+    bmax = int(CFG.get("listening_blank_max") or 6)
+    pmin = max(0, min(pmin, pmax))
+    bmin = max(0, min(bmin, bmax))
+    pic = int(CFG.get("listening_picture_count") or 0)
+    blank = int(CFG.get("listening_blank_count") or 0)
+    if not is_paper:
+        # random / book: pick picture from the band, then blank within the rest
+        pic = randint(pmin, pmax)
+        pic = min(pic, max(0, listen_available))
+    blank = randint(bmin, bmax)
+    # reserve space for the (band-max in random, or configured count in paper) pictures
+    pic_eff = min(pic, pmax if not is_paper else int(CFG.get("listening_picture_max") or 8))
+    blank = min(blank, max(0, listen_available - pic_eff))
+    pic = int(pic)
+    CFG["listening_picture_count"] = pic
+    CFG["listening_blank_count"] = blank
+    if not is_paper and pic + blank > listen_available:
+        blank = max(0, listen_available - pic)
+        CFG["listening_blank_count"] = blank
+    return pic, blank
 
 
 def main():
@@ -2465,15 +2542,21 @@ def main():
                         continue
                     ids = [str(x).strip() for x in (q.get("option_images") or [])
                            if _is_photo_id(x) and str(x).strip() in valid_ids]
-                    if len(ids) >= 4:
+                    if ids:
                         paper_img_map[q["number"]] = ids[:4]
             else:
                 print("[resume] pdf_path missing — picture photos cannot be restored from the paper")
     else:
         # PDF generation modes: parse the uploaded document before authoring
         gen_type = int(CFG.get("gen_type", 1))
+        listen_start = int(CFG.get("reading_count") or 0) + 1
         pdf_doc = None
         user_builder = None
+        vision_pages = []
+        # EPS-TOPIK bands first (so render_prompt sees the resolved counts)
+        listen_available = max(0, int(CFG.get("question_count") or 40) - int(CFG.get("reading_count") or 20))
+        pic_target, blank_target = pick_listening_bands(listen_available, int(CFG.get("gen_type") or 1) == 3)
+        stats["blank_target"] = blank_target
         if gen_type >= 2:
             import pdf_parser as P
             pdf_path = str(CFG.get("pdf_path") or "").strip()
@@ -2508,24 +2591,43 @@ def main():
                                pdf_doc["text"] + "\n\nPAPER IMAGES:\n" +
                                ("\n".join(img_lines) if img_lines else "(none extracted)") +
                                "\n\nPAPER PICTURE PHOTOS:\n" +
-                               _paper_picture_block(pdf_doc, key, paper_pics, paper_captions))
-            user_builder = lambda: user_prompt
+                               _paper_picture_block(pdf_doc, key, paper_pics, paper_captions, listen_start=listen_start))
+                user_builder = lambda: user_prompt
+            # Gemini vision scan: render the actual question pages so the (always
+            # multimodal) Gemini author can SEE the paper - verify image->question
+            # mapping, spot 4-photo grids even from partial extraction, and write
+            # coherent fills for missing photos. Bounded for token safety.
+            if gen_type == 3 and bool(CFG.get("gemini_vision_scan", True)):
+                try:
+                    q_pages = [pg["page"] for pg in (pdf_doc.get("pages") or [])
+                               if str(pg.get("kind") or "") == "question"]
+                    for pg in q_pages[:18]:
+                        vision_pages.append(P._render_page_png(pdf_path, max(0, int(pg) - 1)))
+                    if vision_pages:
+                        user_prompt += ("\n\nVISION NOTE: you are also shown the actual rendered question pages of"
+                                        " the paper. USE THEM: (1) visually confirm which extracted image belongs to"
+                                        " which question; (2) a listening question whose photo grid is only partly"
+                                        " extracted (1-3 photos) is STILL exactly a 4-photo picture question - set"
+                                        " picture_options true and option_images = [the extracted photo ids you use,"
+                                        " plus a clear English description for each missing photo so it can be"
+                                        " generated to match the same setting]; never skip such a question."
+                                        " (3) reading questions that show an image in the page must set pdfImage to"
+                                        " that extracted id and requiresImage true.")
+                        print(f"[pdf] fed {len(vision_pages)} rendered question page(s) to the Gemini author (vision scan)")
+                except Exception as e:
+                    vision_pages = []
+                    print(f"[pdf] vision scan unavailable: {str(e)[:90]}")
         else:
             user_prompt = render_prompt(AUTHOR_USER)
 
-        # picture-question target (paper: paper's own + top-up to the configured count).
-        # listen_available is the REAL listening-question count of THIS exam —
-        # dry runs (3 questions) must never demand more pictures than exist.
-        listen_available = max(0, int(CFG.get("question_count") or 40) - int(CFG.get("reading_count") or 20))
-        pic_target = int(CFG.get("listening_picture_count") or 0)
+        # picture-question target: paper strictly decides (its own candidate grids);
+        # random/book use the band-resolved pic_target (already in CFG).
         if gen_type == 3:
-            # Printed-paper mode: the paper strictly decides picture questions —
-            # configuration (listening_picture_count) applies to random generation only.
             target = len(paper_pics)
             print(f"[picture] paper mode: {target} picture question(s) from the paper "
-                  f"(config target {pic_target} ignored for paper)")
+                  f"(config band {pic_target} applies to random/book only)")
         else:
-            target = max(pic_target, len(paper_pics)) if paper_pics else pic_target
+            target = pic_target
         if target > listen_available:
             target = listen_available
         stats["pic_target"] = target
@@ -2554,7 +2656,7 @@ def main():
             for attempt in range(gretries):
                 print(f"[author] gemini ({gmodel}) attempt {attempt + 1}...")
                 try:
-                    raw, _usage = gemini_author(sys_prompt, user_prompt, gmodel)
+                    raw, _usage = gemini_author(sys_prompt, user_prompt, gmodel, vision=vision_pages if vision_pages else None)
                     gqs = json.loads(raw.strip(), strict=False)
                     if isinstance(gqs, dict):
                         for k in ("questions", "items", "results", "data", "exam"):
@@ -2713,19 +2815,23 @@ def main():
                         print(f"[pdf] Q{q.get('number')}: pdfImage '{pi}' not in extracted images — will generate fresh")
                         q["pdfImage"] = ""
 
-        # paper mode: resolve picture questions' photo ids -> extracted images
+        # paper mode: resolve picture questions' photo ids -> extracted images.
+        # HYBRID: keep every valid extracted photo AND the author's written
+        # descriptions for any missing slot (the image pass generates those).
+        # A paper 4-photo grid that extracted only 1-3 photos is topped up, never skipped.
         if gen_type == 3 and pdf_doc:
             valid_ids = set(i["id"] for i in pdf_doc["images"])
             for q in qs:
                 if q.get("picture_options"):
-                    imgs = q.get("option_images") or []
-                    resolved = [str(x).strip() for x in imgs if _is_photo_id(x) and str(x).strip() in valid_ids]
-                    if len(resolved) >= 4:
-                        q["option_images"] = resolved[:4]
+                    imgs = [str(x or "").strip() for x in (q.get("option_images") or [])][:4]
+                    resolved = [x for x in imgs if _is_photo_id(x) and x in valid_ids]
+                    if len(imgs) < 4:
+                        imgs = imgs + ["photo%d matching the audio scene" % i for i in range(len(imgs) + 1, 5)]
+                    # keep the author's slot order: paper ids stay, descriptions stay for generation
+                    q["option_images"] = imgs[:4]
+                    if resolved:
                         paper_img_map[q["number"]] = resolved[:4]
-                    else:
-                        # author wrote descriptions instead of ids -> generate fresh
-                        q["option_images"] = [str(x).strip() for x in imgs[:4] if str(x or "").strip()]
+                    continue
                 pi = str(q.get("pdfImage") or "")
                 if pi:
                     if pi in valid_ids:
@@ -2915,12 +3021,15 @@ def main():
                 pdf_images_map[q["number"]] = {"png": img_by_id[pi]["png"]}
         for qnum, ph_ids in paper_img_map.items():
             pp = {"ids": ph_ids, "pngs": {i: img_by_id[i]["png"] for i in ph_ids if i in img_by_id}}
-            if len(pp["pngs"]) == 4:
+            if pp["pngs"]:
+                pp["fill"] = max(0, 4 - len(pp["pngs"]))
                 paper_photos_map[qnum] = pp
         if pdf_images_map:
             print(f"[images] {len(pdf_images_map)} extracted paper images will be upscaled (fal recraft/crisp)")
         if paper_photos_map:
-            print(f"[images] {len(paper_photos_map)} paper picture questions use extracted photos")
+            filled = sum(1 for pp in paper_photos_map.values() if pp.get("fill"))
+            print(f"[images] {len(paper_photos_map)} paper picture questions use extracted photos"
+                  + (f" ({filled} hybrid - missing photos will be generated)" if filled else ""))
     if any(q.get("picture_options") for q in qs):
         ensure_option_images_field(headers)
     print(f"[images] generating TOPIK images ({img_primary})...")
@@ -2934,6 +3043,10 @@ def main():
     stats["stage_times"]["images"] = stage_secs()
     stats["llm_cost"] = stats["author_cost"] + stats["proof_cost"]
     stats["stage_times"]["total"] = stage_secs()
+    stats["paper_photos_extracted"] = len(pdf_doc["images"]) if (gen_type == 3 and pdf_doc) else 0
+    stats["paper_photos_used"] = len(paper_photos_map)
+    stats["paper_photos_filled"] = sum(1 for pp in paper_photos_map.values() if pp.get("fill"))
+    stats["picture_complete"] = stats.get("picture_self_check")
 
     # 5b. Contract self-check (picture questions must match client renderer)
     stats["picture_self_check"] = self_check_picture_questions(qs, headers)
@@ -2945,6 +3058,10 @@ def main():
         "gen_type": gen_type,
         "blank_count": stats.get("blank_count", 0),
         "picture_count": stats.get("picture_count", 0),
+        "paper_photos_extracted": stats.get("paper_photos_extracted", 0),
+        "paper_photos_used": stats.get("paper_photos_used", 0),
+        "paper_photos_filled": stats.get("paper_photos_filled", 0),
+        "picture_complete": stats.get("picture_complete"),
         "pdf_parser": stats.get("pdf_parser"),
         "pdf_pages": stats.get("pdf_pages"),
         "pdf_images": stats.get("pdf_images"),
