@@ -570,31 +570,6 @@ th.sortable:hover{color:var(--amber2)}
                               <div v-if="hintText(f)" class="hint">{{ hintText(f) }}</div>
                             </div>
                           </div>
-                          <datalist id="ttsModelList"><option v-for="o in ttsOptions" :key="o" :value="o">{{ o }}</option></datalist>
-                          <datalist id="voiceList"><option v-for="o in voiceOptions" :key="o" :value="o">{{ o }}</option></datalist>
-                        </template>
-                        <template v-else v-for="f in metaByGroup(g)" :key="f.field">
-                          <div v-if="!hiddenField(f) && f.field!=='dedup_sets'" class="acc-field" :class="[f.field==='prompts_json'?'full':'']">
-                            <label class="lbl">
-                              {{ f.label }}
-                              <span class="tip" v-if="f.help">?<span class="ttip">{{ f.help }}</span></span>
-                              <span class="tip" v-if="f.field==='gemini_model'">?<span class="ttip">Primary author model via the direct Google Gemini API. Needs GEMINI_API_KEY set in the container.</span></span>
-                              <span class="tip" v-if="f.field==='llm_author_model'">?<span class="ttip">Fallback author model via OpenRouter — used only when the Gemini author fails or quota is exceeded.</span></span>
-                              <span class="tip" v-if="f.field==='image_count'">?<span class="ttip">How many questions carry a picture — spread randomly across reading AND listening. Default 18.</span></span>
-                              <span class="tip" v-if="f.field==='push_pb_pass'">?<span class="ttip">Admin password of the teacher app PocketBase. Leave empty + toggle Upload off to generate exams locally.</span></span>
-                            </label>
-                            <template v-if="f.field==='gemini_model'">
-                              <div class="flex gap-2 items-center">
-                                <input v-model.trim="cfgData[f.field]" class="input f-mono flex-1" list="geminiModelList" placeholder="google/gemini-2.5-flash">
-                                <button type="button" class="btn btn-ghost btn-sm shrink-0 flex items-center" :disabled="geminiChk.busy" :title="'Live-probe this Gemini model against the API'" @click="checkGeminiModel"><span v-if="geminiChk.busy" class="spinner"></span><span v-html="ic('check',14)"></span></button>
-                              </div>
-                              <datalist id="geminiModelList"><option v-for="o in geminiModels()" :key="o" :value="o">{{ o }}</option></datalist>
-                              <div v-if="geminiChk.msg" class="text-[11.5px] mt-1.5 flex items-center gap-1.5" :style="geminiChk.ok===false?'color:var(--red)':geminiChk.ok===true?'color:var(--green)':'color:var(--amber2)'">
-                                <span v-html="ic(geminiChk.ok===false?'x':geminiChk.ok===true?'check':'info',12)"></span>{{ geminiChk.msg }}
-                              </div>
-                            </template>
-                            <template v-else-if="f.field==='tts_model'||f.field==='tts_fallback_model'">
-                              <input v-model.trim="cfgData[f.field]" class="input f-mono" list="ttsModelList" placeholder="Type a model or pick one…">
                           <div class="audio-card" style="margin-top:1rem">
                             <div class="audio-card-h"><span v-html="ic('database',14)"></span>Blank question pool</div>
                             <div class="audio-card-b">
@@ -620,6 +595,31 @@ th.sortable:hover{color:var(--amber2)}
                             </div>
                           </div>
                           <datalist id="ttsModelList"><option v-for="o in ttsOptions" :key="o" :value="o">{{ o }}</option></datalist>
+                          <datalist id="voiceList"><option v-for="o in voiceOptions" :key="o" :value="o">{{ o }}</option></datalist>
+                        </template>
+                        <template v-else v-for="f in metaByGroup(g)" :key="f.field">
+                          <div v-if="!hiddenField(f) && f.field!=='dedup_sets'" class="acc-field" :class="[f.field==='prompts_json'?'full':'']">
+                            <label class="lbl">
+                              {{ f.label }}
+                              <span class="tip" v-if="f.help">?<span class="ttip">{{ f.help }}</span></span>
+                              <span class="tip" v-if="f.field==='gemini_model'">?<span class="ttip">Primary author model via the direct Google Gemini API. Needs GEMINI_API_KEY set in the container.</span></span>
+                              <span class="tip" v-if="f.field==='llm_author_model'">?<span class="ttip">Fallback author model via OpenRouter — used only when the Gemini author fails or quota is exceeded.</span></span>
+                              <span class="tip" v-if="f.field==='image_count'">?<span class="ttip">How many questions carry a picture — spread randomly across reading AND listening. Default 18.</span></span>
+                              <span class="tip" v-if="f.field==='push_pb_pass'">?<span class="ttip">Admin password of the teacher app PocketBase. Leave empty + toggle Upload off to generate exams locally.</span></span>
+                            </label>
+                            <template v-if="f.field==='gemini_model'">
+                              <div class="flex gap-2 items-center">
+                                <input v-model.trim="cfgData[f.field]" class="input f-mono flex-1" list="geminiModelList" placeholder="google/gemini-2.5-flash">
+                                <button type="button" class="btn btn-ghost btn-sm shrink-0 flex items-center" :disabled="geminiChk.busy" :title="'Live-probe this Gemini model against the API'" @click="checkGeminiModel"><span v-if="geminiChk.busy" class="spinner"></span><span v-html="ic('check',14)"></span></button>
+                              </div>
+                              <datalist id="geminiModelList"><option v-for="o in geminiModels()" :key="o" :value="o">{{ o }}</option></datalist>
+                              <div v-if="geminiChk.msg" class="text-[11.5px] mt-1.5 flex items-center gap-1.5" :style="geminiChk.ok===false?'color:var(--red)':geminiChk.ok===true?'color:var(--green)':'color:var(--amber2)'">
+                                <span v-html="ic(geminiChk.ok===false?'x':geminiChk.ok===true?'check':'info',12)"></span>{{ geminiChk.msg }}
+                              </div>
+                            </template>
+                            <template v-else-if="f.field==='tts_model'||f.field==='tts_fallback_model'">
+                              <input v-model.trim="cfgData[f.field]" class="input f-mono" list="ttsModelList" placeholder="Type a model or pick one…">
+                              <datalist id="ttsModelList"><option v-for="o in ttsOptions" :key="o" :value="o">{{ o }}</option></datalist>
                             </template>
                             <template v-else-if="f.field==='tts_male_voice'||f.field==='tts_female_voice'||f.field==='tts_fallback_male_voice'||f.field==='tts_fallback_female_voice'">
                               <div class="flex gap-2 items-center">
