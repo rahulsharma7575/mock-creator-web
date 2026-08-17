@@ -42,6 +42,8 @@ MODEL_SAMPLE_RATES = {
     "edge-tts": 24000,
     "microsoft/mai-voice-2": 24000,
     "microsoft/mai-voice-2-flash": 24000,
+    # Deepgram Flux — verified 24 kHz (mp3 passthrough; entry only for pcm paths)
+    "deepgram/flux-tts": 24000,
     # xAI Grok Voice — 44.1 kHz
     "x-ai/grok-voice-tts-1.0": 44100,
 }

@@ -42,6 +42,12 @@ CONFIG_PATHS = [
     os.path.expanduser("~/.config/opencode/opencode.json"),
 ]
 
+
+class TTSError(Exception):
+    """Raised for ANY provider/model error inside library-callable functions.
+    Callers (mock_audio_builder) catch this and fall back to the fallback TTS
+    model; the CLI wraps it into a clean 'ERROR: ...' exit."""
+
 # Known TTS models + voices (REST /models API does not list TTS models).
 # Add more as needed - unknown models still work, just pass --voice explicitly.
 KNOWN_MODELS: dict[str, list[str]] = {
@@ -137,6 +143,17 @@ KNOWN_MODELS: dict[str, list[str]] = {
         "ca3007f96ae7499ab87d27ea3599956a",  # E-girl - Female, Young, egirl
         "9a9cf47702da476aa4629e2506d4a857",  # Hannah - Female, Middle Aged, Advertisement
         "802e3bc2b27e49c2995d23ef70e6ac89",  # Energetic Male - Male, Young, Social Media
+    ],
+    "deepgram/flux-tts": [
+        "flux-alexis-en", "flux-bree-en", "flux-brittany-en", "flux-brooke-en",
+        "flux-bruce-en", "flux-cliff-en", "flux-cole-en", "flux-colin-en",
+        "flux-conor-en", "flux-donovan-en", "flux-drew-en", "flux-elise-en",
+        "flux-gemma-en", "flux-haley-en", "flux-hannah-en", "flux-heather-en",
+        "flux-jack-en", "flux-kai-en", "flux-kelsey-en", "flux-kit-en",
+        "flux-maeve-en", "flux-marcelo-en", "flux-marcus-en", "flux-meena-en",
+        "flux-meghan-en", "flux-miles-en", "flux-naveen-en", "flux-paige-en",
+        "flux-priya-en", "flux-rufus-en", "flux-sean-en", "flux-sharon-en",
+        "flux-sienna-en", "flux-tanner-en", "flux-wade-en", "flux-wes-en",
     ],
 }
 
@@ -262,58 +279,116 @@ def check_key(key: str):
 def list_voices(model: str):
     voices = get_voices(model)
     if not voices:
-        sys.exit(f"Model '{model}' has no voice list in the script catalog. Pass --voice manually (or add it to KNOWN_MODELS in tts.py).")
+        log(f"Model:   {model}")
+        log("Voices:  (none in the local catalog - pass --voice with any voice the provider supports)")
+        sys.exit(0)
     log(f"Model:   {model}")
     log(f"Voices:  {', '.join(voices)}")
     sys.exit(0)
 
 
-def make_speech(model: str, voice: str, text: str, fmt: str, key: str, speed: float | None, rate_override: int | None = None, _attempt: int = 1) -> bytes:
-    """Generate speech. If the model rejects the format (e.g. Gemini: pcm only),
-    retry with pcm and convert to the requested format via ffmpeg.
-    Transient timeouts/network errors are retried up to 3 times."""
-    body = {"model": model, "input": text}
-    if voice != "default":
-        body["voice"] = voice
+def make_speech(model: str, voice: str, text: str, fmt: str | None, key: str, speed: float | None, rate_override: int | None = None, _attempt: int = 1) -> bytes:
+    """Generate speech; returns bytes in the REQUESTED format.
+
+    Handles ANY TTS model generically (no per-model special-casing):
+      * provider accepts the requested format -> use as-is
+      * provider is pcm-only (e.g. Gemini) or rejects the requested format with
+        a bare "Provider returned 400" -> retried with response_format=pcm and
+        transcoded via the shared sample-rate table
+      * providers that reject the `speed` param (Gemini, MAI, Deepgram flux)
+        -> retried without speed (speed 1.0 is never sent at all)
+      * invalid voices -> retried without the voice param
+      * transient timeouts/empty responses -> retried (3x)
+
+    Every failure raises TTSError (NEVER sys.exit) so library callers can
+    catch it and fall back to the fallback TTS model cleanly."""
+    err_fallback = None
+
+    def _post(payload: dict):
+        nonlocal _attempt
+        for i in range(3):
+            try:
+                r = httpx.post(
+                    f"{API}/audio/speech",
+                    headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                    json=payload,
+                    timeout=httpx.Timeout(300.0, connect=30.0),
+                )
+            except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError, httpx.RemoteProtocolError) as e:
+                if i < 2:
+                    log(f"  (timeout/network error - retrying {i + 2}/3)")
+                    time.sleep(2 * (i + 1))
+                    continue
+                raise TTSError(f"TTS request timed out after 3 attempts: {e}")
+            if r.status_code == 200 and not r.content and i < 2:
+                log("  (empty response - retrying)")
+                time.sleep(2 * (i + 1))
+                continue
+            return r
+        raise TTSError("TTS request never succeeded (network retries exhausted)")
+
+    base = {"model": model, "input": text}
+    # Only send speed when it differs from 1.0: providers that don't support
+    # the param (Gemini, MAI, Deepgram flux, ...) reject it with a 400.
+    if speed and speed != 1.0:
+        base["speed"] = speed
+    if voice and str(voice).strip() != "default":
+        base["voice"] = voice
+
+    # Candidate bodies, tried in order; first 200 with usable bytes wins:
+    #   1. requested format
+    #   2. pcm (pcm-only providers reject mp3 with a generic 400)
+    #   3. provider default format
+    #   4. the same bodies again without the voice param (invalid voices)
+    queue: list[dict] = []
+
+    def push(d: dict):
+        if d not in queue:
+            queue.append(d)
+
     if fmt:
-        body["response_format"] = fmt
-    if speed:
-        body["speed"] = speed
-    try:
-        r = httpx.post(
-            f"{API}/audio/speech",
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            json=body,
-            timeout=httpx.Timeout(300.0, connect=30.0),
-        )
-    except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError, httpx.RemoteProtocolError) as e:
-        if _attempt < 3:
-            log(f"  (timeout/network error on chunk - retrying {_attempt + 1}/3)")
-            time.sleep(2 * _attempt)
-            return make_speech(model, voice, text, fmt, key, speed, rate_override, _attempt + 1)
-        sys.exit(f"ERROR: TTS request timed out after 3 attempts: {e}")
-    if r.status_code == 200:
-        if not r.content and _attempt < 3:
-            log(f"  (empty response - retrying {_attempt + 1}/3)")
-            time.sleep(2 * _attempt)
-            return make_speech(model, voice, text, fmt, key, speed, rate_override, _attempt + 1)
-        if not r.content:
-            sys.exit("ERROR: TTS returned empty audio after 3 attempts")
-        return r.content
-    if r.status_code == 400 and "pcm" in r.text and fmt and fmt != "pcm":
-        log("  (model needs pcm - retrying and converting)")
-        pcm = make_speech(model, voice, text, "pcm", key, speed, rate_override)
-        return pcm_to_mp3(pcm, model, rate_override)
-    err = r.text[:400]
-    if r.status_code == 401:
-        sys.exit("ERROR: Invalid API key (401). Check the key at https://openrouter.ai/settings/keys")
-    if r.status_code == 402:
-        sys.exit("ERROR: Insufficient credits / daily limit reached (402). Top up or raise key limit at https://openrouter.ai/settings/keys")
-    if r.status_code == 404:
-        sys.exit(f"ERROR: Model or voice not found (404). Model: {model}, Voice: {voice}. Check --voices.")
-    if r.status_code == 429:
-        sys.exit("ERROR: Rate limited (429). Wait a minute and retry.")
-    sys.exit(f"ERROR: TTS failed ({r.status_code}): {err}")
+        push({**base, "response_format": fmt})
+    if fmt and fmt != "pcm":
+        push({**base, "response_format": "pcm"})
+    push(dict(base))
+    if "voice" in base:
+        no_voice = {k: v for k, v in base.items() if k != "voice"}
+        push(no_voice)
+        if fmt:
+            push({**no_voice, "response_format": fmt})
+        if fmt and fmt != "pcm":
+            push({**no_voice, "response_format": "pcm"})
+
+    last = None
+    for cand in queue:
+        r = _post(cand)
+        if r.status_code == 200:
+            content = r.content
+            ct = r.headers.get("content-type", "").lower()
+            log(f"  ({model}: got {len(content)} bytes, {ct})")
+            # Provider returned pcm but we need mp3 -> transcode (Gemini family)
+            if fmt == "mp3" and ("pcm" in ct or content[:4] == b"RIFF"):
+                return pcm_to_mp3(content, model, rate_override)
+            return content
+        status = r.status_code
+        text_body = r.text[:400]
+        meta = ""
+        try:
+            j = r.json()
+            meta = str((j.get("error") or {}).get("metadata", {}).get("raw", ""))[:300]
+        except Exception:
+            pass
+        log(f"  ({model}: candidate rejected {status} - {text_body[:140]}{(' raw: ' + meta) if meta else ''})")
+        if status in (401, 402, 404, 429):
+            break  # nothing will change by retrying variations
+        # OpenRouter reports unknown models as 400 with this message - don't
+        # waste the remaining candidates on a model that does not exist.
+        if status == 400 and re.search(r"does not exist|not found|not a valid model", text_body, re.IGNORECASE):
+            break
+        last = (status, text_body)
+
+    status, msg = last or (0, "no usable response")
+    raise TTSError(f"TTS failed (HTTP {status}): {msg}")
 
 
 def pcm_to_mp3(pcm: bytes, model: str, rate_override: int | None = None) -> bytes:
@@ -321,7 +396,9 @@ def pcm_to_mp3(pcm: bytes, model: str, rate_override: int | None = None) -> byte
     ffmpeg = find_ffmpeg()
     rate = rate_override or model_rate(model)
     if not rate:
-        sys.exit(f"ERROR: No sample-rate preset for model '{model}' (needed for pcm->mp3). Add it to MODEL_SAMPLE_RATES in audio_convert.py or pass --rate.")
+        log(f"  WARNING: no sample-rate preset for '{model}' — assuming 24000 Hz "
+            "(verify with ffprobe; pass --rate to override)")
+        rate = 24000
     uid = f"{os.getpid()}_{threading.get_ident()}"
     src = os.path.join(tempfile.gettempdir(), f"tts_pcm_src_{uid}.pcm")
     dst = os.path.join(tempfile.gettempdir(), f"tts_pcm_dst_{uid}.mp3")
@@ -356,14 +433,14 @@ def concat_mp3(parts: list[str], out: str):
     )
     os.remove(listfile)
     if res.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
-        sys.exit(f"ERROR: ffmpeg concat failed: {res.stderr.decode(errors='ignore')[:300]}")
+        raise TTSError(f"ffmpeg concat failed: {res.stderr.decode(errors='ignore')[:300]}")
 
 
 def log(msg: str):
     print(msg, flush=True)
 
 
-def main():
+def _main():
     ap = argparse.ArgumentParser(description="Universal OpenRouter TTS")
     ap.add_argument("--model", default="x-ai/grok-voice-tts-1.0")
     ap.add_argument("--voice")
@@ -403,7 +480,9 @@ def main():
     if not out.lower().endswith(tuple([".mp3", ".pcm", ".wav"])):
         out += f".{args.format}"
 
-    # Validate model + pick voice (from embedded catalog, case-insensitive)
+    # Validate model + pick voice (from embedded catalog, case-insensitive).
+    # Unknown models/voices NEVER hard-fail: the voice passes through as-is and
+    # make_speech self-heals (strips invalid params/voices on 400).
     voices = get_voices(args.model)
     voice = args.voice
     if not voice and voices:
@@ -412,15 +491,14 @@ def main():
         # Unknown model without a voice: try provider default voice automatically.
         # If the API requires a voice, its error message will say so clearly.
         voice = "default"
-    if voices:
+    if voices and voice != "default":
         match = [v for v in voices if v.lower() == voice.lower()]
         if not match:
             # tolerate short ids that prefix a catalog voice (e.g. ko-KR-Haena
             # -> ko-KR-Haena:MAI-Voice-2)
             match = [v for v in voices if v.lower().startswith(voice.lower())]
-        if not match:
-            sys.exit(f"ERROR: Voice '{voice}' not in {voices} for {args.model}")
-        voice = match[0]  # canonical spelling
+        if match:
+            voice = match[0]  # canonical spelling (only when it IS a catalog voice)
 
     # Split long text
     parts = [text[i : i + args.chunk] for i in range(0, len(text), args.chunk)]
@@ -482,14 +560,12 @@ def main():
             wf = pf.rsplit(".", 1)[0] + ".wav"
             res = subprocess.run([ffmpeg, "-y", "-i", pf, "-ar", str(rate), "-ac", "1", wf], capture_output=True)
             if res.returncode != 0:
-                sys.exit(f"ERROR: wav conversion failed: {res.stderr.decode(errors='ignore')[:300]}")
+                raise TTSError(f"wav conversion failed: {res.stderr.decode(errors='ignore')[:300]}")
             wavs.append(wf)
-        # concat with re-encode: "-c copy" on wav parts would keep per-part RIFF
-        # headers and produce a corrupt output file
         listfile = out + f".parts.{os.getpid()}.txt"
         with open(listfile, "w", encoding="utf-8") as f:
-            for p in wavs:
-                f.write(f"file '{os.path.abspath(p)}'\n")
+            for w in wavs:
+                f.write(f"file '{os.path.abspath(w)}'\n")
         res = subprocess.run(
             [ffmpeg, "-y", "-f", "concat", "-safe", "0", "-i", listfile,
              "-ar", str(rate), "-ac", "1", "-c:a", "pcm_s16le", out],
@@ -497,11 +573,11 @@ def main():
         )
         os.remove(listfile)
         if res.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) == 0:
-            sys.exit(f"ERROR: wav concat failed: {res.stderr.decode(errors='ignore')[:300]}")
+            raise SystemExit(f"ERROR: wav concat failed: {res.stderr.decode(errors='ignore')[:300]}")
     else:
         sys.exit("ERROR: pcm output for multi-chunk text not supported - use --format mp3 or wav")
     log(f"Saved:  {out}")
 
 
 if __name__ == "__main__":
-    main()
+    _main()

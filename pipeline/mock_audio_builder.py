@@ -78,8 +78,8 @@ TMP = Path(os.environ.get("MOCK_TMP") or Path(tempfile.gettempdir()) / "mock_aud
 # or MOCK_CONFIG file / $MOCK_* env vars — same keys as mock_next.py)
 TTS_DEFAULTS = {
     "tts_model": "fish-audio/s2.1-pro-free:free",
-    "tts_fallback_model": "microsoft/mai-voice-2-flash",
-    "tts_fallback_voice": "ko-KR-Haena:MAI-Voice-2",
+    "tts_fallback_model": "deepgram/flux-tts:free",
+    "tts_fallback_voice": "",
     "tts_rate": 44100,
     "tts_gap_ms": 400,
     "tts_speed": 1.0,    # speech speed (0.5-2.0); 1.0 = normal
@@ -100,12 +100,15 @@ TTS_DEFAULTS = {
 
 # Auto speaker voices per TTS model family (used for PDF-mode dialogues):
 # fish-audio free endpoint -> free named voices (V1 = Energetic male, V2 = Hannah female)
-# MAI Voice 2 -> native Korean male/female voices
+# MAI Voice 2 -> native Korean male/female voices (NOTE: OpenRouter's MAI flash
+# endpoint currently supports only 4 en/eu voices - ko-KR entries are legacy)
+# Deepgram Flux -> free en voices
 # NOTE: the fish female default MUST match the /creator UI placeholder
 # (voicePh -> 9a9cf47702da476aa4629e2506d4a857). Keep them in sync.
 DIALOGUE_VOICE_DEFAULTS = {
     "fish": {"V1": "802e3bc2b27e49c2995d23ef70e6ac89", "V2": "9a9cf47702da476aa4629e2506d4a857"},
-    "mai": {"V1": "ko-KR-InJoon:MAI-Voice-2", "V2": "ko-KR-Haena:MAI-Voice-2"},
+    "mai": {"V1": "de-DE-Klaus:MAI-Voice-2", "V2": "en-US-Harper:MAI-Voice-2"},
+    "flux": {"V1": "flux-bruce-en", "V2": "flux-alexis-en"},
 }
 
 
@@ -184,8 +187,10 @@ def resolve_voice(model, voice, cfg, tts_mod, use_fallback_voice=False):
 
     Speaker labels V1-V4 map to fish-audio UUID voices - which only fish
     models accept. For every other model: tts_voices map > (fallback voice,
-    only for the fallback model) > first voice in the TTS catalog > provider
-    default."""
+    only for the fallback model) > explicit configured voice passed through
+    AS-IS (the API validates; make_speech strips an invalid voice on 400) >
+    first voice in the TTS catalog > provider default. A concrete voice is
+    NEVER silently swapped for a catalog voice."""
     if not model:
         return model, voice
     try:
@@ -200,6 +205,9 @@ def resolve_voice(model, voice, cfg, tts_mod, use_fallback_voice=False):
                 return model, fb
     except Exception:
         pass
+    v = str(voice or "").strip()
+    if v and v != "default":
+        return model, v
     try:
         if tts_mod is not None:
             vs = tts_mod.get_voices(model)
@@ -411,7 +419,7 @@ def main() -> None:
     # PDF-dialogue speaker voices: explicit config > per-model default > stock VOICES.
     # Order matters: the tts_voices map below (explicit per-speaker overrides) wins last.
     model_l = str(cfg.get("tts_model") or "").lower()
-    fam = "mai" if ("mai-voice" in model_l) else ("fish" if ("fish" in model_l or "s2.1" in model_l) else "")
+    fam = "flux" if ("flux" in model_l or "deepgram" in model_l) else ("mai" if ("mai-voice" in model_l) else ("fish" if ("fish" in model_l or "s2.1" in model_l) else ""))
     fam_defaults = DIALOGUE_VOICE_DEFAULTS.get(fam, {})
     for key, cfg_key in (("V1", "tts_male_voice"), ("V2", "tts_female_voice")):
         v = str(cfg.get(cfg_key) or "").strip()
@@ -550,7 +558,7 @@ def _gen(job, tts, args, cfg, ffmpeg):
     if fallback_model and fallback_model != model:
         key = next((vk for vk, vid in VOICES.items() if str(vid) == str(raw_voice)), "")
         fm_l = str(fallback_model).lower()
-        f_fam = "mai" if "mai-voice" in fm_l else ("fish" if ("fish" in fm_l or "s2.1" in fm_l) else "")
+        f_fam = "flux" if ("flux" in fm_l or "deepgram" in fm_l) else ("mai" if "mai-voice" in fm_l else ("fish" if ("fish" in fm_l or "s2.1" in fm_l) else ""))
         f_defs = DIALOGUE_VOICE_DEFAULTS.get(f_fam, {})
         if key == "V1":
             fv = str(cfg.get("tts_fallback_male_voice") or "").strip() or f_defs.get("V1", "") or str(cfg.get("tts_fallback_voice") or "").strip()

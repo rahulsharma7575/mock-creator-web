@@ -67,7 +67,7 @@ createApp({
     loginEmail:'',loginPass:'',loginErr:'',loginBusy:false,clientBusy:false,newKeyHash:'',togglingId:'',
     theme:localStorage.getItem(LS_TH)||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'),view:'overview',
     nav:[{id:'overview',label:'Overview'},{id:'clients',label:'Clients'},{id:'configs',label:'Configs'},{id:'jobs',label:'Jobs'},{id:'fullruns',label:'Full runs'},{id:'dryruns',label:'Dry runs'}],
-    clients:[],jobs:[],configs:[],meta:[],models:[],jobsBusy:false,startBusy:false,
+    clients:[],jobs:[],configs:[],meta:[],models:[],ttsModels:[],jobsBusy:false,startBusy:false,
     dryruns:[],dryrunsBusy:false,fullruns:[],fullrunsBusy:false,previewRun:null,falStatus:null,orBalance:null,geminiStatus:null,pushStatus:null,cfgByClient:{},
     qs:{client:'',count:40,difficulty:'creative+difficult'},jobFilter:'all',jobKindFilter:'all',searchQ:'',sortKey:'created',sortDir:-1,
     drawerJob:null,drawerTimer:null,drawerLastUpd:'',clientModal:false,clientStep:0,newClientName:'',newKey:'',clientErr:'',
@@ -93,10 +93,11 @@ createApp({
       ];
     },
     groups(){const g=[...new Set(this.meta.map(m=>m.group))];return ['PDF','LLM','Images','Audio','Push','Advanced'].filter(x=>g.includes(x));},
-    ttsOptions(){const BASE=['fish-audio/s2.1-pro-free:free','microsoft/mai-voice-2-flash','x-ai/grok-voice-tts-1.0','google/gemini-3.1-flash-tts-preview','hexgrad/kokoro-82m','mistralai/voxtral-mini-tts-2603'];const from=(this.models||[]).filter(m=>m&&m.kind==='tts').map(m=>m.model).filter(Boolean);for(const m of from){if(!BASE.includes(m))BASE.push(m);}const cur=this.cfgData?this.cfgData.tts_model:null;if(cur&&!BASE.includes(cur))BASE.unshift(cur);return BASE;},
+    ttsOptions(){const BASE=(this.ttsModels||[]).map(m=>m.model).filter(Boolean);const from=(this.models||[]).filter(m=>m&&m.kind==='tts').map(m=>m.model).filter(Boolean);for(const m of from){if(!BASE.includes(m))BASE.push(m);}const cur=this.cfgData?this.cfgData.tts_model:null;if(cur&&!BASE.includes(cur))BASE.unshift(cur);if(!BASE.length)return['fish-audio/s2.1-pro-free:free','microsoft/mai-voice-2-flash','x-ai/grok-voice-tts-1.0','google/gemini-3.1-flash-tts-preview','deepgram/flux-tts:free'];return BASE;},
     listeningCount(){const c=this.cfgData.question_count||40;const r=this.cfgData.reading_count||20;return Math.max(0,c-r);},
     orCount(){return Object.keys(this.orModels).length;},
-    voiceOptions(){const base=['802e3bc2b27e49c2995d23ef70e6ac89','9a9cf47702da476aa4629e2506d4a857','933563129e564b19a115bedd57b7406a','ko-KR-InJoon:MAI-Voice-2','ko-KR-Haena:MAI-Voice-2','ko-KR-InJoonNeural','ko-KR-SunHiNeural','ko-KR-HyunsuNeural','ko-KR-YuJinNeural'];const c=this.cfgData;if(c){if(c.tts_male_voice&&!base.includes(c.tts_male_voice))base.unshift(c.tts_male_voice);if(c.tts_female_voice&&!base.includes(c.tts_female_voice))base.unshift(c.tts_female_voice);if(c.tts_fallback_male_voice&&!base.includes(c.tts_fallback_male_voice))base.unshift(c.tts_fallback_male_voice);if(c.tts_fallback_female_voice&&!base.includes(c.tts_fallback_female_voice))base.unshift(c.tts_fallback_female_voice);}return base;},
+    voicesForModel(model){const m=String(model||'').toLowerCase();let out=[];for(const x of (this.ttsModels||[])){if(x&&x.model===model){for(const v of (x.voices||[])){if(!out.includes(v))out.push(v);}}}if(m.includes('fish')){for(const v of ['802e3bc2b27e49c2995d23ef70e6ac89','9a9cf47702da476aa4629e2506d4a857','933563129e564b19a115bedd57b7406a']){if(!out.includes(v))out.unshift(v);}}return out;},
+    voiceOptions(){const c=this.cfgData||{};const base=this.voicesForModel(c.tts_model||'').concat(this.voicesForModel(c.tts_fallback_model||''));const out=[];for(const v of base){if(!out.includes(v))out.push(v);}for(const k of ['tts_male_voice','tts_female_voice','tts_fallback_male_voice','tts_fallback_female_voice']){const v=c[k];if(v&&!out.includes(v))out.unshift(v);}return out;},
     apiAllOk(){const sts=[this.geminiStatus&&this.geminiStatus.valid,this.orBalance&&this.orBalance.ok,this.falStatus&&this.falStatus.ok];if(!(this.geminiStatus||this.orBalance||this.falStatus))return null;if(!sts.some(Boolean))return false;return sts.every(Boolean);},
     costEst(){
       const q=+this.cfgData.question_count||40,r=+this.cfgData.reading_count||20,img=+this.cfgData.image_count||18,list=Math.max(0,q-r);
@@ -325,7 +326,7 @@ createApp({
     async login(){this.loginErr='';this.loginBusy=true;
       try{const r=await fetch('/api/collections/_superusers/auth-with-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity:this.loginEmail,password:this.loginPass})});const text=await r.text();let b;try{b=JSON.parse(text);}catch(e){throw new Error('Server returned unexpected response - is PocketBase running?');}if(!r.ok)throw new Error(b.message||'auth failed');localStorage.setItem(LS_TK,b.token);localStorage.setItem(LS_EM,b.record.email||this.loginEmail);this.who=localStorage.getItem(LS_EM);this.authed=true;try{await api('/api/creator/ensure');}catch(e){this.toast('ensure: '+e.message,'err');}this.loadAll();}catch(e){this.loginErr=e.message;}this.loginBusy=false;},
     logout(){localStorage.removeItem(LS_TK);localStorage.removeItem(LS_EM);clearInterval(this.drawerTimer);this.drawerTimer=null;this.drawerJob=null;this.authed=false;this.who='';this.view='overview';this.clients=[];this.jobs=[];this.configs=[];this.cfgClient='';this.cfg=null;},
-    loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();this.loadFalStatus();this.loadOrBalance();this.loadGeminiStatus();this.loadMagnificStatus();this.loadUpstageStatus();this.loadHealth();this.ensureOrModels();this.$nextTick(()=>this.viewEnter());},
+    loadAll(){this.loadClients();this.loadJobs();this.loadConfigs();this.loadMeta();this.loadModels();this.loadTtsModels();this.loadFalStatus();this.loadOrBalance();this.loadGeminiStatus();this.loadMagnificStatus();this.loadUpstageStatus();this.loadHealth();this.ensureOrModels();this.$nextTick(()=>this.viewEnter());},
     async loadClients(){try{const r=await api('/api/collections/mock_clients/records?perPage=200&sort=name');this.clients=r.items||[];if(!this.gClient){const act=this.clients.find(c=>c.active)||this.clients[0];if(act)this.gClient=act.id;}if(!this.qs.client&&this.gClient)this.qs.client=this.gClient;}catch(e){this.toast('clients: '+e.message,'err');}},
     mf(field){return (this.meta||[]).find(m=>m.field===field)||{field:field,label:field,help:''};},
     audioVoices(prim){const defs=[
@@ -335,7 +336,7 @@ createApp({
       {key:'tts_fallback_female_voice',speed:null,label:'Female voice',prim:false,tip:'Female speaker when the fallback TTS model is used. Empty = auto-pick per fallback model.'}
     ];return defs.filter(d=>d.prim===prim);},
     audioSettings(){return['audio_gap_ms','sample_rate','tts_natural_pacing','tts_polish','tts_atempo_models','listening_blank_count'].map(f=>this.mf(f)).filter(m=>m.field);},
-    voicePh(field){const c=this.cfgData||{};const prim=field==='tts_male_voice'||field==='tts_female_voice';const model=String(prim?(c.tts_model||''):(c.tts_fallback_model||''));const male=!field.includes('female');if(model.includes('fish'))return male?'802e3bc2b27e49c2995d23ef70e6ac89':'9a9cf47702da476aa4629e2506d4a857';return'Empty = auto-pick';},
+    voicePh(field){const c=this.cfgData||{};const prim=field==='tts_male_voice'||field==='tts_female_voice';const model=String(prim?(c.tts_model||''):(c.tts_fallback_model||''));const male=!field.includes('female');if(model.includes('fish'))return male?'802e3bc2b27e49c2995d23ef70e6ac89':'9a9cf47702da476aa4629e2506d4a857';const vs=this.voicesForModel(model);if(vs.length)return'Empty = auto-pick ('+vs[0]+')';return'Empty = auto-pick';},
     voiceModelFor(field){const c=this.cfgData||{};if(field==='tts_male_voice'||field==='tts_female_voice')return c.tts_model||'';return c.tts_fallback_model||'';},
     openVoicePreview(field){if(!this.cfgData||!this.cfgData[field])return;this.voicePreview={open:true,field,text:'안녕하세요. 음성 미리듣기입니다.',busy:false,error:'',usedFallback:false};},
     closeVoicePreview(){this.voicePreview.open=false;},
@@ -371,6 +372,7 @@ createApp({
     async loadConfigs(){try{const r=await api('/api/collections/mock_config/records?perPage=200');this.configs=r.items||[];const m={};for(const c of this.configs){m[c.client]=c;}this.cfgByClient=m;}catch(e){this.toast('configs: '+e.message,'err');}},
     async loadMeta(){try{const r=await api('/api/collections/mock_config_meta/records?perPage=200&sort=group,order');this.meta=r.items||[];}catch(e){}},
     async loadModels(){try{const r=await api('/api/collections/mock_models/records?perPage=200');this.models=r.items||[];}catch(e){}},
+    async loadTtsModels(){try{const headers={};const tk=localStorage.getItem(LS_TK);if(tk)headers['Authorization']='Bearer '+tk;const r=await fetch('/api/creator/tts-models',{headers});if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();if(j&&Array.isArray(j.models))this.ttsModels=j.models;}catch(e){this.ttsModels=[];}},
     async loadDryruns(){this.dryrunsBusy=true;try{const r=await api('/api/collections/dryrun/records?perPage=50&sort=-created');this.dryruns=r.items||[];}catch(e){this.toast('dry runs: '+e.message,'err');}this.dryrunsBusy=false;},
     async loadFullruns(){this.fullrunsBusy=true;try{const r=await api('/api/collections/fullrun/records?perPage=50&sort=-created');this.fullruns=r.items||[];}catch(e){this.toast('full runs: '+e.message,'err');}this.fullrunsBusy=false;},
     async loadFalStatus(){try{const r=await api('/api/creator/fal-status');this.falStatus=r;}catch(e){this.falStatus=null;}},

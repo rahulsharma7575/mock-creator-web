@@ -38,6 +38,7 @@ COLLECTION_IDS = {
     "mock_jobs": "c_mock_jobs",
     "dryrun": "c_dryrun",
     "fullrun": "c_fullrun",
+    "mock_cache": "c_mock_cache",
 }
 
 
@@ -152,6 +153,11 @@ SCHEMA = [
         f("notes", "text", max=1000),
         f("created", "autodate", onCreate=True),
     ]),
+    collection("mock_cache", [
+        f("key", "text", required=True, max=100),
+        f("value", "json", maxSize=1048576),
+        f("updated", "autodate", onCreate=True, onUpdate=True),
+    ]),
     collection("mock_jobs", [
         f("client", "relation", required=True,
           collectionId=COLLECTION_IDS["mock_clients"], maxSelect=1, minSelect=0),
@@ -231,8 +237,8 @@ DEFAULT_CONFIG = {
     "image_primary": "z-image",
     "image_fallback": "p-image-ideogram-1k",
     "tts_model": "fish-audio/s2.1-pro-free:free",
-    "tts_fallback_model": "microsoft/mai-voice-2-flash",
-    "tts_fallback_voice": "ko-KR-Haena:MAI-Voice-2",
+    "tts_fallback_model": "deepgram/flux-tts:free",
+    "tts_fallback_voice": "",
     "tts_male_voice": "",
     "tts_female_voice": "",
     "tts_fallback_male_voice": "",
@@ -300,7 +306,7 @@ META_FIELDS = [
     ("tts_model", "TTS model", "select", "Audio", "Model that reads the listening scripts aloud. Options load from the models API.", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]),
     ("tts_male_voice", "Male listening voice", "text", "Audio", "Voice for the male speaker (V1) in listening dialogues. Leave empty to auto-pick per TTS model (fish-audio free male / MAI ko-KR-InJoon). Use the speaker icon to hear a sample."),
     ("tts_female_voice", "Female listening voice", "text", "Audio", "Voice for the female speaker (V2) in listening dialogues. Leave empty to auto-pick per TTS model (fish-audio free female / MAI ko-KR-Haena). Use the speaker icon to hear a sample."),
-    ("tts_fallback_model", "Fallback TTS model", "select", "Audio", "Used only if the primary TTS model fails or times out.", ["microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]),
+    ("tts_fallback_model", "Fallback TTS model", "select", "Audio", "Used only if the primary TTS model fails or times out. Default: Deepgram Flux TTS (free).", ["deepgram/flux-tts:free", "microsoft/mai-voice-2-flash", "fish-audio/s2.1-pro-free:free", "x-ai/grok-voice-tts-1.0"]),
     ("tts_fallback_male_voice", "Fallback male listening voice", "text", "Audio", "Voice for the male speaker (V1) when the run falls back to the fallback TTS model. Leave empty to auto-pick per fallback model."),
     ("tts_fallback_female_voice", "Fallback female listening voice", "text", "Audio", "Voice for the female speaker (V2) when the run falls back to the fallback TTS model. Leave empty to auto-pick per fallback model."),
     ("max_tokens", "Max tokens", "number", "Advanced", "LLM generation cap"),
@@ -349,6 +355,7 @@ MODEL_SEEDS = [
     ("tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"),
     ("tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"),
     ("tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"),
+    ("tts", "deepgram/flux-tts:free", "Deepgram Flux TTS (free)", "free fallback TTS"),
     
     ("image", "z-image", "z-image", "primary image gen (5 credits/img)"),
     ("image", "p-image-ideogram-1k", "P-Image Ideogram 1K", "fallback (may 404)"),
@@ -573,7 +580,7 @@ function ensureCollections() {
   try {
     // upsert missing default TTS model seeds (existing installs never got them)
     var mCol = $app.findCollectionByNameOrId("mock_models")
-    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"]]
+    var seedDefs = [["tts", "fish-audio/s2.1-pro-free:free", "Fish Audio S2.1 Pro (free)", "default TTS - 44100 Hz"], ["tts", "microsoft/mai-voice-2-flash", "MAI Voice 2 Flash", "fallback TTS - 24000 Hz"], ["tts", "x-ai/grok-voice-tts-1.0", "Grok Voice TTS", "alt TTS - 44100 Hz"], ["tts", "google/gemini-3.1-flash-tts-preview", "Gemini Flash TTS", "alt TTS - 24000 Hz"], ["tts", "hexgrad/kokoro-82m", "Kokoro 82M", "alt TTS - open weights"], ["tts", "mistralai/voxtral-mini-tts-2603", "Voxtral Mini TTS", "alt TTS"], ["tts", "deepgram/flux-tts:free", "Deepgram Flux TTS (free)", "free fallback TTS"]]
     for (var si = 0; si < seedDefs.length; si++) {
       var exists = false
       try { exists = !!$app.findFirstRecordByData("mock_models", "model", seedDefs[si][1]) } catch (errS) {}
@@ -584,6 +591,16 @@ function ensureCollections() {
       }
     }
   } catch (errU) {}
+  try {
+    // TTS fallback default migration: configs still on the old default pair
+    // (MAI flash + ko-KR-Haena, no longer supported on OpenRouter) -> Deepgram Flux (free).
+    var oldFb = $app.findRecordsByFilter("mock_config", "tts_fallback_model = 'microsoft/mai-voice-2-flash' && tts_fallback_voice = 'ko-KR-Haena:MAI-Voice-2'", "", 200, 0)
+    for (var fbi = 0; fbi < oldFb.length; fbi++) {
+      oldFb[fbi].set("tts_fallback_model", "deepgram/flux-tts:free")
+      oldFb[fbi].set("tts_fallback_voice", "")
+      $app.save(oldFb[fbi])
+    }
+  } catch (errFb) {}
 """,
     "".join(
         "var k{0} = new Record(models); k{0}.set(\"kind\", {1}); k{0}.set(\"model\", {2}); k{0}.set(\"display\", {3}); k{0}.set(\"notes\", {4}); $app.save(k{0});\n".format(
@@ -935,11 +952,104 @@ try {
 """,
 )
 
-# GET /api/creator/tts-preview?model=&voice=&text= - superuser only - voice sample (mp3)
+# GET /api/creator/tts-models - superuser only - ALL OpenRouter TTS models with
+# their live supported_voices (no hardcoded model list). Fetches
+# /api/v1/models?output_modalities=speech with the container key, caches the
+# result in mock_cache for 15 min and upserts each model into mock_models.
+route(
+    "tts-models", "GET", "/api/creator/tts-models", "$apis.requireSuperuserAuth()",
+    """
+try {
+  ensureCollections()
+  var key = $os.getenv("OPENROUTER_API_KEY") || ""
+  if (!key) return e.json(200, { ok: false, cached: false, models: [], message: "OPENROUTER_API_KEY is not set in the container" })
+  var force = (e.request.url.query().get("force") || "") === "1"
+  var cached = null
+  try { cached = $app.findFirstRecordByData("mock_cache", "key", "tts_models_v1") } catch (errC) {}
+  var val = null
+  try { val = cached ? (cached.get("value") || null) : null } catch (errV) { val = null }
+  var fetchedAt = (val && val.fetched_at) || 0
+  var age = Date.now() - fetchedAt
+  if (cached && !force && age < 900000) {
+    return e.json(200, { ok: true, cached: true, models: (val && val.models) || [], fetched_at: fetchedAt })
+  }
+  var res = $http.send({ url: "https://openrouter.ai/api/v1/models?output_modalities=speech", method: "GET", headers: { "Authorization": "Bearer " + key }, timeout: 30 })
+  if (res.statusCode !== 200) {
+    return e.json(200, { ok: false, cached: !!cached, models: (val && val.models) || [], message: "OpenRouter list failed (HTTP " + (res.statusCode || 0) + ")" })
+  }
+  var j = {}
+  try { j = JSON.parse(res.raw || "{}") } catch (errJ) {}
+  var out = []
+  var list = j.data || []
+  var col = null
+  try { col = $app.findCollectionByNameOrId("mock_models") } catch (errCol) {}
+  for (var i = 0; i < list.length; i++) {
+    var m = list[i]
+    var id = String(m.id || "")
+    if (!id) continue
+    var voices = m.supported_voices || []
+    var params = m.supported_parameters || []
+    var pricing = m.pricing || {}
+    var supportsSpeed = false
+    for (var pi = 0; pi < params.length; pi++) { if (String(params[pi]).toLowerCase() === "speed") supportsSpeed = true }
+    var free = Number(pricing.prompt || 0) === 0 && Number(pricing.completion || 0) === 0
+    out.push({ model: id, display: String(m.name || id), voices: voices, supports_speed: supportsSpeed, free: free })
+    if (col) {
+      try {
+        var rec = null
+        try { rec = $app.findFirstRecordByData("mock_models", "model", id) } catch (errR) {}
+        if (!rec) { rec = new Record(col); rec.set("kind", "tts"); rec.set("model", id) }
+        rec.set("display", String(m.name || id))
+        rec.set("notes", (free ? "free " : "") + "TTS - " + voices.length + " voices" + (supportsSpeed ? " - speed ok" : ""))
+        $app.save(rec)
+      } catch (errS) {}
+    }
+  }
+  out.sort(function (a, b) { return a.model < b.model ? -1 : 1 })
+  var payload = { fetched_at: Date.now(), models: out }
+  if (cached) { cached.set("value", payload); $app.save(cached) }
+  else {
+    try {
+      var ccol = $app.findCollectionByNameOrId("mock_cache")
+      var rec2 = new Record(ccol); rec2.set("key", "tts_models_v1"); rec2.set("value", payload); $app.save(rec2)
+    } catch (err2) {}
+  }
+  return e.json(200, { ok: true, cached: false, models: out, fetched_at: payload.fetched_at })
+} catch (err) {
+  return e.json(500, { error: String(err) })
+}
+""",
+)
+
+# GET /api/creator/tts-preview?model=&voice=&text= - superuser only - voice sample (mp3/wav)
 route(
     "tts-preview", "GET", "/api/creator/tts-preview", "$apis.requireSuperuserAuth()",
     """
 try {
+  function pcmWav(model, pcm) {
+    var rate = 24000
+    var rl = String(model || "").toLowerCase()
+    if (rl.indexOf("fish") >= 0 || rl.indexOf("grok") >= 0) rate = 44100
+    var head = new Uint8Array(44)
+    var dv = new DataView(head.buffer)
+    dv.setUint32(0, 0x52494646, true)   // RIFF
+    dv.setUint32(4, 36 + pcm.length, true)
+    dv.setUint32(8, 0x57415645, true)   // WAVE
+    dv.setUint32(12, 0x666d7420, true)  // "fmt "
+    dv.setUint32(16, 16, true)
+    dv.setUint16(20, 1, true)
+    dv.setUint16(22, 1, true)
+    dv.setUint32(24, rate, true)
+    dv.setUint32(28, rate * 2, true)
+    dv.setUint16(32, 2, true)
+    dv.setUint16(34, 16, true)
+    dv.setUint32(36, 0x64617461, true)  // data
+    dv.setUint32(40, pcm.length, true)
+    var out = new Uint8Array(44 + pcm.length)
+    out.set(head, 0)
+    out.set(pcm, 44)
+    return out
+  }
   var q = e.request.url.query()
   var model = (q.get("model") || "").trim()
   var voice = (q.get("voice") || "").trim()
@@ -948,18 +1058,34 @@ try {
   if (!model) return e.json(400, { error: "model param required" })
   if (!voice) return e.json(400, { error: "voice param required" })
   if (!key) return e.json(400, { error: "OPENROUTER_API_KEY is not set in the container" })
-  var res = $http.send({
-    url: "https://openrouter.ai/api/v1/audio/speech",
-    method: "POST", headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
-    body: JSON.stringify({ "model": model, "input": text, "voice": voice, "response_format": "mp3" }),
-    timeout: 60
-  })
-  if (res.statusCode !== 200) {
-    return e.json(400, { error: "TTS failed (HTTP " + res.statusCode + "): " + String(res.raw || "").substring(0, 160) })
+  // PCM-only providers (Gemini, MAI) reject response_format=mp3 with a generic
+  // 400 - retry with pcm and wrap it in a WAV header so the browser can play it.
+  var attempts = [
+    { "model": model, "input": text, "voice": voice, "response_format": "mp3" },
+    { "model": model, "input": text, "voice": voice, "response_format": "pcm" },
+    { "model": model, "input": text, "response_format": "mp3" },
+    { "model": model, "input": text, "response_format": "pcm" }
+  ]
+  var lastErr = "no usable response"
+  for (var ai = 0; ai < attempts.length; ai++) {
+    var res = $http.send({
+      url: "https://openrouter.ai/api/v1/audio/speech",
+      method: "POST", headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+      body: JSON.stringify(attempts[ai]),
+      timeout: 60
+    })
+    if (res.statusCode === 200) {
+      var bytes = res.body || []
+      if (bytes.length >= 100) {
+        if (attempts[ai].response_format === "pcm") {
+          return e.blob(200, "audio/wav", pcmWav(attempts[ai].model, bytes))
+        }
+        return e.blob(200, "audio/mpeg", bytes)
+      }
+    }
+    lastErr = "HTTP " + (res.statusCode || 0) + ": " + String(res.raw || "").substring(0, 140)
   }
-  var bytes = res.body || []
-  if (bytes.length < 100) return e.json(400, { error: "TTS returned empty audio" })
-  return e.blob(200, "audio/mpeg", bytes)
+  return e.json(400, { error: "TTS failed - " + lastErr })
 } catch (err) {
   return e.json(500, { error: String(err) })
 }

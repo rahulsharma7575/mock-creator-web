@@ -126,8 +126,8 @@ DEFAULTS = {
     "image_verify_after": True,
     # audio / TTS — OpenRouter
     "tts_model": "fish-audio/s2.1-pro-free:free",
-    "tts_fallback_model": "microsoft/mai-voice-2-flash",
-    "tts_fallback_voice": "ko-KR-Haena:MAI-Voice-2",
+    "tts_fallback_model": "deepgram/flux-tts:free",
+    "tts_fallback_voice": "",
     "tts_male_voice": "",                         # empty = auto per TTS model (fish free male / MAI ko-KR-InJoon)
     "tts_female_voice": "",                       # empty = auto per TTS model (fish free female / MAI ko-KR-Haena)
     "tts_fallback_male_voice": "",                # fallback model male speaker (empty = auto per fallback model)
@@ -2388,6 +2388,19 @@ def _paper_picture_block(pdf_doc, key, paper_pics, paper_captions, listen_start=
     return "\n".join(lines) if lines else "(no paper picture questions detected)"
 
 
+def _tts_rate_hint(model: str):
+    """Sample rate for a TTS model from the shared table (scripts/audio_convert.py)."""
+    try:
+        sys.path.insert(0, str(Path.home() / ".config" / "opencode" / "scripts"))
+        import audio_convert as _ac  # noqa: F401
+        for key, rate in getattr(_ac, "MODEL_SAMPLE_RATES", {}).items():
+            if key in (model or ""):
+                return rate
+    except Exception:
+        pass
+    return None
+
+
 def preflight_checks():
     """Non-fatal pre-flight diagnostics printed once at run start.
 
@@ -2412,11 +2425,7 @@ def preflight_checks():
         print("  [WARN] upscale_pdf_images is ON but FAL_KEY is unset — paper images fall back to raw")
 
     tts_model = str(CFG.get("tts_model") or "")
-    want = None
-    if "mai-voice" in tts_model or "gemini" in tts_model:
-        want = 24000
-    elif "fish" in tts_model or "grok" in tts_model:
-        want = 44100
+    want = _tts_rate_hint(tts_model)
     if want and int(CFG.get("sample_rate") or 0) != want:
         print(f"  [WARN] tts_model {tts_model} expects {want} Hz sample rate but config has "
               f"{CFG.get('sample_rate')} — audio will play too fast/slow")
