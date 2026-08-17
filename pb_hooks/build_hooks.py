@@ -39,6 +39,7 @@ COLLECTION_IDS = {
     "dryrun": "c_dryrun",
     "fullrun": "c_fullrun",
     "mock_cache": "c_mock_cache",
+    "blank_pool": "c_blank_pool",
 }
 
 
@@ -156,6 +157,17 @@ SCHEMA = [
     collection("mock_cache", [
         f("key", "text", required=True, max=100),
         f("value", "json", maxSize=1048576),
+        f("updated", "autodate", onCreate=True, onUpdate=True),
+    ]),
+    collection("blank_pool", [
+        {"id": "f_file", "name": "file", "type": "file", "required": False,
+         "presentable": False, "hidden": False, "primaryKey": False,
+         "options": {"maxSelect": 1, "maxSize": 52428800,
+                     "mimeTypes": ["application/json", "text/plain", "application/octet-stream"]}},
+        f("count", "number", min=0, max=2000000),
+        f("active", "bool"),
+        f("note", "text", max=500),
+        f("created", "autodate", onCreate=True),
         f("updated", "autodate", onCreate=True, onUpdate=True),
     ]),
     collection("mock_jobs", [
@@ -326,7 +338,6 @@ META_FIELDS = [
     ("tts_speed", "Speech speed", "number", "Audio", "1.0 = normal · 0.8 = slower · 1.2 = faster · range 0.5-2.0. Models that don't support speed ignore it."),
     ("tts_natural_pacing", "Natural pacing", "bool", "Audio", "Relaxed human rhythm: speed 0.92 when speed is untouched, gaps >= 450ms, extra pause after ? and ! turns."),
     ("tts_polish", "Audio polish", "bool", "Audio", "Post-pass on merged clips: loudness normalization + rumble filter + click-free fades."),
-    ("tts_atempo_models", "Force-speed models", "text", "Audio", "Comma list of model fragments where speed is forced via ffmpeg atempo (pitch-preserving), e.g. x-ai/grok-voice-tts-1.0."),
     ("tts_male_speed", "Male voice speed", "number", "Audio", "0 = follow the global speech speed · 0.5-2.0 = speed for the male voice only."),
     ("tts_female_speed", "Female voice speed", "number", "Audio", "0 = follow the global speech speed · 0.5-2.0 = speed for the female voice only."),
     ("tts_fallback_male_speed", "Fallback male speed", "number", "Audio", "Speed for the male voice when the fallback TTS model is used (0 = follow global)."),
@@ -544,7 +555,6 @@ function ensureCollections() {
       ["tts_speed", "Speech speed", "number", "Audio", "1.0 = normal · 0.8 = slower · 1.2 = faster · range 0.5-2.0. Models that don't support speed ignore it.", null],
       ["tts_natural_pacing", "Natural pacing", "bool", "Audio", "Relaxed human rhythm: speed 0.92 when speed is untouched, gaps >= 450ms, extra pause after ? and ! turns.", null],
       ["tts_polish", "Audio polish", "bool", "Audio", "Post-pass on merged clips: loudness normalization + rumble filter + click-free fades.", null],
-      ["tts_atempo_models", "Force-speed models", "text", "Audio", "Comma list of model fragments where speed is forced via ffmpeg atempo (pitch-preserving), e.g. x-ai/grok-voice-tts-1.0.", null],
       ["tts_male_speed", "Male voice speed", "number", "Audio", "0 = follow the global speech speed · 0.5-2.0 = speed for the male voice only.", null],
       ["tts_female_speed", "Female voice speed", "number", "Audio", "0 = follow the global speech speed · 0.5-2.0 = speed for the female voice only.", null],
       ["tts_fallback_male_speed", "Fallback male speed", "number", "Audio", "Speed for the male voice when the fallback TTS model is used (0 = follow global).", null],
@@ -596,10 +606,11 @@ function ensureCollections() {
     }
   } catch (errFb) {}
   try {
-    // Blank-question settings are gone from the GUI: blank count is fixed in the
-    // pipeline (BLANK_BAND 5-7, pre-made pool). Remove the meta rows so the
-    // config editor stops rendering them (fields stay in the schema, unused).
-    var blankMetaFields = ["listening_blank_count", "listening_blank_min", "listening_blank_max"]
+    // Removed settings: blank-question fields + force-speed models are gone from
+    // the GUI (fixed in the pipeline / the audio stack). Remove their meta rows
+    // so the config editor stops rendering them (fields stay in the schema).
+    var blankMetaFields = ["listening_blank_count", "listening_blank_min", "listening_blank_max",
+                           "tts_atempo_models"]
     for (var bmi = 0; bmi < blankMetaFields.length; bmi++) {
       var bm = null
       try { bm = $app.findFirstRecordByData("mock_config_meta", "field", blankMetaFields[bmi]) } catch (errBm) {}
@@ -1020,6 +1031,31 @@ try {
     } catch (err2) {}
   }
   return e.json(200, { ok: true, cached: false, models: out, fetched_at: payload.fetched_at })
+} catch (err) {
+  return e.json(500, { error: String(err) })
+}
+""",
+)
+
+# GET /api/creator/blank-pool-status - superuser only - uploaded blank-question
+# pool status (file, verified count, worker note). The pool file itself is
+# uploaded via the plain PB REST API (multipart) and verified by the worker.
+route(
+    "blank-pool-status", "GET", "/api/creator/blank-pool-status", "$apis.requireSuperuserAuth()",
+    """
+try {
+  ensureCollections()
+  var rec = null
+  try {
+    var list = $app.findRecordsByFilter("blank_pool", "", "-updated", 1, 0)
+    if (list && list.length > 0) rec = list[0]
+  } catch (err) {}
+  if (!rec) return e.json(200, { ok: true, id: "", active: false, count: 0, file: "", updated: "", note: "" })
+  var fname = ""
+  try { fname = rec.getString("file") || "" } catch (errF) {}
+  return e.json(200, { ok: true, id: rec.id, active: rec.getBool("active"), count: rec.getInt("count"),
+                       file: fname, updated: rec.getString("updated"),
+                       note: rec.getString("note") || "" })
 } catch (err) {
   return e.json(500, { error: String(err) })
 }

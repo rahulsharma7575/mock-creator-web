@@ -29,6 +29,7 @@ import io
 import json
 import os
 import pathlib
+from pathlib import Path
 import random
 import re
 import subprocess
@@ -322,29 +323,35 @@ BLANK_PLAN = {"count": 0, "numbers": [], "entries": []}   # per-run assignment
 
 
 def load_premade_blanks() -> int:
-    """Load the pre-made blank pool. Missing/corrupt file -> empty pool (the
-    legacy author-generated blank conversion runs as a fallback)."""
+    """Load the pre-made blank pool. Priority:
+      1. uploaded pool ($MOCK_BLANK_POOL - downloaded + verified by the worker)
+      2. bundled pipeline/blank_questions.json
+    No usable pool -> empty (legacy author-generated blanks run as fallback)."""
     global _PRE_MADE_POOL
-    try:
-        if not PRE_MADE_BLANKS_PATH.exists():
-            print(f"[blank] WARNING: {PRE_MADE_BLANKS_PATH.name} not found — "
-                  "falling back to author-generated blanks")
-            _PRE_MADE_POOL = []
-            return 0
-        data = json.loads(PRE_MADE_BLANKS_PATH.read_text(encoding="utf-8"))
-        if (isinstance(data, list) and data and
-                all(isinstance(x, dict) and x.get("man") and isinstance(x.get("woman"), dict)
-                    and len(x.get("woman") or {}) == 4 and x.get("answer") in (1, 2, 3, 4)
-                    for x in data)):
-            _PRE_MADE_POOL = data
-            print(f"[blank] pre-made blank pool loaded: {len(data)} questions "
-                  f"({PRE_MADE_BLANKS_PATH.name})")
-            return len(data)
-        print(f"[blank] WARNING: {PRE_MADE_BLANKS_PATH.name} is malformed — "
-              "falling back to author-generated blanks")
-    except Exception as e:
-        print(f"[blank] WARNING: unreadable {PRE_MADE_BLANKS_PATH.name} ({e}) — "
-              "falling back to author-generated blanks")
+    candidates = []
+    env_path = os.environ.get("MOCK_BLANK_POOL") or ""
+    if env_path:
+        candidates.append(("uploaded pool", Path(env_path)))
+    candidates.append(("bundled", PRE_MADE_BLANKS_PATH))
+    for label, path in candidates:
+        try:
+            if not path.exists():
+                if label == "uploaded pool":
+                    print(f"[blank] uploaded pool missing ({path}) - checking bundled")
+                continue
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if (isinstance(data, list) and data and
+                    all(isinstance(x, dict) and x.get("man") and isinstance(x.get("woman"), dict)
+                        and len(x.get("woman") or {}) == 4 and x.get("answer") in (1, 2, 3, 4)
+                        for x in data)):
+                _PRE_MADE_POOL = data
+                print(f"[blank] pre-made blank pool loaded: {len(data)} questions "
+                      f"({label}: {path.name})")
+                return len(data)
+            print(f"[blank] WARNING: {path.name} is malformed - trying next source")
+        except Exception as e:
+            print(f"[blank] WARNING: unreadable {path.name} ({e}) - trying next source")
+    print("[blank] WARNING: no usable blank pool - falling back to author-generated blanks")
     _PRE_MADE_POOL = []
     return 0
 

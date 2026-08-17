@@ -37,7 +37,7 @@ if [ -n "${PB_SUPERUSER_EMAIL}" ] && [ -n "${PB_PASSWORD}" ]; then
         || echo "[entrypoint] superuser upsert skipped"
 fi
 
-"${PB}" serve --dir "${PB_DIR}" --publicDir "${PUBLIC_DIR}" --hooksDir /app/pb_hooks --http "0.0.0.0:${PORT}" > "${BOOT_LOG}" 2>&1 &
+"${PB}" serve --dir "${PB_DIR}" --publicDir "${PUBLIC_DIR}" --hooksDir /app/pb_hooks --httpMaxBodySize 134217728 --http "0.0.0.0:${PORT}" > "${BOOT_LOG}" 2>&1 &
 PB_PID=$!
 echo "${PB_PID}" > "${PBPID_BOOT}"
 trap 'kill "${PB_PID}" 2>/dev/null || true' EXIT

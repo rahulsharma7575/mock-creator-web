@@ -183,6 +183,107 @@ def download_file(path, dest):
     return len(data)
 
 
+# ---------------------------------------------------------------------------
+# Blank question pool: the admin can upload blank_questions.json in the /creator
+# GUI (blank_pool record). The worker downloads + verifies it once (cached by
+# the record's updated timestamp) and exposes it to the pipeline via the
+# MOCK_BLANK_POOL env var. No uploaded pool -> the pipeline uses its bundled
+# file, then falls back to author-generated blanks.
+# ---------------------------------------------------------------------------
+
+POOL_CACHE = WORK_ROOT / "blank_pool.json"
+POOL_META = WORK_ROOT / "blank_pool_meta.json"
+
+
+def validate_blank_pool(data):
+    """(ok, count, errors) - same rules as the GUI verifier + pipeline loader."""
+    if not isinstance(data, list):
+        return False, 0, ["root must be a JSON array of questions"]
+    errs = []
+    for i, it in enumerate(data, 1):
+        if not isinstance(it, dict) or not isinstance(it.get("man"), str) or not str(it.get("man") or "").strip():
+            errs.append(f"item #{i}: missing/empty \"man\" (question)")
+        w = it.get("woman") if isinstance(it, dict) else None
+        if not isinstance(w, dict) or any(not isinstance(w.get(k), str) or not str(w.get(k) or "").strip()
+                                          for k in ("1", "2", "3", "4")):
+            errs.append(f"item #{i}: \"woman\" must hold 4 non-empty options (keys 1-4)")
+        if isinstance(it, dict) and it.get("answer") not in (1, 2, 3, 4):
+            errs.append(f"item #{i}: answer must be 1-4 (got {it.get('answer')!r})")
+        if len(errs) > 10:
+            errs.append("...")
+            break
+    if errs:
+        return False, 0, errs
+    return True, len(data), []
+
+
+def _pool_meta():
+    try:
+        if POOL_META.exists():
+            return json.loads(POOL_META.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+
+def _pool_stale():
+    try:
+        POOL_META.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+
+def sync_blank_pool():
+    """Download + verify the uploaded blank pool (cached by record updated).
+    Returns the verified local path, or None (use the bundled file)."""
+    try:
+        recs = (api("GET", "/api/collections/blank_pool/records?perPage=1&sort=-updated") or {}).get("items") or []
+        if not recs:
+            _pool_stale()
+            return None
+        rec = recs[0]
+        fname = str(rec.get("file") or "").strip()
+        rec_updated = str(rec.get("updated") or "")
+        rid = str(rec.get("id") or "")
+        if not fname or not rid:
+            _pool_stale()
+            return None
+        meta = _pool_meta()
+        if meta.get("updated") == rec_updated and POOL_CACHE.exists():
+            return POOL_CACHE
+        from urllib.parse import quote
+        size = download_file(f"/api/files/blank_pool/{rid}/{quote(fname)}", POOL_CACHE)
+        try:
+            data = json.loads(POOL_CACHE.read_text(encoding="utf-8"))
+            ok, count, errs = validate_blank_pool(data)
+        except Exception as e:
+            ok, count, errs = False, 0, [f"JSON parse failed: {e}"]
+        if ok:
+            POOL_META.write_text(json.dumps({"updated": rec_updated, "count": count}), encoding="utf-8")
+            try:
+                api("PATCH", f"/api/collections/blank_pool/records/{rid}",
+                    {"count": count, "active": True, "note": ""})
+            except Exception:
+                pass
+            log(f"[pool] uploaded blank pool verified: {count} questions ({size:,} bytes)")
+            return POOL_CACHE
+        _pool_stale()
+        try:
+            POOL_CACHE.unlink(missing_ok=True)
+        except Exception:
+            pass
+        try:
+            api("PATCH", f"/api/collections/blank_pool/records/{rid}",
+                {"active": False, "note": "invalid pool: " + " | ".join(errs[:3])[:300]})
+        except Exception:
+            pass
+        log(f"[pool] WARNING: uploaded blank pool is invalid ({errs[0] if errs else '?'}) - using bundled")
+        return None
+    except Exception as e:
+        log(f"[pool] WARNING: could not sync uploaded blank pool ({e}) - using bundled")
+        return None
+
+
 def get_jobs(status):
     path = "/api/creator/jobs"
     if status:
@@ -473,6 +574,11 @@ def run_job(job):
     workdir.mkdir(parents=True, exist_ok=True)
     (workdir / "mocks").mkdir(parents=True, exist_ok=True)
 
+    # blank pool: refresh the uploaded pool cache (cheap when unchanged)
+    pool_path = None
+    if kind != "pdf_test":
+        pool_path = sync_blank_pool()
+
     # PDF generation modes need the uploaded document on disk before the pipeline starts
     log_tail = ""
     pdf_path = ""
@@ -571,6 +677,8 @@ def run_job(job):
     env.setdefault("PYTHONUTF8", "1")
     env["MOCK_ROOT"] = str(workdir / "mocks")
     env["MOCK_CONFIG"] = str(cfgfile)
+    if pool_path:
+        env["MOCK_BLANK_POOL"] = str(pool_path)
     cmd = [sys.executable, str(MOCK_NEXT), "--config", str(cfgfile)]
     if kind.startswith("dry_"):
         cmd.append("--dry-run")
