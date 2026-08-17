@@ -27,6 +27,7 @@ import string
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -73,6 +74,13 @@ MODEL = "fish-audio/s2.1-pro-free:free"  # :free suffix = FREE endpoint, no cost
 DEFAULT_GAP_MS = 400
 SAMPLE_RATE = 44100
 TMP = Path(os.environ.get("MOCK_TMP") or Path(tempfile.gettempdir()) / "mock_audio_builder")
+
+# Runtime counters (thread-safe) for the audio_stats report written per run.
+_FALLBACK_LOCK = threading.Lock()
+FALLBACK_CLIPS = 0
+SHORT_CLIPS = 0
+MIN_MERGED_SECONDS = 2.5    # merged question clip shorter than this = invalid, not uploaded
+MIN_CLIP_SECONDS = 1.5      # individual turn clip shorter than this = warning
 
 # TTS pipeline values (all editable per-client via the /creator/ GUI -> mock_config,
 # or MOCK_CONFIG file / $MOCK_* env vars — same keys as mock_next.py)
@@ -267,7 +275,12 @@ def synth(tts, text: str, voice: str, out: Path, model: str,
         return True
     if fallback_model and fallback_model != model:
         print(f"    falling back to {fallback_model} (voice {fallback_voice})", flush=True)
-        return try_one(fallback_model, fallback_voice or voice, fallback_speed)
+        ok = try_one(fallback_model, fallback_voice or voice, fallback_speed)
+        if ok:
+            global FALLBACK_CLIPS
+            with _FALLBACK_LOCK:
+                FALLBACK_CLIPS += 1
+        return ok
     return False
 
 
@@ -517,11 +530,29 @@ def main() -> None:
 
     results = {}
     ok_c, fail_c = 0, 0
+    ffprobe = str(Path(ffmpeg).parent / "ffprobe.exe")
+    if not Path(ffprobe).exists():
+        ffprobe = "ffprobe"
     for num, group in by_num.items():
         group.sort(key=lambda j: j[1])
         clips = [j[4] for j in group if j[4].exists() and j[4].stat().st_size > 2000]
         if len(clips) != len(group):
             fail_c += 1
+            continue
+        # duration guards: individual clips under MIN_CLIP_SECONDS are warned;
+        # a merged question clip under MIN_MERGED_SECONDS is INVALID (1s audio)
+        # and never uploaded.
+        durs = [duration(ffprobe, c) for c in clips]
+        if any(d < MIN_CLIP_SECONDS for d in durs):
+            global SHORT_CLIPS
+            with _FALLBACK_LOCK:
+                SHORT_CLIPS += 1
+            print(f"  WARN q{num}: short clip(s) {[round(d, 1) for d in durs]}s "
+                  f"(min {MIN_CLIP_SECONDS}s) - script may be too short", flush=True)
+        if sum(durs) < MIN_MERGED_SECONDS:
+            fail_c += 1
+            print(f"  WARN q{num}: merged audio only {sum(durs):.1f}s (< {MIN_MERGED_SECONDS}s) - "
+                  f"INVALID, not uploaded (script too short)", flush=True)
             continue
         extras = []
         if natural:
@@ -545,6 +576,13 @@ def main() -> None:
     map_file = out_dir / f"mock{args.mock}_audio_map.json"
     map_file.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Map written -> {map_file}")
+    stats_file = out_dir / f"mock{args.mock}_audio_stats.json"
+    stats_file.write_text(json.dumps({
+        "ok": ok_c, "fail": fail_c,
+        "fallback_clips": FALLBACK_CLIPS,
+        "short_clips": SHORT_CLIPS,
+    }), encoding="utf-8")
+    print(f"Stats written -> {stats_file} (fallback clips: {FALLBACK_CLIPS}, short clips: {SHORT_CLIPS})")
 
 
 def _gen(job, tts, args, cfg, ffmpeg):

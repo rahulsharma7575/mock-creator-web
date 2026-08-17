@@ -717,11 +717,15 @@ FORMAT_RULES = """UBT MOCK EXAM FORMAT - IDENTICAL FOR EVERY GENERATION MODE
   must be clear from the AUDIO ALONE, because some listening questions will be shown
   to the student as AUDIO-ONLY (no question text, options are just 1/2/3/4). Never
   write a script that references text, tables or images the student cannot see.
-- SPEAKERS ARE RANDOMIZED: roughly half the listening questions are ONE speaker
-  (V1 male or V2 female alone - announcement/monologue, 2-4 sentences, all turns the
-  SAME voice, "speakers": 1) and the rest are TWO speakers (any V1/V2 combination -
-  V1+V2, V1+V1 or V2+V2, "speakers": 2). The voice tags in audioScript MUST match the
-  chosen speaker count and gender. V1 is always the male voice, V2 the female voice.
+- CONVERSATION RULE: LONG scripts MUST be a natural TWO-SPEAKER conversation
+  (V1 male + V2 female, alternating, 4-6 turns, "speakers": 2) — one speaker asks /
+  raises the topic, the other replies. ONE speaker (V1 or V2 alone, "speakers": 1)
+  is allowed ONLY for short announcements/monologues (2-4 sentences). Every turn
+  MUST be at least ONE full Korean sentence — never a single word or a bare short
+  reply (e.g. "응" or "한복" alone). The CORRECT ANSWER must be clearly stated in
+  the dialogue by one of the speakers.
+- The voice tags in audioScript MUST match the chosen speaker count and gender.
+  V1 is always the male voice, V2 the female voice.
 - {picture_format_rule}
 - {blank_rule}"""
 
@@ -852,10 +856,12 @@ HARD RULES:
   question_text (each question stays standalone).
 - Listening (Q{listening_start}-{question_count}): if the paper contains a readable transcript for a
   question, use it verbatim as the audioScript. If the transcript is missing/empty (typical — audio
-  is never printed), write a natural script with RANDOMIZED speakers: roughly half are ONE speaker
-  (V1 male or V2 female alone — announcement/monologue, 2-4 sentences, same voice, "speakers": 1)
-  and the rest are TWO speakers (any V1/V2 combination, "speakers": 2). Include "listening":
-  {"audioScript": [...], "durationSeconds", "speakers", "situation"}.
+  is never printed), write a natural TWO-SPEAKER Korean conversation (V1 male + V2 female
+  alternating, 4-6 turns, "speakers": 2): one speaker asks/raises the topic, the other replies.
+  ONE speaker (V1 or V2 alone) is allowed ONLY for short announcements/monologues (2-4 sentences,
+  "speakers": 1). Every turn MUST be a full Korean sentence — never a single word or a bare short
+  reply. The CORRECT ANSWER must be clearly stated in the dialogue (map it from correct_answer).
+  Include "listening": {"audioScript": [...], "durationSeconds", "speakers", "situation"}.
 - Images: the extracted paper images are listed under PAPER IMAGES with the question they belong to.
   For a question with a paper image set requiresImage true AND pdfImage "<id>" (exact id from the
   list). imagePrompt may describe the expected picture from the question/answer context. Questions
@@ -1124,27 +1130,36 @@ def apply_blank_questions(qs):
 
 
 # Speaker cast patterns. V1 = the configured male voice, V2 = female voice.
-# Each listening question gets ONE random cast regardless of what the author
-# LLM wrote (authors default to male-only; this enforces the variety). The
-# _gen() speed logic in the audio builder keys off V1/V2, so configured
+# LONG scripts MUST be a two-speaker conversation (MF/FM alternating - the two
+# configured voices interact); SHORT scripts may be a single speaker (M/F).
+# The _gen() speed logic in the audio builder keys off V1/V2, so configured
 # per-voice speeds are respected automatically for every cast.
-SPEAKER_CASTS = ("M", "F", "MF", "FM")
+SPEAKER_CASTS_SINGLE = ("M", "F")
+SPEAKER_CASTS_PAIR = ("MF", "FM")
+SCRIPT_MIN_TURNS = 4
+SCRIPT_MIN_TOTAL_CHARS = 70
+SCRIPT_MIN_TURN_CHARS = 6   # bare-word threshold: a turn under 6 chars is a single word
+
+
+def _script_is_long(turns):
+    total = sum(len(str(t.get("text", ""))) for t in turns)
+    return len(turns) >= SCRIPT_MIN_TURNS or total >= SCRIPT_MIN_TOTAL_CHARS
 
 
 def randomize_listening_speakers(qs):
-    """Assign a random speaker cast to every listening question's audioScript.
+    """Assign a speaker cast to every listening question's audioScript.
 
-    Casts (uniform):
+    Casts:
       M  — male speaker alone         (all turns V1, speakers 1)
       F  — female speaker alone       (all turns V2, speakers 1)
       MF — two speakers, male first   (V1,V2 alternating, speakers 2)
       FM — two speakers, female first (V2,V1 alternating, speakers 2)
 
+    LONG scripts (>= 4 turns or >= 70 chars) are ALWAYS two-speaker (MF/FM) so
+    the two configured voices interact; only short scripts may be single-speaker.
     The script TEXT is untouched — only the voice tags + speakers field are
-    rewritten, so any dialogue reads from either speaker. Applies to ALL
+    rewritten. Blank questions (pre-made pool) are skipped. Applies to ALL
     generators (random / book PDF / printed paper PDF)."""
-    casts = list(SPEAKER_CASTS)
-    random.shuffle(casts)
     changed = 0
     for q in qs:
         if not isinstance(q, dict) or str(q.get("section", "")).strip().lower() != "listening":
@@ -1160,7 +1175,10 @@ def randomize_listening_speakers(qs):
         turns = [t for t in script if isinstance(t, dict) and str(t.get("text", "")).strip()]
         if not turns:
             continue
-        cast = random.choice(casts)
+        if _script_is_long(turns):
+            cast = random.choice(SPEAKER_CASTS_PAIR)
+        else:
+            cast = random.choice(SPEAKER_CASTS_SINGLE)
         if cast in ("M", "F"):
             voice = "V1" if cast == "M" else "V2"
             for t in turns:
@@ -1174,9 +1192,81 @@ def randomize_listening_speakers(qs):
             lis["speakers"] = 2
         changed += 1
     if changed:
-        print(f"[audio] {changed} listening scripts cast to random speakers "
-              f"(male / female / MF / FM)")
+        print(f"[audio] {changed} listening scripts cast "
+              f"(long -> two speakers MF/FM, short -> single M/F)")
     return changed
+
+
+def expand_short_scripts(key, qs):
+    """Rewrite listening audioScripts that are too short to be valid audio
+    (single-word turns / ~1s clips) into natural two-speaker conversations
+    (4-6 turns, every turn a full sentence) that clearly state the correct
+    answer. Blank questions (pre-made pool) and picture questions are skipped.
+    Returns the number of scripts expanded."""
+    if not key:
+        return 0
+    model_cfg = repair_cfg()
+    done = 0
+    for q in qs:
+        if not isinstance(q, dict) or str(q.get("section", "")).strip().lower() != "listening":
+            continue
+        if q.get("blank") or q.get("picture_options"):
+            continue
+        lis = q.get("listening")
+        if not isinstance(lis, dict):
+            continue
+        script = lis.get("audioScript")
+        if not isinstance(script, list) or not script:
+            continue
+        turns = [t for t in script if isinstance(t, dict) and str(t.get("text", "")).strip()]
+        if not turns:
+            continue
+        total = sum(len(str(t.get("text", ""))) for t in turns)
+        too_short = (len(turns) < SCRIPT_MIN_TURNS or total < SCRIPT_MIN_TOTAL_CHARS or
+                     any(len(str(t.get("text", ""))) < SCRIPT_MIN_TURN_CHARS for t in turns))
+        if not too_short:
+            continue
+        opts = q.get("options") or []
+        ca = q.get("correct_answer") or []
+        ans_idx = int(ca[0]) if ca and str(ca[0]) in ("0", "1", "2", "3") else None
+        ans_text = str(opts[ans_idx]) if ans_idx is not None and ans_idx < len(opts) else ""
+        user = (
+            "아래 한국어 듣기 문제의 음성 스크립트가 너무 짧아(1초 이하의 오디오) 다시 작성합니다. "
+            "남자(V1)와 여자(V2) 두 명의 자연스러운 대화로 4-6턴, 턴마다 한 문장 이상 "
+            "(한 단어나 짧은 대답 금지), 한 명이 질문/화제를 제시하고 다른 한 명이 답하며 "
+            "정답이 대화에서 분명히 드러나야 합니다. "
+            'JSON만: {"audioScript": [{"voice": "V1"|"V2", "text": "..."}], '
+            '"durationSeconds": N, "speakers": 2, "situation": "..."}\n'
+            f"문제: {q.get('question_text')}\n선택지: {opts}\n"
+            f"정답(인덱스): {ca} | 정답 내용: {ans_text}\n"
+            f"현재 스크립트(너무 짧음): {json.dumps(script, ensure_ascii=False)}")
+        try:
+            fixed, _ = chat_json(key, model_cfg["slug"], REPAIR_SYSTEM, user,
+                                 max_tokens=2500, temperature=0.5, extra=model_cfg["extra"])
+            if isinstance(fixed, dict):
+                new_script = fixed.get("audioScript")
+                if isinstance(new_script, list) and new_script:
+                    new_turns = [t for t in new_script if isinstance(t, dict) and str(t.get("text", "")).strip()]
+                    new_total = sum(len(str(t.get("text", ""))) for t in new_turns)
+                    if (new_total < SCRIPT_MIN_TOTAL_CHARS or len(new_turns) < SCRIPT_MIN_TURNS or
+                            any(len(str(t.get("text", ""))) < SCRIPT_MIN_TURN_CHARS for t in new_turns)):
+                        print(f"  script expand Q{q.get('number')}: LLM output still too short - keeping old",
+                              flush=True)
+                        continue
+                    lis2 = dict(lis)
+                    for k, v in fixed.items():
+                        if k in ("audioScript", "durationSeconds", "speakers", "situation"):
+                            lis2[k] = v
+                    q["listening"] = lis2
+                    done += 1
+                    print(f"[audio] expanded Q{q.get('number')} script: "
+                          f"{len(turns)} turns/{total} chars -> {len(new_turns)} turns/{new_total} chars",
+                          flush=True)
+        except Exception as e:
+            print(f"  script expand failed Q{q.get('number')}: {str(e)[:100]}")
+    if done:
+        print(f"[audio] {done} short listening script(s) expanded to valid conversations", flush=True)
+    return done
 
 
 def normalize_exam(qs):
@@ -1236,14 +1326,21 @@ def repair_exam(key, qs, stats=None):
         script = (q.get("listening") or {}).get("audioScript") if q.get("section") == "listening" else None
         if q.get("section") == "listening" and (not script or (isinstance(script, list) and not all((t or {}).get("text", "").strip() for t in script))):
             print(f"[repair] writing listening script for Q{q['number']}...")
+            opts = q.get("options") or []
+            ca = q.get("correct_answer") or []
+            ans_idx = int(ca[0]) if ca and str(ca[0]) in ("0", "1", "2", "3") else None
+            ans_text = str(opts[ans_idx]) if ans_idx is not None and ans_idx < len(opts) else ""
             user = (
                 "다음 한국어 듣기 문제를 위한 자연스러운 음성 스크립트를 작성하세요. "
-                "화자는 무작위로: 1명(남자 V1 또는 여자 V2 혼자, 2-4문장) 또는 2명(남/여 조합, 2-4턴, 턴당 최대 2문장, 구어체)입니다. "
+                "기본 형식: 남자(V1)와 여자(V2) 두 명이 대화하는 4-6턴, 턴마다 한 문장 이상 "
+                "(한 단어나 짧은 대답 금지, 예: \"한복\" 또는 \"응\" 단독 금지), 구어체, "
+                "한 명이 질문/화제를 제시하고 다른 한 명이 답하며 정답이 대화에서 분명히 드러나야 합니다. "
+                "짧은 안내방송(2-4문장)일 때만 화자 1명(V1 또는 V2, \"speakers\": 1)이 가능합니다. "
                 "문제가 음성만 제시되는(blank) 문제라면 대화/안내만으로 정답이 분명히 드러나야 합니다. "
-                'JSON만: {"audioScript": [{"voice": "V1"~"V4", "text": "..."}], '
-                '"durationSeconds": 15, "speakers": 1, "situation": "..."}\n'
-                f"문제: {q.get('question_text')}\n선택지: {q.get('options')}\n"
-                f"정답(인덱스): {q.get('correct_answer')}\n"
+                'JSON만: {"audioScript": [{"voice": "V1"~"V2", "text": "..."}], '
+                '"durationSeconds": 15, "speakers": 2, "situation": "..."}\n'
+                f"문제: {q.get('question_text')}\n선택지: {opts}\n"
+                f"정답(인덱스): {ca} | 정답 내용: {ans_text}\n"
                 "대화 내용은 정답 선택지와 일치해야 합니다.")
             try:
                 fixed, _ = chat_json(key, model_cfg["slug"], REPAIR_SYSTEM, user,
@@ -2367,6 +2464,15 @@ def run_audio(mock, qs, record_ids, headers):
     return ok
 
 
+def read_audio_stats(mock):
+    """Read the audio builder's per-run stats (fallback/short-clip counters)."""
+    try:
+        stats_file = BASE / f"mock{mock}" / "audio" / f"mock{mock}_audio_stats.json"
+        return json.loads(stats_file.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
 # ---------------------------------------------------------------------------
 
 def _short(model):
@@ -2491,6 +2597,10 @@ def final_summary(stats):
         line("blank listening",
              f"{stats['blank_count']} pre-made audio-only questions (1/2/3/4)"
              + (f" - Q{', Q'.join(map(str, sorted(nums)))}" if nums else ""))
+    if stats.get("script_expanded"):
+        line("scripts expanded", f"{stats['script_expanded']} short listening scripts -> conversations")
+    if stats.get("audio_fallback_clips"):
+        line("audio fallback clips", f"{stats['audio_fallback_clips']} clip(s) used the fallback TTS voice")
     if stats.get("dedup_checked"):
         line(f"dedup vs last {len(stats.get('dedup_sets_checked') or [])} mocks",
              f"{stats.get('dedup_repeats', 0)} repeats")
@@ -3129,8 +3239,12 @@ def main():
         gfix = repair_picture_prompts(key, qs, paper_pics)
         if gfix:
             print(f"[repair] {gfix} picture questions restored after proofread")
-        # enforce random speaker cast on every listening script (male / female / MF / FM)
-        # - pre-made blanks are skipped (fixed asker + option reader)
+        # expand scripts that would produce 1s/word-only audio into 2-speaker
+        # conversations that state the correct answer (paper questions have no TTS)
+        n_exp = expand_short_scripts(key, qs)
+        stats["script_expanded"] = n_exp
+        # enforce the speaker cast rule: long scripts -> two speakers (MF/FM),
+        # short scripts -> single speaker (M/F); pre-made blanks are skipped
         randomize_listening_speakers(qs)
         qs.sort(key=lambda q: q["number"])
         errs = validate_exam(qs)
@@ -3154,6 +3268,8 @@ def main():
         elif dm == "audio":
             print(f"[dry][audio] generating sample listening audio locally (no upload)...")
             stats["audio_ok"] = dry_audio_pass(mock, base_dir, qs)
+            ast = read_audio_stats(mock)
+            stats["audio_fallback_clips"] = ast.get("fallback_clips", 0)
             stats["stage_times"]["audio"] = stage_secs()
         else:
             print("[dry][questions] sample authored and saved (no images/audio in questions mode)")
@@ -3165,6 +3281,8 @@ def main():
             "blank_count": stats.get("blank_count", 0),
             "blank_numbers": stats.get("blank_numbers", []),
             "blank_detail": stats.get("blank_detail", []),
+            "script_expanded": stats.get("script_expanded", 0),
+            "audio_fallback_clips": stats.get("audio_fallback_clips", 0),
             "picture_count": stats.get("picture_count", 0),
             "pdf_parser": stats.get("pdf_parser"),
             "pdf_pages": stats.get("pdf_pages"),
@@ -3255,6 +3373,8 @@ def main():
     # 4. Audio
     print("[audio] generating listening audio...")
     a_ok = run_audio(mock, qs, ids, headers)
+    ast = read_audio_stats(mock)
+    stats["audio_fallback_clips"] = ast.get("fallback_clips", 0)
     stats["audio_ok"] = a_ok
     stats["audio_total"] = sum(1 for q in qs if q.get("section") == "listening")
     stats["stage_times"]["audio"] = stage_secs()
@@ -3308,6 +3428,8 @@ def main():
         "blank_count": stats.get("blank_count", 0),
         "blank_numbers": stats.get("blank_numbers", []),
         "blank_detail": stats.get("blank_detail", []),
+        "script_expanded": stats.get("script_expanded", 0),
+        "audio_fallback_clips": stats.get("audio_fallback_clips", 0),
         "picture_count": stats.get("picture_count", 0),
         "paper_photos_extracted": stats.get("paper_photos_extracted", 0),
         "paper_photos_used": stats.get("paper_photos_used", 0),
