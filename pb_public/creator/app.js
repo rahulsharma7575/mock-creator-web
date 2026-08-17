@@ -309,7 +309,7 @@ createApp({
     },
     cardState(g){const list=this.groupIssues[g]||[];if(list.some(i=>i.w==='err'))return'err';if(list.some(i=>i.w==='warn'))return'warn';if(this.verified[g])return'ok';return'idle';},
     groupIssueList(g){return this.groupIssues[g]||[];},
-    hiddenField(f){return['image_count_min','image_count_max','is_active','shuffle_questions','shuffle_options','negative_marks','push_subject_id','push_exam_type','image_fallback','tts_voices','question_count','reading_count','marks_per_question','difficulty_profile','tts_fallback_voice','audio_workers','author_provider','dedup_sets'].includes(f.field);},
+    hiddenField(f){return['image_count_min','image_count_max','is_active','shuffle_questions','shuffle_options','negative_marks','push_subject_id','push_exam_type','image_fallback','tts_voices','question_count','reading_count','marks_per_question','difficulty_profile','tts_fallback_voice','audio_workers','author_provider','dedup_sets','listening_blank_count','listening_blank_min','listening_blank_max'].includes(f.field);},
     toggleGroup(g){this.openGroup=this.openGroup===g?'':g;this.$nextTick(()=>this.deckEnter());},
     viewEnter(){
       if(!window.anime)return;
@@ -335,7 +335,7 @@ createApp({
       {key:'tts_fallback_male_voice',speed:null,label:'Male voice',prim:false,tip:'Male speaker when the fallback TTS model is used. Empty = auto-pick per fallback model.'},
       {key:'tts_fallback_female_voice',speed:null,label:'Female voice',prim:false,tip:'Female speaker when the fallback TTS model is used. Empty = auto-pick per fallback model.'}
     ];return defs.filter(d=>d.prim===prim);},
-    audioSettings(){return['audio_gap_ms','sample_rate','tts_natural_pacing','tts_polish','tts_atempo_models','listening_blank_count'].map(f=>this.mf(f)).filter(m=>m.field);},
+    audioSettings(){return['audio_gap_ms','sample_rate','tts_natural_pacing','tts_polish','tts_atempo_models'].map(f=>this.mf(f)).filter(m=>m.field);},
     voicePh(field){const c=this.cfgData||{};const prim=field==='tts_male_voice'||field==='tts_female_voice';const model=String(prim?(c.tts_model||''):(c.tts_fallback_model||''));const male=!field.includes('female');if(model.includes('fish'))return male?'802e3bc2b27e49c2995d23ef70e6ac89':'9a9cf47702da476aa4629e2506d4a857';const vs=this.voicesForModel(model);if(vs.length)return'Empty = auto-pick ('+vs[0]+')';return'Empty = auto-pick';},
     voiceModelFor(field){const c=this.cfgData||{};if(field==='tts_male_voice'||field==='tts_female_voice')return c.tts_model||'';return c.tts_fallback_model||'';},
     openVoicePreview(field){if(!this.cfgData||!this.cfgData[field])return;this.voicePreview={open:true,field,text:'안녕하세요. 음성 미리듣기입니다.',busy:false,error:'',usedFallback:false,audioUrl:''};},

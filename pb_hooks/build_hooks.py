@@ -274,12 +274,10 @@ DEFAULT_CONFIG = {
     "tts_female_speed": 0.0,
     "tts_fallback_male_speed": 0.0,
     "tts_fallback_female_speed": 0.0,
-    "listening_blank_count": 5,
+    "listening_blank_count": 5,          # resolved by the pipeline (BLANK_BAND 5-7, pre-made pool)
     "listening_picture_count": 5,
     "listening_picture_min": 5,
     "listening_picture_max": 8,
-    "listening_blank_min": 4,
-    "listening_blank_max": 6,
     "reading_image_count": 10,
     "gemini_vision_scan": True,
     "image_style_prompt": "Simple flat vector illustration in the standard Korean EPS-TOPIK test style, VIVID COLOURFUL palette (never black-and-white, never muted), minimal clean line art, plain solid white background, simple everyday scene, centered single main subject, clear silhouette, no gradients, no photorealism, do NOT write the text 'EPS-TOPIK' or any exam title/logo in the image, small incidental text is allowed only when the scene naturally requires it (e.g. storefront sign), no watermark, no border",
@@ -333,12 +331,9 @@ META_FIELDS = [
     ("tts_female_speed", "Female voice speed", "number", "Audio", "0 = follow the global speech speed · 0.5-2.0 = speed for the female voice only."),
     ("tts_fallback_male_speed", "Fallback male speed", "number", "Audio", "Speed for the male voice when the fallback TTS model is used (0 = follow global)."),
     ("tts_fallback_female_speed", "Fallback female speed", "number", "Audio", "Speed for the female voice when the fallback TTS model is used (0 = follow global)."),
-    ("listening_blank_count", "Blank listening questions", "number", "Audio", "Random listening questions (Q21-40) become audio-only: no question text, options are just 1/2/3/4, student marks the answer after hearing the audio."),
     ("gemini_vision_scan", "Scan PDF pages with Gemini", "bool", "PDF", "Paper mode only: feed the rendered question pages to the (multimodal) Gemini author so it visually maps images to questions and fills missing 4-photo grids coherently. Requires GEMINI_API_KEY."),
     ("listening_picture_min", "Picture listening (min)", "number", "Advanced", "Lower bound of the random picture-listening band (EPS-TOPIK 5-8)."),
     ("listening_picture_max", "Picture listening (max)", "number", "Advanced", "Upper bound of the random picture-listening band (EPS-TOPIK 5-8)."),
-    ("listening_blank_min", "Blank listening (min)", "number", "Advanced", "Lower bound of the random blank/audio-only listening band (EPS-TOPIK 4-6)."),
-    ("listening_blank_max", "Blank listening (max)", "number", "Advanced", "Upper bound of the random blank/audio-only listening band (EPS-TOPIK 4-6)."),
     ("reading_image_count", "Reading image questions", "number", "Advanced", "How many of the 20 reading questions carry a single image by default (paper uses its own; random/book generate online)."),
     ("active", "Config enabled", "bool", "General", "Use this config"),
 ]
@@ -554,7 +549,6 @@ function ensureCollections() {
       ["tts_female_speed", "Female voice speed", "number", "Audio", "0 = follow the global speech speed · 0.5-2.0 = speed for the female voice only.", null],
       ["tts_fallback_male_speed", "Fallback male speed", "number", "Audio", "Speed for the male voice when the fallback TTS model is used (0 = follow global).", null],
       ["tts_fallback_female_speed", "Fallback female speed", "number", "Audio", "Speed for the female voice when the fallback TTS model is used (0 = follow global).", null],
-      ["listening_blank_count", "Blank listening questions", "number", "Audio", "Random listening questions (Q21-40) become audio-only: no question text, options are just 1/2/3/4, student marks the answer after hearing the audio.", null],
       ["listening_picture_count", "Picture listening questions", "number", "Images", "How many LISTENING questions use 4 separate photos as options (audio plays, student taps the matching photo). Photos 1-4 appear in a 2x2 grid with the number overlaid. Flat colourful EPS-TOPIK style.", null],
       ["image_style_prompt", "Image style prompt", "text", "Images", "Style instruction wrapped around every generated image (flat colourful EPS-TOPIK vector style by default).", null],
       ["image_count", "Image questions target", "number", "Images", "How many questions carry a picture, spread randomly across reading AND listening. Applies to RANDOM generation only - Paper PDF mode follows the paper.", null]
@@ -601,6 +595,17 @@ function ensureCollections() {
       $app.save(oldFb[fbi])
     }
   } catch (errFb) {}
+  try {
+    // Blank-question settings are gone from the GUI: blank count is fixed in the
+    // pipeline (BLANK_BAND 5-7, pre-made pool). Remove the meta rows so the
+    // config editor stops rendering them (fields stay in the schema, unused).
+    var blankMetaFields = ["listening_blank_count", "listening_blank_min", "listening_blank_max"]
+    for (var bmi = 0; bmi < blankMetaFields.length; bmi++) {
+      var bm = null
+      try { bm = $app.findFirstRecordByData("mock_config_meta", "field", blankMetaFields[bmi]) } catch (errBm) {}
+      if (bm) $app.delete(bm)
+    }
+  } catch (errB) {}
 """,
     "".join(
         "var k{0} = new Record(models); k{0}.set(\"kind\", {1}); k{0}.set(\"model\", {2}); k{0}.set(\"display\", {3}); k{0}.set(\"notes\", {4}); $app.save(k{0});\n".format(

@@ -146,12 +146,10 @@ DEFAULTS = {
     "tts_female_speed": 0.0,
     "tts_fallback_male_speed": 0.0,
     "tts_fallback_female_speed": 0.0,
-    "listening_blank_count": 5,          # resolved blank count (see bands below; runtime-picked)
+    "listening_blank_count": 5,          # resolved blank count (runtime-picked from BLANK_BAND)
     "listening_picture_count": 5,        # resolved picture count (see bands below; runtime-picked)
     "listening_picture_min": 5,          # EPS-TOPIK band: 5-8 picture listening questions
     "listening_picture_max": 8,
-    "listening_blank_min": 4,            # EPS-TOPIK band: 4-6 blank (audio-only) listening questions
-    "listening_blank_max": 6,
     "reading_image_count": 10,           # default # of the 20 reading questions that carry a single image
     "gemini_vision_scan": True,          # paper mode: feed rendered question pages to Gemini author (multimodal)
     "tts_voices": {},                          # optional speaker->voice map override
@@ -276,6 +274,19 @@ def render_prompt(template):
         picture_topup_rule = (f"If fewer than {pic} picture questions exist, create fresh ones to reach exactly {pic}: "
                               f"same format rules (options [\"1\",\"2\",\"3\",\"4\"], correct_answer = photo index matching "
                               f"your audio, 4 DISTINCT English option_images descriptions).")
+    blank_nums = [int(x) for x in (BLANK_PLAN.get("numbers") or [])]
+    if blank_nums and not is_paper:
+        blank_rule = (
+            f"BLANK AUDIO-ONLY QUESTIONS (numbers {', '.join(map(str, blank_nums))}) are handled by "
+            f"the system with PRE-MADE content. For these numbers output ONLY a stub: number, "
+            f"section \"listening\", \"blank\": true, question_text \"Q <number>. 다음을 듣고 알맞은 "
+            f"것을 고르십시오.\", options [\"1\",\"2\",\"3\",\"4\"], correct_answer [\"1\"], "
+            f"explanation \"듣기 문제입니다.\", requiresImage false, imagePrompt \"\". NO audioScript, "
+            f"NO \"listening\" object, NO option_images. Do NOT make them picture questions.")
+    else:
+        blank_rule = ("BLANK AUDIO-ONLY QUESTIONS: the system adds pre-made blank questions to the "
+                      "listening section - author EVERY listening question normally with a full "
+                      "audioScript (scripts must be self-contained).")
     ctx = {"FORMAT_RULES": FORMAT_RULES,
            **CFG,
            "difficulty_note": DIFFICULTY_PROFILES.get(CFG.get("difficulty_profile"), ""),
@@ -286,7 +297,8 @@ def render_prompt(template):
            "listening_picture_count": pic,
            "listening_blank_count": blank,
            "picture_format_rule": picture_format_rule,
-           "picture_topup_rule": picture_topup_rule}
+           "picture_topup_rule": picture_topup_rule,
+           "blank_rule": blank_rule}
     for k, v in ctx.items():
         if isinstance(v, (str, int, float)):
             out = out.replace("{" + k + "}", str(v))
@@ -294,6 +306,151 @@ def render_prompt(template):
 
 
 CONFIG_LOADED = load_config()   # reads $MOCK_CONFIG at import time (before main)
+
+# ---------------------------------------------------------------------------
+# Pre-made blank (audio-only) listening questions.
+# The blank pool lives in pipeline/blank_questions.json (ships in the Docker
+# image). Every run picks BLANK_BAND random listening numbers + random pool
+# entries BEFORE authoring (so the prompt can list the numbers and the author
+# skips them). apply_premade_blanks() fills them in after all LLM passes.
+# ---------------------------------------------------------------------------
+
+BLANK_BAND = (5, 7)                       # fixed band: 5-7 pre-made blanks per exam
+PRE_MADE_BLANKS_PATH = SRC / "blank_questions.json"
+_PRE_MADE_POOL = []                        # [{man, woman:{1..4}, answer}, ...]
+BLANK_PLAN = {"count": 0, "numbers": [], "entries": []}   # per-run assignment
+
+
+def load_premade_blanks() -> int:
+    """Load the pre-made blank pool. Missing/corrupt file -> empty pool (the
+    legacy author-generated blank conversion runs as a fallback)."""
+    global _PRE_MADE_POOL
+    try:
+        if not PRE_MADE_BLANKS_PATH.exists():
+            print(f"[blank] WARNING: {PRE_MADE_BLANKS_PATH.name} not found — "
+                  "falling back to author-generated blanks")
+            _PRE_MADE_POOL = []
+            return 0
+        data = json.loads(PRE_MADE_BLANKS_PATH.read_text(encoding="utf-8"))
+        if (isinstance(data, list) and data and
+                all(isinstance(x, dict) and x.get("man") and isinstance(x.get("woman"), dict)
+                    and len(x.get("woman") or {}) == 4 and x.get("answer") in (1, 2, 3, 4)
+                    for x in data)):
+            _PRE_MADE_POOL = data
+            print(f"[blank] pre-made blank pool loaded: {len(data)} questions "
+                  f"({PRE_MADE_BLANKS_PATH.name})")
+            return len(data)
+        print(f"[blank] WARNING: {PRE_MADE_BLANKS_PATH.name} is malformed — "
+              "falling back to author-generated blanks")
+    except Exception as e:
+        print(f"[blank] WARNING: unreadable {PRE_MADE_BLANKS_PATH.name} ({e}) — "
+              "falling back to author-generated blanks")
+    _PRE_MADE_POOL = []
+    return 0
+
+
+def build_blank_plan(count, listen_available, reading_count, is_paper=False):
+    """Pick the blank numbers (listening range) + pool entries for THIS exam,
+    BEFORE authoring so the prompt can list the numbers. Paper mode: numbers
+    are decided post-authoring (the paper decides structure), entries only."""
+    global BLANK_PLAN
+    count = max(0, int(count))
+    if count <= 0 or not _PRE_MADE_POOL:
+        BLANK_PLAN = {"count": count, "numbers": [], "entries": []}
+        return BLANK_PLAN
+    entries = random.sample(_PRE_MADE_POOL, min(count, len(_PRE_MADE_POOL)))
+    numbers = []
+    if not is_paper:
+        lo = int(reading_count) + 1
+        hi = lo + max(0, int(listen_available)) - 1
+        if hi >= lo:
+            numbers = random.sample(range(lo, hi + 1), min(count, hi - lo + 1))
+    BLANK_PLAN = {"count": len(entries), "numbers": numbers, "entries": entries}
+    return BLANK_PLAN
+
+
+def _premade_blank_ify(q, entry):
+    """Fill a question with pre-made audio-only blank content.
+
+    Two voices: a RANDOM asker (V1 male or V2 female) reads the question, the
+    other voice reads the 4 options in file order (phrases only, no numbers).
+    correct_answer is 0-based (["0"]..["3"]) like every pushed record."""
+    num = q.get("number")
+    q["blank"] = True
+    q["picture_options"] = False
+    q["question_text"] = "Q%s. 다음을 듣고 알맞은 것을 고르십시오." % num
+    q["options"] = ["1", "2", "3", "4"]
+    q["correct_answer"] = normalize_correct_answer(int(entry.get("answer")) - 1)
+    q["difficulty"] = "medium"
+    woman = entry.get("woman") or {}
+    ans_txt = str(woman.get(str(entry.get("answer"))) or "").strip()
+    q["explanation"] = f"정답은 {ans_txt}입니다." if ans_txt else "듣기 문제입니다."
+    q["requiresImage"] = False
+    q["imagePrompt"] = ""
+    q["option_images"] = []
+    asker = random.choice(["V1", "V2"])
+    reader = "V2" if asker == "V1" else "V1"
+    script = [{"voice": asker, "text": str(entry.get("man") or "").strip()}]
+    for i in ("1", "2", "3", "4"):
+        t = str(woman.get(i) or "").strip()
+        if t:
+            script.append({"voice": reader, "text": t})
+    lis = q.get("listening")
+    if not isinstance(lis, dict):
+        lis = {}
+    lis["audioScript"] = script
+    lis["speakers"] = 2
+    q["listening"] = lis
+    return q
+
+
+def apply_premade_blanks(qs):
+    """Replace listening questions with pre-made audio-only blanks from the pool.
+
+    Numbers + entries come from BLANK_PLAN (chosen before authoring). If a
+    pre-picked number is missing from the authored exam, fall back to any
+    non-picture listening question. Paper mode (no pre-picked numbers): pick
+    random non-picture listening questions here. Empty pool -> legacy
+    author-generated blank conversion (audioScript kept)."""
+    if not _PRE_MADE_POOL:
+        return apply_blank_questions(qs)
+    n = int(BLANK_PLAN.get("count") or 0)
+    if n <= 0 or not isinstance(qs, list):
+        return qs, 0
+    listen = [q for q in qs if isinstance(q, dict) and q.get("section") == "listening"]
+    if not listen:
+        return qs, 0
+    by_num = {}
+    for q in listen:
+        try:
+            by_num[int(q.get("number"))] = q
+        except (TypeError, ValueError):
+            pass
+    entries = [dict(e) for e in (BLANK_PLAN.get("entries") or [])]
+    targets = []
+    for num in (BLANK_PLAN.get("numbers") or []):
+        q = by_num.get(int(num))
+        if q is not None:
+            targets.append(q)
+        else:
+            q = next((x for x in listen if not x.get("blank")
+                      and not x.get("picture_options") and x not in targets), None)
+            if q:
+                targets.append(q)
+    if not BLANK_PLAN.get("numbers"):
+        pool = [x for x in listen if not x.get("blank") and not x.get("picture_options")]
+        random.shuffle(pool)
+        targets = pool[:n]
+    done = 0
+    for q in targets[:n]:
+        entry = entries.pop(0) if entries else random.choice(_PRE_MADE_POOL)
+        _premade_blank_ify(q, entry)
+        done += 1
+    return qs, done
+
+
+load_premade_blanks()   # load the pool once at startup (empty pool = legacy fallback)
+
 
 # Model choices for interactive selection (Mock.cmd asks the user)
 AUTHOR_MODELS = [
@@ -522,8 +679,7 @@ FORMAT_RULES = """UBT MOCK EXAM FORMAT - IDENTICAL FOR EVERY GENERATION MODE
   V1+V2, V1+V1 or V2+V2, "speakers": 2). The voice tags in audioScript MUST match the
   chosen speaker count and gender. V1 is always the male voice, V2 the female voice.
 - {picture_format_rule}
-- A random subset of listening questions will be shown AUDIO-ONLY (options 1/2/3/4,
-  no text) - always write listening scripts as if they will be heard alone."""
+- {blank_rule}"""
 
 AUTHOR_USER = """Write a complete Korean EPS-TOPIK UBT mock exam: EXACTLY {question_count} questions as a JSON array.
 
@@ -944,6 +1100,8 @@ def randomize_listening_speakers(qs):
     for q in qs:
         if not isinstance(q, dict) or str(q.get("section", "")).strip().lower() != "listening":
             continue
+        if q.get("blank"):
+            continue  # pre-made blanks keep their fixed asker + option reader
         lis = q.get("listening")
         if not isinstance(lis, dict):
             continue
@@ -2280,7 +2438,7 @@ def final_summary(stats):
     if stats.get("picture_count"):
         line("picture listening", f"{stats['picture_count']} photo questions (4-photo options)")
     if stats.get("blank_count"):
-        line("blank listening", f"{stats['blank_count']} audio-only questions (1/2/3/4)")
+        line("blank listening", f"{stats['blank_count']} pre-made audio-only questions (1/2/3/4)")
     if stats.get("dedup_checked"):
         line(f"dedup vs last {len(stats.get('dedup_sets_checked') or [])} mocks",
              f"{stats.get('dedup_repeats', 0)} repeats")
@@ -2441,22 +2599,21 @@ def preflight_checks():
 def pick_listening_bands(listen_available, is_paper):
     """Resolve the number of picture + blank listening questions for THIS exam.
 
-    EPS-TOPIK structure: 20 listening = 5-8 picture + 4-6 blank + the rest
-    normal (random TTS). Counts are picked at random INSIDE the configurable
-    bands, clamped to the real listening-questions count, and written back to
-    CFG so render_prompt / apply_blank_questions / the picture gate all agree.
+    EPS-TOPIK structure: 20 listening = 5-8 picture + 5-7 blank + the rest
+    normal (random TTS). Picture count is picked at random INSIDE the
+    configurable band; the blank count is FIXED at BLANK_BAND (5-7) and no
+    longer configurable. Counts are clamped to the real listening-questions
+    count and written back to CFG so render_prompt / apply_premade_blanks /
+    the picture gate all agree.
 
     Paper mode: the picture count is handled separately by paper_pics (the
     paper decides); only the blank band is resolved here."""
     from random import randint
     pmin = int(CFG.get("listening_picture_min") or 5)
     pmax = int(CFG.get("listening_picture_max") or 8)
-    bmin = int(CFG.get("listening_blank_min") or 4)
-    bmax = int(CFG.get("listening_blank_max") or 6)
     pmin = max(0, min(pmin, pmax))
-    bmin = max(0, min(bmin, bmax))
     pic = int(CFG.get("listening_picture_count") or 0)
-    blank = int(CFG.get("listening_blank_count") or 0)
+    bmin, bmax = BLANK_BAND
     if not is_paper:
         # random / book: pick picture from the band, then blank within the rest
         pic = randint(pmin, pmax)
@@ -2566,6 +2723,11 @@ def main():
         listen_available = max(0, int(CFG.get("question_count") or 40) - int(CFG.get("reading_count") or 20))
         pic_target, blank_target = pick_listening_bands(listen_available, int(CFG.get("gen_type") or 1) == 3)
         stats["blank_target"] = blank_target
+        # pre-made blanks: pick numbers + pool entries NOW so the prompt lists them
+        build_blank_plan(blank_target, listen_available, int(CFG.get("reading_count") or 0),
+                         is_paper=int(CFG.get("gen_type") or 1) == 3)
+        print(f"[blank] plan: {BLANK_PLAN['count']} pre-made blank question(s) "
+              f"at numbers {BLANK_PLAN['numbers'] or '(paper: picked after authoring)'}")
         if gen_type >= 2:
             import pdf_parser as P
             pdf_path = str(CFG.get("pdf_path") or "").strip()
@@ -2858,11 +3020,6 @@ def main():
         stats["picture_count"] = sum(1 for q in qs if q.get("picture_options"))
         print(f"[picture] {stats['picture_count']} picture questions (target {target})")
 
-        # blank listening questions: random audio-only subset (options 1/2/3/4)
-        qs, nb = apply_blank_questions(qs)
-        stats["blank_count"] = nb
-        if nb:
-            print(f"[blank] {nb} listening questions converted to audio-only (1/2/3/4)")
         stats["stage_times"]["author"] = stage_secs()
 
         # 1b. Choose proofreading model (config-driven when --config/$MOCK_CONFIG, else interactive)
@@ -2872,27 +3029,39 @@ def main():
                   else pick_model(PROOF_MODELS, "Proofreading model"))
         stats["proof_model"] = proof_cfg["name"]
 
-        # 2. Proofread + repair (fill missing dialogues/answers, then Korean quality pass)
-        print("[repair] fixing missing dialogues/answers...")
-        qs = normalize_exam(repair_exam(key, qs, stats["repair"]))
-        repaired = qs if not validate_exam(qs) else None
+        # 2. Proofread + repair (fill missing dialogues/answers, then Korean quality pass).
+        # Pre-made blank stubs are excluded from the LLM passes (their content is final and
+        # replaced from the pool below); structure-only validation is used while they are stubs.
+        blanks_out = [q for q in qs if q.get("blank")]
+        rest = [q for q in qs if not q.get("blank")]
+        print(f"[repair] fixing missing dialogues/answers... "
+              f"({len(rest)} questions, {len(blanks_out)} pre-made blank stubs excluded)")
+        rest = normalize_exam(repair_exam(key, rest, stats["repair"]))
+        repaired = rest if not validate_exam(rest + blanks_out, stage="author") else None
         if repaired is None:
             print("[repair] second pass...")
-            qs = normalize_exam(repair_exam(key, qs, stats["repair"]))
-            if not validate_exam(qs):
-                repaired = qs
+            rest = normalize_exam(repair_exam(key, rest, stats["repair"]))
+            if not validate_exam(rest + blanks_out, stage="author"):
+                repaired = rest
         print(f"[proofread] {proof_cfg['name']} checking Korean quality...")
-        qs, pu = llm_proofread(key, qs, proof_cfg)
+        rest, pu = llm_proofread(key, rest, proof_cfg)
         stats["proof_cost"] = pu.get("cost", 0.0)
-        qs = normalize_exam(qs)
-        if validate_exam(qs) and repaired is not None:
+        rest = normalize_exam(rest)
+        if validate_exam(rest + blanks_out, stage="author") and repaired is not None:
             print("[proofread] broke structure — reverting to repaired version")
-            qs = repaired
+            rest = repaired
+        qs = rest + blanks_out
+        # pre-made blank content applied AFTER all LLM passes (pool is final)
+        qs, nb = apply_premade_blanks(qs)
+        stats["blank_count"] = nb
+        if nb:
+            print(f"[blank] {nb} pre-made blank questions applied from the pool (options 1/2/3/4)")
         # proofread can drop option_images/requiresImage from picture questions - restore
         gfix = repair_picture_prompts(key, qs, paper_pics)
         if gfix:
             print(f"[repair] {gfix} picture questions restored after proofread")
         # enforce random speaker cast on every listening script (male / female / MF / FM)
+        # - pre-made blanks are skipped (fixed asker + option reader)
         randomize_listening_speakers(qs)
         qs.sort(key=lambda q: q["number"])
         errs = validate_exam(qs)
