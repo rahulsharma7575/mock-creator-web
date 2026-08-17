@@ -356,7 +356,7 @@ def build_blank_plan(count, listen_available, reading_count, is_paper=False):
     global BLANK_PLAN
     count = max(0, int(count))
     if count <= 0 or not _PRE_MADE_POOL:
-        BLANK_PLAN = {"count": count, "numbers": [], "entries": []}
+        BLANK_PLAN = {"count": count, "numbers": [], "entries": [], "detail": [], "applied": []}
         return BLANK_PLAN
     entries = random.sample(_PRE_MADE_POOL, min(count, len(_PRE_MADE_POOL)))
     numbers = []
@@ -365,7 +365,8 @@ def build_blank_plan(count, listen_available, reading_count, is_paper=False):
         hi = lo + max(0, int(listen_available)) - 1
         if hi >= lo:
             numbers = random.sample(range(lo, hi + 1), min(count, hi - lo + 1))
-    BLANK_PLAN = {"count": len(entries), "numbers": numbers, "entries": entries}
+    BLANK_PLAN = {"count": len(entries), "numbers": numbers, "entries": entries,
+                  "detail": [], "applied": []}
     return BLANK_PLAN
 
 
@@ -402,6 +403,17 @@ def _premade_blank_ify(q, entry):
     lis["speakers"] = 2
     q["listening"] = lis
     return q
+
+
+def _blank_entry_desc(e):
+    """One-line description of a pool entry for the run log."""
+    woman = e.get("woman") or {}
+    ans = int(e.get("answer") or 1)
+    ans_txt = str(woman.get(str(ans)) or "").strip()
+    opts = " / ".join(str(woman.get(i) or "").strip() for i in ("1", "2", "3", "4") if str(woman.get(i) or "").strip())
+    return (f"pool #{e.get('id') or '?'} ({e.get('type') or '?'}) | "
+            f"question: \"{str(e.get('man') or '').strip()}\" | "
+            f"options: {opts} | correct: {ans} ({ans_txt})")
 
 
 def apply_premade_blanks(qs):
@@ -442,10 +454,35 @@ def apply_premade_blanks(qs):
         random.shuffle(pool)
         targets = pool[:n]
     done = 0
+    detail = []
     for q in targets[:n]:
         entry = entries.pop(0) if entries else random.choice(_PRE_MADE_POOL)
         _premade_blank_ify(q, entry)
+        num = q.get("number")
+        asker = (q.get("listening") or {}).get("audioScript") or [{}]
+        asker_v = asker[0].get("voice", "?")
+        reader_v = asker[1].get("voice", "?") if len(asker) > 1 else "?"
+        woman = entry.get("woman") or {}
+        ans = int(entry.get("answer") or 1)
+        ans_txt = str(woman.get(str(ans)) or "").strip()
+        opts = " / ".join(str(woman.get(i) or "").strip() for i in ("1", "2", "3", "4")
+                          if str(woman.get(i) or "").strip())
+        print(f"[blank] Q{num} <- {_blank_entry_desc(entry)}", flush=True)
+        print(f"[blank]   voices: asker={asker_v} reader={reader_v} | "
+              f"correct={ans} ({ans_txt}) | options: {opts}", flush=True)
+        detail.append({"number": int(num) if num is not None else None,
+                       "pool_id": entry.get("id"),
+                       "type": entry.get("type"),
+                       "answer": ans,
+                       "answer_text": ans_txt,
+                       "asker": asker_v,
+                       "reader": reader_v})
         done += 1
+    BLANK_PLAN["detail"] = detail
+    BLANK_PLAN["applied"] = [int(d["number"]) for d in detail if d["number"] is not None]
+    if done:
+        print(f"[blank] applied: {done}/{n} pre-made blank question(s) "
+              f"at numbers {sorted(BLANK_PLAN['applied']) or '(none)'}", flush=True)
     return qs, done
 
 
@@ -1064,13 +1101,18 @@ def apply_blank_questions(qs):
     n = max(0, n - existing)
     random.shuffle(listen)
     done = 0
+    converted = []
     for q in listen:
         if q.get("blank") or q.get("picture_options"):
             continue
         if done >= n:
             break
         _blank_ify(q)
+        converted.append(q.get("number"))
         done += 1
+    if converted:
+        print(f"[blank] {len(converted)} author-generated blank(s) (pool unavailable) at "
+              f"numbers {sorted(converted)} - audioScript kept", flush=True)
     return qs, existing + done
 
 
@@ -2438,7 +2480,10 @@ def final_summary(stats):
     if stats.get("picture_count"):
         line("picture listening", f"{stats['picture_count']} photo questions (4-photo options)")
     if stats.get("blank_count"):
-        line("blank listening", f"{stats['blank_count']} pre-made audio-only questions (1/2/3/4)")
+        nums = stats.get("blank_numbers") or []
+        line("blank listening",
+             f"{stats['blank_count']} pre-made audio-only questions (1/2/3/4)"
+             + (f" - Q{', Q'.join(map(str, sorted(nums)))}" if nums else ""))
     if stats.get("dedup_checked"):
         line(f"dedup vs last {len(stats.get('dedup_sets_checked') or [])} mocks",
              f"{stats.get('dedup_repeats', 0)} repeats")
@@ -2726,8 +2771,17 @@ def main():
         # pre-made blanks: pick numbers + pool entries NOW so the prompt lists them
         build_blank_plan(blank_target, listen_available, int(CFG.get("reading_count") or 0),
                          is_paper=int(CFG.get("gen_type") or 1) == 3)
-        print(f"[blank] plan: {BLANK_PLAN['count']} pre-made blank question(s) "
-              f"at numbers {BLANK_PLAN['numbers'] or '(paper: picked after authoring)'}")
+        plan_nums = [int(x) for x in BLANK_PLAN["numbers"]]
+        print(f"[blank] PLAN: {BLANK_PLAN['count']} pre-made blank question(s) for this exam "
+              f"({BLANK_BAND[0]}-{BLANK_BAND[1]} band)", flush=True)
+        if plan_nums:
+            print(f"[blank]   numbers: {', '.join(map(str, plan_nums))}", flush=True)
+        else:
+            print("[blank]   numbers: (paper mode - picked after authoring from the real "
+                  "listening questions)", flush=True)
+        for i, e in enumerate(BLANK_PLAN["entries"], 1):
+            num = plan_nums[i - 1] if i - 1 < len(plan_nums) else None
+            print(f"[blank]   {'Q' + str(num) if num else '???'} <- {_blank_entry_desc(e)}", flush=True)
         if gen_type >= 2:
             import pdf_parser as P
             pdf_path = str(CFG.get("pdf_path") or "").strip()
@@ -3054,8 +3108,11 @@ def main():
         # pre-made blank content applied AFTER all LLM passes (pool is final)
         qs, nb = apply_premade_blanks(qs)
         stats["blank_count"] = nb
+        stats["blank_numbers"] = [int(x) for x in BLANK_PLAN.get("applied") or []]
+        stats["blank_detail"] = BLANK_PLAN.get("detail") or []
         if nb:
-            print(f"[blank] {nb} pre-made blank questions applied from the pool (options 1/2/3/4)")
+            print(f"[blank] {nb} pre-made blank question(s) integrated at numbers "
+                  f"{sorted(stats['blank_numbers']) or '(none)'} - details above", flush=True)
         # proofread can drop option_images/requiresImage from picture questions - restore
         gfix = repair_picture_prompts(key, qs, paper_pics)
         if gfix:
@@ -3094,6 +3151,8 @@ def main():
             "dry_mode": dm, "questions": len(qs),
             "gen_type": gen_type,
             "blank_count": stats.get("blank_count", 0),
+            "blank_numbers": stats.get("blank_numbers", []),
+            "blank_detail": stats.get("blank_detail", []),
             "picture_count": stats.get("picture_count", 0),
             "pdf_parser": stats.get("pdf_parser"),
             "pdf_pages": stats.get("pdf_pages"),
@@ -3235,6 +3294,8 @@ def main():
         "questions": stats["audio_total"] + sum(1 for q in qs if q.get("section") == "reading"),
         "gen_type": gen_type,
         "blank_count": stats.get("blank_count", 0),
+        "blank_numbers": stats.get("blank_numbers", []),
+        "blank_detail": stats.get("blank_detail", []),
         "picture_count": stats.get("picture_count", 0),
         "paper_photos_extracted": stats.get("paper_photos_extracted", 0),
         "paper_photos_used": stats.get("paper_photos_used", 0),
