@@ -1692,56 +1692,150 @@ def _enable_target_batch(headers):
         return False
 
 
+def _is_retryable_network_error(e):
+    """True for httpx/httpcore transport failures (Cloudflare cuts long
+    responses ~100s -> RemoteProtocolError / incomplete chunked read)."""
+    names = {type(e).__name__}
+    if names & {"RemoteProtocolError", "LocalProtocolError", "ReadTimeout", "ConnectTimeout",
+                "ConnectError", "ReadError", "WriteError", "WriteTimeout", "PoolTimeout",
+                "ChunkedEncodingError", "ProtocolError", "NetworkError", "TransportError",
+                "DecodingError", "UnsupportedProtocol", "ConnectionNotAvailable"}:
+        return True
+    try:
+        from httpcore import (RemoteProtocolError, ProtocolError, ConnectError,
+                              ConnectTimeout, ReadTimeout, ReadError)
+        if isinstance(e, (RemoteProtocolError, ProtocolError, ConnectError,
+                          ConnectTimeout, ReadTimeout, ReadError)):
+            return True
+    except Exception:
+        pass
+    return False
+
+
+BATCH_CHUNK = 10   # questions per batch request (stays well under proxy response caps)
+
+
+def _resolve_or_create(ops, headers):
+    """Idempotent recovery after a lost batch response: fetch this chunk's
+    questions by question_text (subject-scoped), create only the missing ones
+    individually, return ids aligned to ops. Requeues can never duplicate."""
+    subject = CFG["subject_id"]
+    found = {}
+    texts = [str(op["body"].get("question_text") or "").strip() for op in ops]
+    for start in range(0, len(texts), 5):
+        sub = texts[start:start + 5]
+        cond = "(" + " || ".join('question_text={}'.format(json.dumps(t)) for t in sub) + ")"
+        try:
+            r = httpx.get(CFG["pb_base"] + "/api/collections/questions/records",
+                          headers=headers,
+                          params={"filter": f'subject="{subject}" && {cond}',
+                                  "perPage": 50, "fields": "id,question_text"}, timeout=60)
+            if r.status_code == 200:
+                for it in r.json().get("items", []):
+                    found[str(it.get("question_text") or "").strip()] = it["id"]
+        except Exception as e:
+            print(f"[push] resolve check failed: {str(e)[:120]}", flush=True)
+    for op in ops:
+        t = str(op["body"].get("question_text") or "").strip()
+        if t in found:
+            continue
+        try:
+            r = httpx.post(CFG["pb_base"] + op["url"], headers=headers,
+                           json=op["body"], timeout=120)
+            if r.status_code in (200, 201):
+                found[t] = r.json().get("id")
+            else:
+                print(f"[push] individual create failed HTTP {r.status_code}: {r.text[:150]}", flush=True)
+        except Exception as e:
+            print(f"[push] individual create error: {str(e)[:120]}", flush=True)
+    ids = [found.get(str(op["body"].get("question_text") or "").strip()) for op in ops]
+    if any(not x for x in ids):
+        raise RuntimeError("[push] could not resolve/create some question records after retries")
+    return ids
+
+
+def _create_chunk(ops, headers):
+    """POST one batch chunk with retry. On a lost response, resolve which
+    records committed (text filter) and create only the missing ones."""
+    for attempt in range(3):
+        try:
+            r = httpx.post(CFG["pb_base"] + "/api/batch", headers=headers,
+                           json={"requests": ops}, timeout=300)
+            if r.status_code == 403 and "atch" in r.text and _enable_target_batch(headers):
+                time.sleep(0.5)
+                r = httpx.post(CFG["pb_base"] + "/api/batch", headers=headers,
+                               json={"requests": ops}, timeout=300)
+            if r.status_code != 200:
+                raise RuntimeError(f"batch create failed HTTP {r.status_code}: {r.text[:400]}")
+            per = r.json()
+            ids = []
+            for i, p in enumerate(per):
+                if p.get("status") != 200:
+                    raise RuntimeError(f"record {i} failed: {json.dumps(p, ensure_ascii=False)[:200]}")
+                ids.append(p["body"]["id"])
+            for rid in ids:
+                if not re.fullmatch(r"[a-z0-9]{15}", str(rid)):
+                    raise RuntimeError(f"batch create returned a malformed record id {rid!r} — "
+                                       f"refusing to store it as pbId")
+            return ids
+        except RuntimeError:
+            raise
+        except Exception as e:
+            if _is_retryable_network_error(e) and attempt < 2:
+                wait = 5 * (2 ** attempt)
+                print(f"[push] batch network error ({type(e).__name__}) - "
+                      f"retry {attempt + 2}/3 in {wait}s", flush=True)
+                time.sleep(wait)
+                continue
+            print(f"[push] batch attempt {attempt + 1}/3 network error - "
+                  f"resolving committed records idempotently", flush=True)
+            return _resolve_or_create(ops, headers)
+    raise RuntimeError("[push] chunk create exhausted retries")
+
+
 def create_records(qs, headers):
-    """Batch-create questions missing a pbId (resume-safe). Returns newly created ids.
+    """Batch-create questions missing a pbId (resume-safe, retry-safe).
+
+    Creates are sent in chunks of BATCH_CHUNK so each request finishes well
+    under any proxy (Cloudflare ~100s) response cap; network failures are
+    retried and committed-but-lost records are resolved by question_text, so
+    retries/requeues never duplicate questions. Returns new ids in the same
+    order as the questions that lacked a pbId.
 
     Picture questions MUST be posted as question_type=listening_picture +
     picture_options=true + non-empty correct_answer (photo index). Omitting those
     fields leaves defaults (single_choice / false / []) and the client never
     renders the 4 option_images as tappable choices.
     """
-    ops = []
-    for q in qs:
-        if q.get("pbId"):
-            continue
-        is_pic = bool(q.get("picture_options"))
-        ca = normalize_correct_answer(q.get("correct_answer"))
-        body = {
-            "section": q["section"],
-            "subject": CFG["subject_id"],
-            "question_text": q["question_text"],
-            "question_type": "listening_picture" if is_pic else "single_choice",
-            "picture_options": is_pic,
-            "options": q["options"] if not is_pic else (q.get("options") or ["1", "2", "3", "4"]),
-            "correct_answer": ca,
-            "marks": int(q.get("marks") or CFG.get("marks_per_question", 1)),
-            "negative_marks": int(CFG.get("negative_marks", 0)),
-            "explanation": q.get("explanation", ""),
-            "difficulty": DIFF_MAP.get(str(q.get("difficulty", "hard")).lower(), "hard"),
-            "is_active": bool(CFG.get("is_active", True)),
-        }
-        if is_pic and not ca:
-            print(f"[push] WARNING: picture question has NO correct_answer — "
-                  f"Q{q.get('number') or q.get('question_text', '')[:40]} will be ungradeable")
-        ops.append({"method": "POST", "url": "/api/collections/questions/records", "body": body})
-    if not ops:
+    todo = [q for q in qs if not q.get("pbId")]
+    if not todo:
         return []
-    r = httpx.post(CFG["pb_base"] + "/api/batch", headers=headers, json={"requests": ops}, timeout=120)
-    if r.status_code == 403 and "atch" in r.text and _enable_target_batch(headers):
-        time.sleep(0.5)
-        r = httpx.post(CFG["pb_base"] + "/api/batch", headers=headers, json={"requests": ops}, timeout=120)
-    if r.status_code != 200:
-        raise RuntimeError(f"batch create failed HTTP {r.status_code}: {r.text[:400]}")
-    per = r.json()  # top-level list of {"status": 200, "body": {record}}
     ids = []
-    for i, p in enumerate(per):
-        if p.get("status") != 200:
-            raise RuntimeError(f"record {i} failed: {json.dumps(p, ensure_ascii=False)[:200]}")
-        ids.append(p["body"]["id"])
-    for rid in ids:
-        if not re.fullmatch(r"[a-z0-9]{15}", str(rid)):
-            raise RuntimeError(f"batch create returned a malformed record id {rid!r} — "
-                               f"refusing to store it as pbId")
+    for start in range(0, len(todo), BATCH_CHUNK):
+        chunk = todo[start:start + BATCH_CHUNK]
+        ops = []
+        for q in chunk:
+            is_pic = bool(q.get("picture_options"))
+            ca = normalize_correct_answer(q.get("correct_answer"))
+            body = {
+                "section": q["section"],
+                "subject": CFG["subject_id"],
+                "question_text": q["question_text"],
+                "question_type": "listening_picture" if is_pic else "single_choice",
+                "picture_options": is_pic,
+                "options": q["options"] if not is_pic else (q.get("options") or ["1", "2", "3", "4"]),
+                "correct_answer": ca,
+                "marks": int(q.get("marks") or CFG.get("marks_per_question", 1)),
+                "negative_marks": int(CFG.get("negative_marks", 0)),
+                "explanation": q.get("explanation", ""),
+                "difficulty": DIFF_MAP.get(str(q.get("difficulty", "hard")).lower(), "hard"),
+                "is_active": bool(CFG.get("is_active", True)),
+            }
+            if is_pic and not ca:
+                print(f"[push] WARNING: picture question has NO correct_answer — "
+                      f"Q{q.get('number') or q.get('question_text', '')[:40]} will be ungradeable")
+            ops.append({"method": "POST", "url": "/api/collections/questions/records", "body": body})
+        ids.extend(_create_chunk(ops, headers))
     return ids
 
 
@@ -1916,19 +2010,51 @@ def create_exam(mock, qs, headers):
                                  "order": q.get("number", 0),
                                  "marks": int(CFG.get("marks_per_question", 1))}})
     if ops:
-        r = httpx.post(CFG["pb_base"] + "/api/batch", headers=headers, json={"requests": ops}, timeout=120)
-        if r.status_code != 200:
-            raise RuntimeError(f"exam_questions batch failed HTTP {r.status_code}: {r.text[:200]}")
+        # retry on network drops; the exam+question unique constraint makes
+        # retries safe (duplicate junctions are rejected by the target)
+        for attempt in range(3):
+            try:
+                r = httpx.post(CFG["pb_base"] + "/api/batch", headers=headers,
+                               json={"requests": ops}, timeout=300)
+                if r.status_code != 200:
+                    raise RuntimeError(f"exam_questions batch failed HTTP {r.status_code}: {r.text[:200]}")
+                break
+            except RuntimeError:
+                raise
+            except Exception as e:
+                if _is_retryable_network_error(e) and attempt < 2:
+                    wait = 5 * (2 ** attempt)
+                    print(f"[push] exam_questions network error ({type(e).__name__}) - "
+                          f"retry {attempt + 2}/3 in {wait}s", flush=True)
+                    time.sleep(wait)
+                    continue
+                raise RuntimeError(f"exam_questions batch failed: {str(e)[:200]}")
     print(f"[pb] exam {exam_id} ({'created' if created else 'reused'}) + {len(ops)} links")
     return exam_id, created
 
 
 def upload_file(headers, record_id, field, filename, content, ctype):
-    r = httpx.patch(CFG["pb_base"] + f"/api/collections/questions/records/{record_id}",
-                    headers=headers, files={field: (filename, content, ctype)}, timeout=120)
-    if r.status_code not in (200, 201):
-        print(f"[upload] {field} -> {record_id} HTTP {r.status_code}: {r.text[:200]}")
-    return r.status_code in (200, 201)
+    for attempt in range(3):
+        try:
+            r = httpx.patch(CFG["pb_base"] + f"/api/collections/questions/records/{record_id}",
+                            headers=headers, files={field: (filename, content, ctype)}, timeout=300)
+            if r.status_code in (200, 201):
+                return True
+            if r.status_code in (400, 404, 422) or attempt >= 2:
+                print(f"[upload] {field} -> {record_id} HTTP {r.status_code}: {r.text[:200]}")
+                return False
+            print(f"[upload] {field} -> {record_id} HTTP {r.status_code} - retrying", flush=True)
+        except Exception as e:
+            if _is_retryable_network_error(e) and attempt < 2:
+                wait = 3 * (2 ** attempt)
+                print(f"[upload] {field} network error ({type(e).__name__}) - "
+                      f"retry {attempt + 2}/3 in {wait}s", flush=True)
+                time.sleep(wait)
+                continue
+            print(f"[upload] {field} -> {record_id} error: {str(e)[:150]}")
+            return False
+        time.sleep(3 * (attempt + 1))
+    return False
 
 
 def ensure_option_images_field(headers):
