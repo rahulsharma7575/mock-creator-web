@@ -2636,9 +2636,10 @@ def preflight_checks():
 
     tts_model = str(CFG.get("tts_model") or "")
     want = _tts_rate_hint(tts_model)
-    if want and int(CFG.get("sample_rate") or 0) != want:
+    sr = int(CFG.get("tts_rate") or CFG.get("sample_rate") or 0)
+    if want and sr and sr != want:
         print(f"  [WARN] tts_model {tts_model} expects {want} Hz sample rate but config has "
-              f"{CFG.get('sample_rate')} — audio will play too fast/slow")
+              f"{sr} — audio will play too fast/slow")
 
     if gen_type == 3:
         parser = str(CFG.get("pdf_parser") or "auto")
@@ -2779,16 +2780,20 @@ def main():
         build_blank_plan(blank_target, listen_available, int(CFG.get("reading_count") or 0),
                          is_paper=int(CFG.get("gen_type") or 1) == 3)
         plan_nums = [int(x) for x in BLANK_PLAN["numbers"]]
-        print(f"[blank] PLAN: {BLANK_PLAN['count']} pre-made blank question(s) for this exam "
-              f"({BLANK_BAND[0]}-{BLANK_BAND[1]} band)", flush=True)
-        if plan_nums:
-            print(f"[blank]   numbers: {', '.join(map(str, plan_nums))}", flush=True)
+        if BLANK_PLAN["count"] <= 0:
+            print(f"[blank] PLAN: 0 pre-made blank question(s) this run "
+                  f"(listening room after pictures is 0 in this exam shape)", flush=True)
         else:
-            print("[blank]   numbers: (paper mode - picked after authoring from the real "
-                  "listening questions)", flush=True)
-        for i, e in enumerate(BLANK_PLAN["entries"], 1):
-            num = plan_nums[i - 1] if i - 1 < len(plan_nums) else None
-            print(f"[blank]   {'Q' + str(num) if num else '???'} <- {_blank_entry_desc(e)}", flush=True)
+            print(f"[blank] PLAN: {BLANK_PLAN['count']} pre-made blank question(s) for this exam "
+                  f"({BLANK_BAND[0]}-{BLANK_BAND[1]} band)", flush=True)
+            if plan_nums:
+                print(f"[blank]   numbers: {', '.join(map(str, plan_nums))}", flush=True)
+            else:
+                print("[blank]   numbers: (paper mode - picked after authoring from the real "
+                      "listening questions)", flush=True)
+            for i, e in enumerate(BLANK_PLAN["entries"], 1):
+                num = plan_nums[i - 1] if i - 1 < len(plan_nums) else None
+                print(f"[blank]   {'Q' + str(num) if num else '???'} <- {_blank_entry_desc(e)}", flush=True)
         if gen_type >= 2:
             import pdf_parser as P
             pdf_path = str(CFG.get("pdf_path") or "").strip()
@@ -3090,29 +3095,10 @@ def main():
                   else pick_model(PROOF_MODELS, "Proofreading model"))
         stats["proof_model"] = proof_cfg["name"]
 
-        # 2. Proofread + repair (fill missing dialogues/answers, then Korean quality pass).
-        # Pre-made blank stubs are excluded from the LLM passes (their content is final and
-        # replaced from the pool below); structure-only validation is used while they are stubs.
-        blanks_out = [q for q in qs if q.get("blank")]
-        rest = [q for q in qs if not q.get("blank")]
-        print(f"[repair] fixing missing dialogues/answers... "
-              f"({len(rest)} questions, {len(blanks_out)} pre-made blank stubs excluded)")
-        rest = normalize_exam(repair_exam(key, rest, stats["repair"]))
-        repaired = rest if not validate_exam(rest + blanks_out, stage="author") else None
-        if repaired is None:
-            print("[repair] second pass...")
-            rest = normalize_exam(repair_exam(key, rest, stats["repair"]))
-            if not validate_exam(rest + blanks_out, stage="author"):
-                repaired = rest
-        print(f"[proofread] {proof_cfg['name']} checking Korean quality...")
-        rest, pu = llm_proofread(key, rest, proof_cfg)
-        stats["proof_cost"] = pu.get("cost", 0.0)
-        rest = normalize_exam(rest)
-        if validate_exam(rest + blanks_out, stage="author") and repaired is not None:
-            print("[proofread] broke structure — reverting to repaired version")
-            rest = repaired
-        qs = rest + blanks_out
-        # pre-made blank content applied AFTER all LLM passes (pool is final)
+        # 2. Pre-made blanks applied BEFORE the LLM passes: the pool content is final
+        # and valid (options 1-4, 0-based answer, 5-turn script), so the repair/
+        # proofread validation runs on the REAL exam shape (strict, like before).
+        # The blank questions themselves are still excluded from the LLM passes.
         qs, nb = apply_premade_blanks(qs)
         stats["blank_count"] = nb
         stats["blank_numbers"] = [int(x) for x in BLANK_PLAN.get("applied") or []]
@@ -3120,6 +3106,25 @@ def main():
         if nb:
             print(f"[blank] {nb} pre-made blank question(s) integrated at numbers "
                   f"{sorted(stats['blank_numbers']) or '(none)'} - details above", flush=True)
+        blanks_out = [q for q in qs if q.get("blank")]
+        rest = [q for q in qs if not q.get("blank")]
+        print(f"[repair] fixing missing dialogues/answers... "
+              f"({len(rest)} questions, {len(blanks_out)} pre-made blanks excluded)")
+        rest = normalize_exam(repair_exam(key, rest, stats["repair"]))
+        repaired = rest if not validate_exam(rest + blanks_out) else None
+        if repaired is None:
+            print("[repair] second pass...")
+            rest = normalize_exam(repair_exam(key, rest, stats["repair"]))
+            if not validate_exam(rest + blanks_out):
+                repaired = rest
+        print(f"[proofread] {proof_cfg['name']} checking Korean quality...")
+        rest, pu = llm_proofread(key, rest, proof_cfg)
+        stats["proof_cost"] = pu.get("cost", 0.0)
+        rest = normalize_exam(rest)
+        if validate_exam(rest + blanks_out) and repaired is not None:
+            print("[proofread] broke structure — reverting to repaired version")
+            rest = repaired
+        qs = rest + blanks_out
         # proofread can drop option_images/requiresImage from picture questions - restore
         gfix = repair_picture_prompts(key, qs, paper_pics)
         if gfix:
