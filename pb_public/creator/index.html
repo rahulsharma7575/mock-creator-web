@@ -614,9 +614,9 @@ th.sortable:hover{color:var(--amber2)}
                                 <button type="button" class="btn btn-ghost btn-sm" :disabled="blankPool.busy" @click="$refs.blankPoolInput.click()"><span v-html="ic('upload',13)"></span>Choose blank_questions.json…</button>
                                 <button type="button" class="btn btn-amber btn-sm" :disabled="blankPool.busy || !blankPool._file || !(blankPool.verify && blankPool.verify.ok)" @click="uploadBlankPool">Save to pool</button>
                                 <button type="button" class="btn btn-ghost btn-sm" v-if="blankPool.id" :disabled="blankPool.busy" @click="resetBlankPool"><span v-html="ic('x',13)"></span>Reset to bundled</button>
-                                <input ref="blankPoolInput" type="file" accept=".json,application/json" class="hidden" @change="onBlankPoolPick">
+                                <input ref="blankPoolInput" type="file" accept=".json,.json.gz,.gz,application/json,application/gzip" class="hidden" @change="onBlankPoolPick">
                               </div>
-                              <div class="text-[10px] mt-2 leading-relaxed" style="color:var(--mut)">Format: [{"man": "질문", "woman": {"1": "…", "2": "…", "3": "…", "4": "…"}, "answer": 2}, …] — up to 100,000 questions. The file is verified again by the worker before runs; if no pool is uploaded the system falls back to its bundled file, then to author-generated blanks.</div>
+                              <div class="text-[10px] mt-2 leading-relaxed" style="color:var(--mut)">Format: [{"man": "질문", "woman": {"1": "…", "2": "…", "3": "…", "4": "…"}, "answer": 2}, …]. Upload as .json or compressed .json.gz (server upload cap is 5 MB, so compress large pools — 100k questions fits easily). The file is verified again by the worker before runs; if no pool is uploaded the system falls back to its bundled file, then to author-generated blanks.</div>
                             </div>
                           </div>
                           <datalist id="ttsModelList"><option v-for="o in ttsOptions" :key="o" :value="o">{{ o }}</option></datalist>

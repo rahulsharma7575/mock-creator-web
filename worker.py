@@ -254,7 +254,12 @@ def sync_blank_pool():
         from urllib.parse import quote
         size = download_file(f"/api/files/blank_pool/{rid}/{quote(fname)}", POOL_CACHE)
         try:
-            data = json.loads(POOL_CACHE.read_text(encoding="utf-8"))
+            raw = POOL_CACHE.read_bytes()
+            if raw[:2] == b"\x1f\x8b":  # gzip upload (PB 0.39 hard-caps uploads at 5MB)
+                import gzip
+                raw = gzip.decompress(raw)
+                POOL_CACHE.write_bytes(raw)
+            data = json.loads(raw.decode("utf-8"))
             ok, count, errs = validate_blank_pool(data)
         except Exception as e:
             ok, count, errs = False, 0, [f"JSON parse failed: {e}"]
