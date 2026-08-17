@@ -1032,10 +1032,11 @@ try {
     if (rl.indexOf("fish") >= 0 || rl.indexOf("grok") >= 0) rate = 44100
     var head = new Uint8Array(44)
     var dv = new DataView(head.buffer)
-    dv.setUint32(0, 0x52494646, true)   // RIFF
+    // FOURCCs must be written big-endian so the bytes come out as "RIFF"/"WAVE"/"fmt "/"data"
+    dv.setUint32(0, 0x52494646, false)  // "RIFF"
     dv.setUint32(4, 36 + pcm.length, true)
-    dv.setUint32(8, 0x57415645, true)   // WAVE
-    dv.setUint32(12, 0x666d7420, true)  // "fmt "
+    dv.setUint32(8, 0x57415645, false)  // "WAVE"
+    dv.setUint32(12, 0x666d7420, false) // "fmt "
     dv.setUint32(16, 16, true)
     dv.setUint16(20, 1, true)
     dv.setUint16(22, 1, true)
@@ -1043,7 +1044,7 @@ try {
     dv.setUint32(28, rate * 2, true)
     dv.setUint16(32, 2, true)
     dv.setUint16(34, 16, true)
-    dv.setUint32(36, 0x64617461, true)  // data
+    dv.setUint32(36, 0x64617461, false) // "data"
     dv.setUint32(40, pcm.length, true)
     var out = new Uint8Array(44 + pcm.length)
     out.set(head, 0)

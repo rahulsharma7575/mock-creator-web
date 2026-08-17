@@ -1048,8 +1048,9 @@ th.sortable:hover{color:var(--amber2)}
         <textarea v-model.trim="voicePreview.text" rows="2" class="textarea text-sm w-full" placeholder="Type the phrase to hear…"></textarea>
         <div v-if="voicePreview.usedFallback" class="text-[11px] mt-2 flex items-center gap-1.5" style="color:var(--amber2)"><span v-html="ic('info',12)"></span>Primary model failed — playing with the fallback TTS model.</div>
         <div v-if="voicePreview.error" class="text-[11px] mt-2 flex items-center gap-1.5" style="color:var(--red)"><span v-html="ic('alertTriangle',12)"></span>{{ voicePreview.error }}</div>
+        <audio v-if="voicePreview.audioUrl" :src="voicePreview.audioUrl" controls class="w-full mt-3" style="height:38px"></audio>
         <button class="btn btn-amber w-full mt-4 py-2.5 text-sm flex items-center justify-center gap-2" :disabled="voicePreview.busy" @click="playVoicePreview">
-          <span v-if="voicePreview.busy" class="spinner"></span><span v-html="ic('play',14)"></span>{{ voicePreview.busy ? 'Generating…' : 'Play sample' }}
+          <span v-if="voicePreview.busy" class="spinner"></span><span v-html="ic('play',14)"></span>{{ voicePreview.busy ? 'Generating…' : (voicePreview.audioUrl ? 'Play again' : 'Play sample') }}
         </button>
       </div>
     </div>

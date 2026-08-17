@@ -77,7 +77,7 @@ createApp({
     groupIssues:{},verified:{},openGroup:'Exam',vmCache:{},dryBusy:null,
     orModels:{},orStatus:'loading',gClient:'',apiMenu:false,magnificStatus:null,upstageStatus:null,health:null,geminiChk:{busy:false,ok:null,msg:'',status:0},
     pdfTest:{open:false,drag:false,busy:false,job:null,result:null,error:'',fileName:''},
-    voicePreview:{open:false,field:'',text:'',busy:false,error:'',usedFallback:false},
+    voicePreview:{open:false,field:'',text:'',busy:false,error:'',usedFallback:false,audioUrl:''},
   }},
   computed:{
     filteredJobs(){try{let l=Array.isArray(this.jobs)?this.jobs.slice():[];if(this.jobKindFilter==='dry')l=l.filter(j=>j&&String(j.kind||'').startsWith('dry_'));if(this.jobKindFilter==='full')l=l.filter(j=>j&&!String(j.kind||'').startsWith('dry_'));if(this.jobFilter&&this.jobFilter!=='all')l=l.filter(j=>j&&j.status===this.jobFilter);const q=String(this.searchQ||'').trim().toLowerCase();if(q){l=l.filter(j=>{if(!j)return false;return [j.client_name,j.client,j.difficulty,j.focus,j.status,j.kind,String(j.gen_type||1),String(j.id)].join(' ').toLowerCase().includes(q);});}const k=this.sortKey||'created',dir=this.sortDir||-1;return l.sort((a,b)=>{try{let x=this.sortVal(a,k),y=this.sortVal(b,k);if(typeof x==='string'){x=x.toLowerCase();y=String(y==null?'':y).toLowerCase();}else{y=Number(y)||0;x=Number(x)||0;}if(x<y)return-1*dir;if(x>y)return1*dir;return 0;}catch(e){return 0;}});}catch(e){console.error('filteredJobs',e);return Array.isArray(this.jobs)?this.jobs.slice():[];}},
@@ -338,8 +338,8 @@ createApp({
     audioSettings(){return['audio_gap_ms','sample_rate','tts_natural_pacing','tts_polish','tts_atempo_models','listening_blank_count'].map(f=>this.mf(f)).filter(m=>m.field);},
     voicePh(field){const c=this.cfgData||{};const prim=field==='tts_male_voice'||field==='tts_female_voice';const model=String(prim?(c.tts_model||''):(c.tts_fallback_model||''));const male=!field.includes('female');if(model.includes('fish'))return male?'802e3bc2b27e49c2995d23ef70e6ac89':'9a9cf47702da476aa4629e2506d4a857';const vs=this.voicesForModel(model);if(vs.length)return'Empty = auto-pick ('+vs[0]+')';return'Empty = auto-pick';},
     voiceModelFor(field){const c=this.cfgData||{};if(field==='tts_male_voice'||field==='tts_female_voice')return c.tts_model||'';return c.tts_fallback_model||'';},
-    openVoicePreview(field){if(!this.cfgData||!this.cfgData[field])return;this.voicePreview={open:true,field,text:'안녕하세요. 음성 미리듣기입니다.',busy:false,error:'',usedFallback:false};},
-    closeVoicePreview(){this.voicePreview.open=false;},
+    openVoicePreview(field){if(!this.cfgData||!this.cfgData[field])return;this.voicePreview={open:true,field,text:'안녕하세요. 음성 미리듣기입니다.',busy:false,error:'',usedFallback:false,audioUrl:''};},
+    closeVoicePreview(){if(this._vpAudio){this._vpAudio.pause();URL.revokeObjectURL(this._vpAudio._url||'');this._vpAudio=null;}this.voicePreview.open=false;this.voicePreview.audioUrl='';},
     async playVoicePreview(){
       const vp=this.voicePreview;if(!vp||!vp.field||vp.busy)return;
       const c=this.cfgData||{};const voice=c[vp.field];if(!voice)return;
@@ -356,8 +356,12 @@ createApp({
           const url=URL.createObjectURL(blob);
           if(this._vpAudio){this._vpAudio.pause();URL.revokeObjectURL(this._vpAudio._url||'');}
           const au=new Audio(url);au._url=url;this._vpAudio=au;
+          vp.audioUrl=url;
           vp.usedFallback=mi>0;
-          au.play().catch(()=>{vp.error='Playback blocked by the browser - click again';});
+          au.play().catch(err=>{
+            if(au.error&&(au.error.code===3||au.error.code===4))vp.error='Audio decode failed - try another voice or model';
+            else vp.error='Autoplay blocked by the browser - use the player below';
+          });
           vp.busy=false;return;
         }catch(e){vp.error='Model '+(mi===0?models[0]:models[1])+' failed: '+e.message;}
       }
