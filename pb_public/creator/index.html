@@ -590,12 +590,10 @@ th.sortable:hover{color:var(--amber2)}
                                 <div class="pdf-drop-t">Drop audio_questions.json or .json.gz here or <span class="pdf-browse">browse</span></div>
                                 <div class="pdf-drop-s">Single preset: 5-8 questions per exam, 1 voice asks (man) + 2nd voice reads 4 options → 2×2 option_audios. Verified before runs.</div>
                               </div>
+                              <input ref="audioPoolInput" type="file" accept=".json,.json.gz,.gz,application/json,application/gzip" style="display:none" @change="onAudioPoolPick">
                               <div class="flex gap-2 items-center flex-wrap mt-3">
-                                <button type="button" class="btn btn-ghost btn-sm" :disabled="(audioPool.busy||blankPool.busy)" @click="$refs.audioPoolInput.click()"><span v-html="ic('upload',13)"></span>Choose file…</button>
                                 <button type="button" class="btn btn-amber btn-sm" :disabled="(audioPool.busy||blankPool.busy) || !((audioPool._file||blankPool._file)) || !((audioPool.verify||blankPool.verify) && (audioPool.verify||blankPool.verify).ok)" @click="uploadAudioPool">Save to pool</button>
                                 <button type="button" class="btn btn-ghost btn-sm" v-if="audioPool.id||blankPool.id" :disabled="audioPool.busy||blankPool.busy" @click="resetAudioPool"><span v-html="ic('x',13)"></span>Reset to bundled</button>
-                                <input ref="audioPoolInput" type="file" accept=".json,.json.gz,.gz,application/json,application/gzip" class="hidden" @change="onAudioPoolPick">
-                                <input ref="blankPoolInput" type="file" accept=".json,.json.gz,.gz,application/json,application/gzip" class="hidden" @change="onBlankPoolPick">
                               </div>
                               <div v-if="(audioPool.preview||[]).length" class="mt-3 overflow-x-auto">
                                 <div class="text-[11px] font-bold mb-1" style="color:var(--mut)">Preview (first {{ audioPool.preview.length }} of {{ (audioPool.verify&&audioPool.verify.count)||0 }})</div>
@@ -1168,6 +1166,6 @@ th.sortable:hover{color:var(--amber2)}
 <script src="lib/vue.global.prod.js"></script>
 <script src="lib/anime.min.js"></script>
 <script src="lib/icons.js?v=35"></script>
-<script src="app.min.js?v=38"></script>
+<script src="app.min.js?v=39"></script>
 </body>
 </html>
