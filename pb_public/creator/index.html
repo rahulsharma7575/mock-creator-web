@@ -585,12 +585,12 @@ th.sortable:hover{color:var(--amber2)}
                               <div v-else-if="(audioPool.verify||blankPool.verify) && (audioPool.verify||blankPool.verify).error" class="text-[11px] mb-2" style="color:var(--red)">{{ (audioPool.verify||blankPool.verify).error }}</div>
                               <div v-else-if="(audioPool.verify||blankPool.verify) && (audioPool.verify||blankPool.verify).count" class="text-[11px] mb-2" style="color:var(--red)">JSON invalid — {{ (audioPool.verify||blankPool.verify).totalBad }} problem(s): {{ (audioPool.verify||blankPool.verify).errors.join(' · ') }}</div>
                               <div v-if="audioPool.fileName||blankPool.fileName" class="text-[11px] mb-2" style="color:var(--ink)">Picked: {{ audioPool.fileName||blankPool.fileName }}</div>
-                              <div class="pdf-drop" :class="{drag:audioPool.drag}" @dragover.prevent="audioPool.drag=true" @dragleave="audioPool.drag=false" @drop.prevent="onAudioPoolDrop" @click="$refs.audioPoolInput.click()" style="cursor:pointer;padding:18px 14px">
+                              <label class="pdf-drop" :class="{drag:audioPool.drag}" @dragover.prevent="audioPool.drag=true" @dragleave="audioPool.drag=false" @drop.prevent="onAudioPoolDrop" style="cursor:pointer;padding:18px 14px;display:block">
+                                <input ref="audioPoolInput" type="file" accept=".json,.json.gz,.gz,application/json,application/gzip" class="pdf-file-input" @change="onAudioPoolPick">
                                 <div class="pdf-drop-ico" v-html="ic('upload',22)"></div>
                                 <div class="pdf-drop-t">Drop audio_questions.json or .json.gz here or <span class="pdf-browse">browse</span></div>
-                                <div class="pdf-drop-s">Single preset: 5-8 questions per exam, 1 voice asks (man) + 2nd voice reads 4 options → 2×2 option_audios. Verified before runs.</div>
-                              </div>
-                              <input ref="audioPoolInput" type="file" accept=".json,.json.gz,.gz,application/json,application/gzip" style="display:none" @change="onAudioPoolPick">
+                                <div class="pdf-drop-s">Single preset: 5-8 questions per exam, 1 voice asks (man) + 2nd voice reads 4 options → 2×2 option_audios. Verified before runs. Click to browse.</div>
+                              </label>
                               <div class="flex gap-2 items-center flex-wrap mt-3">
                                 <button type="button" class="btn btn-amber btn-sm" :disabled="(audioPool.busy||blankPool.busy) || !((audioPool._file||blankPool._file)) || !((audioPool.verify||blankPool.verify) && (audioPool.verify||blankPool.verify).ok)" @click="uploadAudioPool">Save to pool</button>
                                 <button type="button" class="btn btn-ghost btn-sm" v-if="audioPool.id||blankPool.id" :disabled="audioPool.busy||blankPool.busy" @click="resetAudioPool"><span v-html="ic('x',13)"></span>Reset to bundled</button>
@@ -1166,6 +1166,6 @@ th.sortable:hover{color:var(--amber2)}
 <script src="lib/vue.global.prod.js"></script>
 <script src="lib/anime.min.js"></script>
 <script src="lib/icons.js?v=35"></script>
-<script src="app.min.js?v=39"></script>
+<script src="app.min.js?v=40"></script>
 </body>
 </html>
