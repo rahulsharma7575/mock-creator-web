@@ -1447,7 +1447,28 @@ def repair_exam(key, qs, stats=None):
                 print(f"  converted {done} image questions")
             except Exception as e:
                 print(f"  image repair failed: {str(e)[:120]}")
+    for q in qs:
+        if q.get("requiresImage") and not str(q.get("imagePrompt") or "").strip():
+            base = re.sub(r'^Q\d+\.\s*', '', str(q.get("question_text") or "")).strip()[:120]
+            if not base:
+                base = "Korean EPS-TOPIK exam scene"
+            q["imagePrompt"] = f"Simple flat vector illustration for EPS-TOPIK: {base}. Vivid colours, plain white background."
+            print(f"[repair] filled missing imagePrompt for Q{q.get('number')}")
     return qs
+
+
+def ensure_image_prompts(qs):
+    filled = 0
+    for q in qs:
+        if q.get("requiresImage") and not str(q.get("imagePrompt") or "").strip():
+            base = re.sub(r'^Q\d+\.\s*', '', str(q.get("question_text") or "")).strip()[:120]
+            if not base:
+                base = "Korean EPS-TOPIK exam scene"
+            q["imagePrompt"] = f"Simple flat vector illustration for EPS-TOPIK: {base}. Vivid colours, plain white background."
+            filled += 1
+    if filled:
+        print(f"[repair] filled {filled} missing imagePrompt(s)")
+    return filled
 
 
 def strip_html(text):
@@ -3572,6 +3593,7 @@ def main():
         # enforce the speaker cast rule: long scripts -> two speakers (MF/FM),
         # short scripts -> single speaker (M/F); pre-made audio are skipped
         randomize_listening_speakers(qs)
+        ensure_image_prompts(qs)
         qs.sort(key=lambda q: q["number"])
         errs = validate_exam(qs)
         if errs:
