@@ -227,7 +227,7 @@ def load_config(path=None):
 def render_prompt(template):
     """Fill {placeholders} in a prompt template from the active config.
 
-    The hard 'MUST' counts (picture listening / blank listening / images) are
+    The hard 'MUST' counts (picture listening / audio listening / images) are
     clamped to what THIS exam can actually contain. Dry runs use 3-question
     samples (e.g. dry images = 3 reading, 0 listening), so an unclamped
     "exactly 5 picture LISTENING questions" makes the model invent listening
@@ -246,7 +246,7 @@ def render_prompt(template):
         blank = listen_count
     if listen_count <= 0:
         section_order = (f'ALL questions are section "reading" (Q1-{q}) — '
-                         f'there are NO listening questions in this exam, so NO picture/blank listening questions either')
+                         f'there are NO listening questions in this exam, so NO picture/audio listening questions either')
     elif r <= 0:
         section_order = f'ALL questions are section "listening" (Q1-{q}) - no reading section'
     else:
@@ -1064,7 +1064,7 @@ def repair_picture_prompts(key, qs, paper_pics=None):
         if not any(str(x or "").strip() for x in imgs):
             _blank_ify(q)
             fixed += 1
-            print(f"[repair] Q{num}: picture question without photos demoted to blank", flush=True)
+            print(f"[repair] Q{num}: picture question without photos demoted to audio", flush=True)
             continue
         # regenerate the missing descriptions via the repair model
         user = (
@@ -1365,7 +1365,11 @@ def repair_exam(key, qs, stats=None):
     stats.setdefault("images", 0)
     for q in qs:
         script = (q.get("listening") or {}).get("audioScript") if q.get("section") == "listening" else None
-        if q.get("section") == "listening" and (not script or (isinstance(script, list) and not all((t or {}).get("text", "").strip() for t in script))):
+        def _has_text(t):
+            if isinstance(t, dict):
+                return bool(str(t.get("text", "") or "").strip())
+            return bool(str(t or "").strip())
+        if q.get("section") == "listening" and (not script or (isinstance(script, list) and not all(_has_text(t) for t in script))):
             print(f"[repair] writing listening script for Q{q['number']}...")
             opts = q.get("options") or []
             ca = q.get("correct_answer") or []
@@ -1377,7 +1381,7 @@ def repair_exam(key, qs, stats=None):
                 "(한 단어나 짧은 대답 금지, 예: \"한복\" 또는 \"응\" 단독 금지), 구어체, "
                 "한 명이 질문/화제를 제시하고 다른 한 명이 답하며 정답이 대화에서 분명히 드러나야 합니다. "
                 "짧은 안내방송(2-4문장)일 때만 화자 1명(V1 또는 V2, \"speakers\": 1)이 가능합니다. "
-                "문제가 음성만 제시되는(blank) 문제라면 대화/안내만으로 정답이 분명히 드러나야 합니다. "
+                "문제가 음성만 제시되는(audio) 문제라면 대화/안내만으로 정답이 분명히 드러나야 합니다. "
                 'JSON만: {"audioScript": [{"voice": "V1"~"V2", "text": "..."}], '
                 '"durationSeconds": 15, "speakers": 2, "situation": "..."}\n'
                 f"문제: {q.get('question_text')}\n선택지: {opts}\n"
@@ -1551,7 +1555,7 @@ def validate_exam(qs, stage="final"):
             script = (q.get("listening") or {}).get("audioScript")
             if not script:
                 errs.append(f"Q{n}: listening missing audioScript")
-            elif isinstance(script, list) and not all(t.get("text") for t in script):
+            elif isinstance(script, list) and not all((t.get("text", "") if isinstance(t, dict) else str(t or "")).strip() for t in script):
                 errs.append(f"Q{n}: empty audioScript turn")
         if q.get("requiresImage"):
             img += 1
@@ -2911,11 +2915,6 @@ def final_summary(stats):
         line("audio listening",
              f"{ac} pre-made audio questions (1/2/3/4) + option_audios"
              + (f" - Q{', Q'.join(map(str, sorted(nums)))}" if nums else ""))
-    elif stats.get("blank_count"):
-        nums = stats.get("blank_numbers") or []
-        line("blank listening",
-             f"{stats['blank_count']} pre-made audio-only questions (1/2/3/4)"
-             + (f" - Q{', Q'.join(map(str, sorted(nums)))}" if nums else ""))
     if stats.get("script_expanded"):
         line("scripts expanded", f"{stats['script_expanded']} short listening scripts -> conversations")
     if stats.get("audio_fallback_clips"):
@@ -3513,7 +3512,7 @@ def main():
         # author sometimes emits 1/2/3/4 options without the format flag - auto-tag
         nfix = fix_numeric_option_questions(qs)
         if nfix:
-            print(f"[format] auto-tagged {nfix} questions with numeric options (picture/blank)")
+            print(f"[format] auto-tagged {nfix} questions with numeric options (picture/audio)")
 
         # picture stats
         stats["picture_count"] = sum(1 for q in qs if q.get("picture_options"))
@@ -3542,10 +3541,11 @@ def main():
         if nb:
             print(f"[audio] {nb} pre-made audio question(s) integrated at numbers "
                   f"{sorted(stats['audio_numbers']) or '(none)'} - details above", flush=True)
-        blanks_out = [q for q in qs if q.get("audio_question")]
-        rest = [q for q in qs if not (q.get("audio_question"))]
+        audio_out = [q for q in qs if q.get("audio_question")]
+        blanks_out = audio_out
+        rest = [q for q in qs if not q.get("audio_question")]
         print(f"[repair] fixing missing dialogues/answers... "
-              f"({len(rest)} questions, {len(blanks_out)} pre-made blanks excluded)")
+              f"({len(rest)} questions, {len(audio_out)} pre-made audio excluded)")
         rest = normalize_exam(repair_exam(key, rest, stats["repair"]))
         repaired = rest if not validate_exam(rest + blanks_out) else None
         if repaired is None:
@@ -3570,7 +3570,7 @@ def main():
         n_exp = expand_short_scripts(key, qs)
         stats["script_expanded"] = n_exp
         # enforce the speaker cast rule: long scripts -> two speakers (MF/FM),
-        # short scripts -> single speaker (M/F); pre-made blanks are skipped
+        # short scripts -> single speaker (M/F); pre-made audio are skipped
         randomize_listening_speakers(qs)
         qs.sort(key=lambda q: q["number"])
         errs = validate_exam(qs)
