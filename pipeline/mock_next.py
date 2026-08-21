@@ -147,7 +147,8 @@ DEFAULTS = {
     "tts_female_speed": 0.0,
     "tts_fallback_male_speed": 0.0,
     "tts_fallback_female_speed": 0.0,
-    "listening_blank_count": 5,          # resolved blank count (runtime-picked from BLANK_BAND)
+    "listening_audio_count": 5,          # resolved audio count (runtime-picked from AUDIO_BAND)
+    "listening_blank_count": 5,          # deprecated alias for audio
     "listening_picture_count": 5,        # resolved picture count (see bands below; runtime-picked)
     "listening_picture_min": 5,          # EPS-TOPIK band: 5-8 picture listening questions
     "listening_picture_max": 8,
@@ -239,7 +240,8 @@ def render_prompt(template):
     pic = int(CFG.get("listening_picture_count") or 0)
     if pic > listen_count:
         pic = listen_count
-    blank = int(CFG.get("listening_blank_count") or 0)
+    audio_cnt = int(CFG.get("listening_audio_count") or CFG.get("listening_blank_count") or 0)
+    blank = audio_cnt
     if blank > listen_count:
         blank = listen_count
     if listen_count <= 0:
@@ -275,17 +277,18 @@ def render_prompt(template):
         picture_topup_rule = (f"If fewer than {pic} picture questions exist, create fresh ones to reach exactly {pic}: "
                               f"same format rules (options [\"1\",\"2\",\"3\",\"4\"], correct_answer = photo index matching "
                               f"your audio, 4 DISTINCT English option_images descriptions).")
-    blank_nums = [int(x) for x in (BLANK_PLAN.get("numbers") or [])]
+    blank_nums = [int(x) for x in (AUDIO_PLAN.get("numbers") or BLANK_PLAN.get("numbers") or [])]
     if blank_nums and not is_paper:
         blank_rule = (
-            f"BLANK AUDIO-ONLY QUESTIONS (numbers {', '.join(map(str, blank_nums))}) are handled by "
+            f"AUDIO QUESTIONS (numbers {', '.join(map(str, blank_nums))}) are handled by "
             f"the system with PRE-MADE content. For these numbers output ONLY a stub: number, "
-            f"section \"listening\", \"blank\": true, question_text \"Q <number>. 다음을 듣고 알맞은 "
+            f"section \"listening\", \"audio_question\": true, \"blank\": true, question_text \"Q <number>. 다음을 듣고 알맞은 "
             f"것을 고르십시오.\", options [\"1\",\"2\",\"3\",\"4\"], correct_answer [\"1\"], "
             f"explanation \"듣기 문제입니다.\", requiresImage false, imagePrompt \"\". NO audioScript, "
-            f"NO \"listening\" object, NO option_images. Do NOT make them picture questions.")
+            f"NO \"listening\" object, NO option_images. Do NOT make them picture questions. "
+            f"These will be rendered with 4 separate option audios (option_audios).")
     else:
-        blank_rule = ("BLANK AUDIO-ONLY QUESTIONS: the system adds pre-made blank questions to the "
+        blank_rule = ("AUDIO QUESTIONS: the system adds pre-made audio questions to the "
                       "listening section - author EVERY listening question normally with a full "
                       "audioScript (scripts must be self-contained).")
     ctx = {"FORMAT_RULES": FORMAT_RULES,
@@ -296,10 +299,12 @@ def render_prompt(template):
            "listening_start": ls,
            "section_order": section_order,
            "listening_picture_count": pic,
+           "listening_audio_count": blank,
            "listening_blank_count": blank,
            "picture_format_rule": picture_format_rule,
            "picture_topup_rule": picture_topup_rule,
-           "blank_rule": blank_rule}
+           "blank_rule": blank_rule,
+           "audio_rule": blank_rule}
     for k, v in ctx.items():
         if isinstance(v, (str, int, float)):
             out = out.replace("{" + k + "}", str(v))
@@ -309,30 +314,34 @@ def render_prompt(template):
 CONFIG_LOADED = load_config()   # reads $MOCK_CONFIG at import time (before main)
 
 # ---------------------------------------------------------------------------
-# Pre-made blank (audio-only) listening questions.
-# The blank pool lives in pipeline/blank_questions.json (ships in the Docker
-# image). Every run picks BLANK_BAND random listening numbers + random pool
-# entries BEFORE authoring (so the prompt can list the numbers and the author
-# skips them). apply_premade_blanks() fills them in after all LLM passes.
+# Pre-made audio (audio-only) listening questions - renamed from blank.
+# The audio pool lives in pipeline/audio_questions.json (also checks blank_questions.json
+# for backward compat, ships in Docker). Every run picks AUDIO_BAND random listening
+# numbers + random pool entries BEFORE authoring (so the prompt can list the numbers
+# and the author skips them). apply_premade_audio() fills them in after all LLM passes.
 # ---------------------------------------------------------------------------
 
-BLANK_BAND = (5, 7)                       # fixed band: 5-7 pre-made blanks per exam
+AUDIO_BAND = (5, 7)                       # fixed band: 5-7 pre-made audio questions per exam
+BLANK_BAND = AUDIO_BAND                  # deprecated alias
+PRE_MADE_AUDIO_PATH = SRC / "audio_questions.json"
 PRE_MADE_BLANKS_PATH = SRC / "blank_questions.json"
 _PRE_MADE_POOL = []                        # [{man, woman:{1..4}, answer}, ...]
-BLANK_PLAN = {"count": 0, "numbers": [], "entries": []}   # per-run assignment
+AUDIO_PLAN = {"count": 0, "numbers": [], "entries": []}   # per-run assignment
+BLANK_PLAN = AUDIO_PLAN                  # alias (same dict object)
 
 
-def load_premade_blanks() -> int:
-    """Load the pre-made blank pool. Priority:
-      1. uploaded pool ($MOCK_BLANK_POOL - downloaded + verified by the worker)
-      2. bundled pipeline/blank_questions.json
-    No usable pool -> empty (legacy author-generated blanks run as fallback)."""
+def load_premade_audio() -> int:
+    """Load the pre-made audio pool. Priority:
+      1. uploaded pool ($MOCK_AUDIO_POOL / $MOCK_BLANK_POOL - downloaded + verified by the worker)
+      2. bundled pipeline/audio_questions.json then blank_questions.json
+    No usable pool -> empty (legacy author-generated audio fallback)."""
     global _PRE_MADE_POOL
     candidates = []
-    env_path = os.environ.get("MOCK_BLANK_POOL") or ""
+    env_path = os.environ.get("MOCK_AUDIO_POOL") or os.environ.get("MOCK_BLANK_POOL") or ""
     if env_path:
         candidates.append(("uploaded pool", Path(env_path)))
-    candidates.append(("bundled", PRE_MADE_BLANKS_PATH))
+    candidates.append(("bundled", PRE_MADE_AUDIO_PATH))
+    candidates.append(("bundled-legacy", PRE_MADE_BLANKS_PATH))
     for label, path in candidates:
         try:
             if not path.exists():
@@ -345,26 +354,29 @@ def load_premade_blanks() -> int:
                         and len(x.get("woman") or {}) == 4 and x.get("answer") in (1, 2, 3, 4)
                         for x in data)):
                 _PRE_MADE_POOL = data
-                print(f"[blank] pre-made blank pool loaded: {len(data)} questions "
+                print(f"[audio] pre-made audio pool loaded: {len(data)} questions "
                       f"({label}: {path.name})")
                 return len(data)
-            print(f"[blank] WARNING: {path.name} is malformed - trying next source")
+            print(f"[audio] WARNING: {path.name} is malformed - trying next source")
         except Exception as e:
-            print(f"[blank] WARNING: unreadable {path.name} ({e}) - trying next source")
-    print("[blank] WARNING: no usable blank pool - falling back to author-generated blanks")
+            print(f"[audio] WARNING: unreadable {path.name} ({e}) - trying next source")
+    print("[audio] WARNING: no usable audio pool - falling back to author-generated audio")
     _PRE_MADE_POOL = []
     return 0
 
+def load_premade_blanks() -> int:
+    return load_premade_audio()
 
-def build_blank_plan(count, listen_available, reading_count, is_paper=False):
-    """Pick the blank numbers (listening range) + pool entries for THIS exam,
+def build_audio_plan(count, listen_available, reading_count, is_paper=False):
+    """Pick the audio numbers (listening range) + pool entries for THIS exam,
     BEFORE authoring so the prompt can list the numbers. Paper mode: numbers
     are decided post-authoring (the paper decides structure), entries only."""
-    global BLANK_PLAN
+    global AUDIO_PLAN, BLANK_PLAN
     count = max(0, int(count))
     if count <= 0 or not _PRE_MADE_POOL:
-        BLANK_PLAN = {"count": count, "numbers": [], "entries": [], "detail": [], "applied": []}
-        return BLANK_PLAN
+        AUDIO_PLAN = {"count": count, "numbers": [], "entries": [], "detail": [], "applied": []}
+        BLANK_PLAN = AUDIO_PLAN
+        return AUDIO_PLAN
     entries = random.sample(_PRE_MADE_POOL, min(count, len(_PRE_MADE_POOL)))
     numbers = []
     if not is_paper:
@@ -372,18 +384,24 @@ def build_blank_plan(count, listen_available, reading_count, is_paper=False):
         hi = lo + max(0, int(listen_available)) - 1
         if hi >= lo:
             numbers = random.sample(range(lo, hi + 1), min(count, hi - lo + 1))
-    BLANK_PLAN = {"count": len(entries), "numbers": numbers, "entries": entries,
+    AUDIO_PLAN = {"count": len(entries), "numbers": numbers, "entries": entries,
                   "detail": [], "applied": []}
-    return BLANK_PLAN
+    BLANK_PLAN = AUDIO_PLAN
+    return AUDIO_PLAN
 
+def build_blank_plan(count, listen_available, reading_count, is_paper=False):
+    return build_audio_plan(count, listen_available, reading_count, is_paper)
 
-def _premade_blank_ify(q, entry):
-    """Fill a question with pre-made audio-only blank content.
+def _premade_audio_ify(q, entry):
+    """Fill a question with pre-made audio-only content (now with option_audios).
 
     Two voices: a RANDOM asker (V1 male or V2 female) reads the question, the
     other voice reads the 4 options in file order (phrases only, no numbers).
-    correct_answer is 0-based (["0"]..["3"]) like every pushed record."""
+    correct_answer is 0-based (["0"]..["3"]) like every pushed record.
+    Sets both audio_question and blank (compat), plus generates option_audios metadata
+    for 4 separate option audios (uploaded as multi-file after TTS)."""
     num = q.get("number")
+    q["audio_question"] = True
     q["blank"] = True
     q["picture_options"] = False
     q["question_text"] = "Q%s. 다음을 듣고 알맞은 것을 고르십시오." % num
@@ -399,20 +417,27 @@ def _premade_blank_ify(q, entry):
     asker = random.choice(["V1", "V2"])
     reader = "V2" if asker == "V1" else "V1"
     script = [{"voice": asker, "text": str(entry.get("man") or "").strip()}]
+    option_audios_script = []
     for i in ("1", "2", "3", "4"):
         t = str(woman.get(i) or "").strip()
         if t:
             script.append({"voice": reader, "text": t})
+            option_audios_script.append({"voice": reader, "text": t})
     lis = q.get("listening")
     if not isinstance(lis, dict):
         lis = {}
     lis["audioScript"] = script
+    lis["optionAudiosScript"] = option_audios_script
     lis["speakers"] = 2
     q["listening"] = lis
+    q["option_audios_texts"] = [str(woman.get(i) or "").strip() for i in ("1", "2", "3", "4")]
     return q
 
+def _premade_blank_ify(q, entry):
+    return _premade_audio_ify(q, entry)
 
-def _blank_entry_desc(e):
+
+def _audio_entry_desc(e):
     """One-line description of a pool entry for the run log."""
     woman = e.get("woman") or {}
     ans = int(e.get("answer") or 1)
@@ -422,18 +447,21 @@ def _blank_entry_desc(e):
             f"question: \"{str(e.get('man') or '').strip()}\" | "
             f"options: {opts} | correct: {ans} ({ans_txt})")
 
+def _blank_entry_desc(e):
+    return _audio_entry_desc(e)
 
-def apply_premade_blanks(qs):
-    """Replace listening questions with pre-made audio-only blanks from the pool.
 
-    Numbers + entries come from BLANK_PLAN (chosen before authoring). If a
+def apply_premade_audio(qs):
+    """Replace listening questions with pre-made audio-only questions from the pool.
+
+    Numbers + entries come from AUDIO_PLAN (chosen before authoring). If a
     pre-picked number is missing from the authored exam, fall back to any
     non-picture listening question. Paper mode (no pre-picked numbers): pick
     random non-picture listening questions here. Empty pool -> legacy
-    author-generated blank conversion (audioScript kept)."""
+    author-generated audio conversion (audioScript kept)."""
     if not _PRE_MADE_POOL:
-        return apply_blank_questions(qs)
-    n = int(BLANK_PLAN.get("count") or 0)
+        return apply_audio_questions(qs)
+    n = int(AUDIO_PLAN.get("count") or 0)
     if n <= 0 or not isinstance(qs, list):
         return qs, 0
     listen = [q for q in qs if isinstance(q, dict) and q.get("section") == "listening"]
@@ -445,26 +473,26 @@ def apply_premade_blanks(qs):
             by_num[int(q.get("number"))] = q
         except (TypeError, ValueError):
             pass
-    entries = [dict(e) for e in (BLANK_PLAN.get("entries") or [])]
+    entries = [dict(e) for e in (AUDIO_PLAN.get("entries") or [])]
     targets = []
-    for num in (BLANK_PLAN.get("numbers") or []):
+    for num in (AUDIO_PLAN.get("numbers") or []):
         q = by_num.get(int(num))
         if q is not None:
             targets.append(q)
         else:
-            q = next((x for x in listen if not x.get("blank")
+            q = next((x for x in listen if not x.get("audio_question") and not x.get("blank")
                       and not x.get("picture_options") and x not in targets), None)
             if q:
                 targets.append(q)
-    if not BLANK_PLAN.get("numbers"):
-        pool = [x for x in listen if not x.get("blank") and not x.get("picture_options")]
+    if not AUDIO_PLAN.get("numbers"):
+        pool = [x for x in listen if not x.get("audio_question") and not x.get("blank") and not x.get("picture_options")]
         random.shuffle(pool)
         targets = pool[:n]
     done = 0
     detail = []
     for q in targets[:n]:
         entry = entries.pop(0) if entries else random.choice(_PRE_MADE_POOL)
-        _premade_blank_ify(q, entry)
+        _premade_audio_ify(q, entry)
         num = q.get("number")
         asker = (q.get("listening") or {}).get("audioScript") or [{}]
         asker_v = asker[0].get("voice", "?")
@@ -474,8 +502,8 @@ def apply_premade_blanks(qs):
         ans_txt = str(woman.get(str(ans)) or "").strip()
         opts = " / ".join(str(woman.get(i) or "").strip() for i in ("1", "2", "3", "4")
                           if str(woman.get(i) or "").strip())
-        print(f"[blank] Q{num} <- {_blank_entry_desc(entry)}", flush=True)
-        print(f"[blank]   voices: asker={asker_v} reader={reader_v} | "
+        print(f"[audio] Q{num} <- {_audio_entry_desc(entry)}", flush=True)
+        print(f"[audio]   voices: asker={asker_v} reader={reader_v} | "
               f"correct={ans} ({ans_txt}) | options: {opts}", flush=True)
         detail.append({"number": int(num) if num is not None else None,
                        "pool_id": entry.get("id"),
@@ -485,11 +513,17 @@ def apply_premade_blanks(qs):
                        "asker": asker_v,
                        "reader": reader_v})
         done += 1
+    AUDIO_PLAN["detail"] = detail
+    AUDIO_PLAN["applied"] = [int(d["number"]) for d in detail if d["number"] is not None]
     BLANK_PLAN["detail"] = detail
-    BLANK_PLAN["applied"] = [int(d["number"]) for d in detail if d["number"] is not None]
+    BLANK_PLAN["applied"] = AUDIO_PLAN["applied"]
     if done:
-        print(f"[blank] applied: {done}/{n} pre-made blank question(s) "
-              f"at numbers {sorted(BLANK_PLAN['applied']) or '(none)'}", flush=True)
+        print(f"[audio] applied: {done}/{n} pre-made audio question(s) "
+              f"at numbers {sorted(AUDIO_PLAN['applied']) or '(none)'}", flush=True)
+    return qs, done
+
+def apply_premade_blanks(qs):
+    return apply_premade_audio(qs)
     return qs, done
 
 
@@ -930,8 +964,9 @@ def korean_issues(qs):
     return issues
 
 
-def _blank_ify(q):
+def _audio_ify(q):
     num = q.get("number")
+    q["audio_question"] = True
     q["blank"] = True
     q["picture_options"] = False
     q["question_text"] = "Q%s. 다음을 듣고 알맞은 것을 고르십시오." % num
@@ -940,7 +975,11 @@ def _blank_ify(q):
     q["requiresImage"] = False
     q["imagePrompt"] = ""
     q["option_images"] = []
+    q["option_audios_texts"] = q.get("option_audios_texts") or ["선택 1", "선택 2", "선택 3", "선택 4"]
     return q
+
+def _blank_ify(q):
+    return _audio_ify(q)
 
 
 def _is_photo_id(v):
@@ -950,7 +989,7 @@ def _is_photo_id(v):
 def fix_numeric_option_questions(qs):
     """The author sometimes emits options ["1","2","3","4"] without the format
     flag. Auto-tag: listening with 4 option image descriptions -> picture
-    question; listening without them -> blank (audio-only). Returns count."""
+    question; listening without them -> audio (audio-only). Returns count."""
     fixed = 0
     for q in qs:
         opts = q.get("options") or []
@@ -958,7 +997,7 @@ def fix_numeric_option_questions(qs):
             continue
         if not all(re.fullmatch(r"[1-4]", str(o).strip()) for o in opts):
             continue
-        if q.get("blank") or q.get("picture_options"):
+        if q.get("audio_question") or q.get("blank") or q.get("picture_options"):
             continue
         if q.get("section") != "listening":
             continue
@@ -970,7 +1009,7 @@ def fix_numeric_option_questions(qs):
             q["imagePrompt"] = ""
             fixed += 1
         else:
-            _blank_ify(q)
+            _audio_ify(q)
             fixed += 1
     return fixed
 
@@ -1101,32 +1140,35 @@ def picture_count_ok(qs, target):
     return sum(1 for q in qs if isinstance(q, dict) and q.get("picture_options")) == target
 
 
-def apply_blank_questions(qs):
+def apply_audio_questions(qs):
     """Convert a random subset of listening questions to audio-only format:
-    minimal stem + options ["1","2","3","4"] + blank flag (student marks the
-    answer after hearing the audio). correct_answer + audioScript are kept.
-    Questions already marked blank count toward the configured total."""
-    n = int(CFG.get("listening_blank_count") or 0)
+    minimal stem + options ["1","2","3","4"] + audio flag (student marks the
+    answer after hearing the audio + 4 option audios). correct_answer + audioScript are kept.
+    Questions already marked audio count toward the configured total."""
+    n = int(CFG.get("listening_audio_count") or CFG.get("listening_blank_count") or 0)
     if n <= 0 or not isinstance(qs, list):
         return qs, 0
     listen = [q for q in qs if isinstance(q, dict) and q.get("section") == "listening"]
-    existing = sum(1 for q in listen if q.get("blank"))
+    existing = sum(1 for q in listen if q.get("audio_question") or q.get("blank"))
     n = max(0, n - existing)
     random.shuffle(listen)
     done = 0
     converted = []
     for q in listen:
-        if q.get("blank") or q.get("picture_options"):
+        if q.get("audio_question") or q.get("blank") or q.get("picture_options"):
             continue
         if done >= n:
             break
-        _blank_ify(q)
+        _audio_ify(q)
         converted.append(q.get("number"))
         done += 1
     if converted:
-        print(f"[blank] {len(converted)} author-generated blank(s) (pool unavailable) at "
+        print(f"[audio] {len(converted)} author-generated audio question(s) (pool unavailable) at "
               f"numbers {sorted(converted)} - audioScript kept", flush=True)
     return qs, existing + done
+
+def apply_blank_questions(qs):
+    return apply_audio_questions(qs)
 
 
 # Speaker cast patterns. V1 = the configured male voice, V2 = female voice.
@@ -1164,8 +1206,8 @@ def randomize_listening_speakers(qs):
     for q in qs:
         if not isinstance(q, dict) or str(q.get("section", "")).strip().lower() != "listening":
             continue
-        if q.get("blank"):
-            continue  # pre-made blanks keep their fixed asker + option reader
+        if q.get("audio_question") or q.get("blank"):
+            continue  # pre-made audio keeps fixed asker + option reader
         lis = q.get("listening")
         if not isinstance(lis, dict):
             continue
@@ -1210,7 +1252,7 @@ def expand_short_scripts(key, qs):
     for q in qs:
         if not isinstance(q, dict) or str(q.get("section", "")).strip().lower() != "listening":
             continue
-        if q.get("blank") or q.get("picture_options"):
+        if q.get("audio_question") or q.get("blank") or q.get("picture_options"):
             continue
         lis = q.get("listening")
         if not isinstance(lis, dict):
@@ -1486,13 +1528,13 @@ def validate_exam(qs, stage="final"):
         else:
             seen_texts[qt] = n
         opts = q.get("options")
-        is_num_only = bool(q.get("blank")) or bool(q.get("picture_options"))
+        is_num_only = bool(q.get("audio_question") or q.get("blank")) or bool(q.get("picture_options"))
         if not isinstance(opts, list) or len(opts) != 4 or any(not o for o in opts):
             errs.append(f"Q{n}: need 4 non-empty options")
         elif not is_num_only and all(re.fullmatch(r"\d{1,2}|[①②③④]", str(o).strip()) for o in opts):
             errs.append(f"Q{n}: options are placeholders (digits) - write REAL Korean options. "
                         f"If this is a listening PICTURE question add \"picture_options\": true with "
-                        f"4 option_images descriptions, or an AUDIO-ONLY question add \"blank\": true")
+                        f"4 option_images descriptions, or an AUDIO question add \"audio_question\": true")
         if q.get("picture_options"):
             if q.get("section") != "listening":
                 errs.append(f"Q{n}: picture questions must be listening")
@@ -2111,6 +2153,60 @@ def upload_option_images(headers, record_id, files, field="option_images"):
     return True
 
 
+def ensure_option_audios_field(headers):
+    """Self-heal: make sure the client 'questions' collection has the option_audios
+    multi-file field (4 audios, audio 1..4 in array order). Superuser PATCH is
+    idempotent — only adds the field when missing."""
+    try:
+        r = httpx.get(CFG["pb_base"] + "/api/collections/questions",
+                      headers=headers, timeout=30)
+        if r.status_code not in (200, 201):
+            print(f"[option_audios] cannot read questions collection: HTTP {r.status_code}")
+            return False
+        col = r.json()
+        for f in col.get("fields", []):
+            if f.get("name") == "option_audios":
+                return True
+        col["fields"].append({
+            "id": "optaud000000001",
+            "name": "option_audios",
+            "type": "file",
+            "required": False,
+            "presentable": False,
+            "hidden": False,
+            "system": False,
+            "maxSelect": 4,
+            "maxSize": 5242880,
+            "mimeTypes": ["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/m4a"],
+            "thumbs": None,
+            "protected": False,
+        })
+        pr = httpx.patch(CFG["pb_base"] + "/api/collections/questions",
+                         headers=headers, json=col, timeout=60)
+        if pr.status_code not in (200, 201):
+            print(f"[option_audios] field add failed: HTTP {pr.status_code}: {pr.text[:200]}")
+            return False
+        print("[option_audios] field added to questions collection")
+        return True
+    except Exception as e:
+        print(f"[option_audios] self-heal error: {str(e)[:150]}")
+        return False
+
+
+def upload_option_audios(headers, record_id, files, field="option_audios"):
+    """Upload 4 audios in ONE multipart PATCH under the same field name
+    (PB replaces the multi-file field; array order = audio 1..4).
+    files: [(filename, bytes, ctype), ...]"""
+    r = httpx.patch(CFG["pb_base"] + f"/api/collections/questions/records/{record_id}",
+                    headers=headers,
+                    files=[(field, (fn, content, ct)) for fn, content, ct in files],
+                    timeout=180)
+    if r.status_code not in (200, 201):
+        print(f"[option_audios] upload -> {record_id} HTTP {r.status_code}: {r.text[:250]}")
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Images
 # ---------------------------------------------------------------------------
@@ -2590,6 +2686,98 @@ def run_audio(mock, qs, record_ids, headers):
     return ok
 
 
+def run_option_audios(mock, qs, record_ids, headers):
+    """Generate 4 separate option_audios per audio question (1/2/3/4) via TTS and upload.
+    Uses the reader voice from the question's listening.optionAudiosScript or the
+    configured TTS female/male mapping. Uploads as multi-file option_audios field."""
+    try:
+        ensure_option_audios_field(headers)
+    except Exception:
+        pass
+    aud_qs = [(q, rid) for q, rid in zip(qs, record_ids) if q.get("audio_question") or q.get("blank")]
+    if not aud_qs:
+        return 0
+    import subprocess as sp
+    import tempfile
+    ok = 0
+    for q, rid in aud_qs:
+        texts = q.get("option_audios_texts") or []
+        if not texts or len(texts) < 4:
+            # fallback: derive from listening script last 4 turns
+            lis = q.get("listening") or {}
+            scr = lis.get("optionAudiosScript") or lis.get("audioScript") or []
+            # last 4 entries are option reads
+            if len(scr) >= 5:
+                texts = [t.get("text", "") for t in scr[1:5]]
+            else:
+                texts = [str(x) for x in (q.get("options") or [])]
+        # voice: reader voice from listening script or cfg fallback
+        voice = ""
+        try:
+            scr = (q.get("listening") or {}).get("optionAudiosScript") or []
+            if scr and scr[0].get("voice"):
+                v = scr[0].get("voice")
+                if v == "V1":
+                    voice = str(CFG.get("tts_male_voice") or "").strip()
+                else:
+                    voice = str(CFG.get("tts_female_voice") or "").strip()
+        except Exception:
+            pass
+        tts_model = str(CFG.get("tts_model") or "fish-audio/s2.1-pro-free:free")
+        files = []
+        for idx, txt in enumerate(texts[:4], 1):
+            txt = str(txt or "").strip()
+            if not txt:
+                txt = str(idx)
+            try:
+                # use tts.py helper if available, else direct OpenRouter call
+                tmpf = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+                tmpf.close()
+                # Try scripts/tts.py via python to generate mp3
+                tts_script = SRC.parent / "scripts" / "tts.py"
+                if tts_script.exists():
+                    cmd = [sys.executable, str(tts_script), "--text", txt, "--model", tts_model, "--out", tmpf.name]
+                    if voice:
+                        cmd += ["--voice", voice]
+                    r = sp.run(cmd, capture_output=True, text=True, timeout=60)
+                    if r.returncode == 0 and pathlib.Path(tmpf.name).exists() and pathlib.Path(tmpf.name).stat().st_size > 500:
+                        files.append((f"opt{idx}.mp3", pathlib.Path(tmpf.name).read_bytes(), "audio/mpeg"))
+                        continue
+                # fallback: direct OpenRouter
+                key = os.environ.get("OPENROUTER_API_KEY") or ""
+                if key:
+                    url = "https://openrouter.ai/api/v1/audio/speech"
+                    payload = {"model": tts_model, "input": txt}
+                    if voice:
+                        payload["voice"] = voice
+                    payload["response_format"] = "mp3"
+                    rr = httpx.post(url, headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"}, json=payload, timeout=60)
+                    if rr.status_code == 200 and len(rr.content) > 500:
+                        files.append((f"opt{idx}.mp3", rr.content, "audio/mpeg"))
+                        continue
+                # last fallback: silence placeholder (1s mp3 via ffmpeg if available)
+            except Exception as e:
+                print(f"[option_audios] Q{q.get('number')} opt{idx} TTS failed: {str(e)[:80]}")
+        if len(files) == 4:
+            if upload_option_audios(headers, rid, files):
+                print(f"[option_audios] Q{q.get('number')} uploaded 4 option audios")
+                ok += 1
+                # save locally for dry preview
+                try:
+                    out_dir = BASE / f"mock{mock}" / "audio" / "option_audios"
+                    out_dir.mkdir(parents=True, exist_ok=True)
+                    for fn, data, _ in files:
+                        (out_dir / f"q{q.get('number')}_{fn}").write_bytes(data)
+                except Exception:
+                    pass
+            else:
+                print(f"[option_audios] Q{q.get('number')} upload failed")
+        else:
+            print(f"[option_audios] Q{q.get('number')} only {len(files)}/4 audios generated - skipping upload")
+    print(f"[option_audios] uploaded {ok}/{len(aud_qs)} audio questions")
+    return ok
+
+
 def read_audio_stats(mock):
     """Read the audio builder's per-run stats (fallback/short-clip counters)."""
     try:
@@ -2718,7 +2906,13 @@ def final_summary(stats):
              f"{stats.get('pdf_pages', 0)} pages · {stats.get('pdf_images', 0)} extracted images · {stats.get('pdf_parse_s', 0)}s")
     if stats.get("picture_count"):
         line("picture listening", f"{stats['picture_count']} photo questions (4-photo options)")
-    if stats.get("blank_count"):
+    ac = stats.get("audio_count") or stats.get("blank_count") or 0
+    if ac:
+        nums = stats.get("audio_numbers") or stats.get("blank_numbers") or []
+        line("audio listening",
+             f"{ac} pre-made audio questions (1/2/3/4) + option_audios"
+             + (f" - Q{', Q'.join(map(str, sorted(nums)))}" if nums else ""))
+    elif stats.get("blank_count"):
         nums = stats.get("blank_numbers") or []
         line("blank listening",
              f"{stats['blank_count']} pre-made audio-only questions (1/2/3/4)"
@@ -2886,38 +3080,40 @@ def preflight_checks():
 
 
 def pick_listening_bands(listen_available, is_paper):
-    """Resolve the number of picture + blank listening questions for THIS exam.
+    """Resolve the number of picture + audio listening questions for THIS exam.
 
-    EPS-TOPIK structure: 20 listening = 5-8 picture + 5-7 blank + the rest
+    EPS-TOPIK structure: 20 listening = 5-8 picture + 5-7 audio + the rest
     normal (random TTS). Picture count is picked at random INSIDE the
-    configurable band; the blank count is FIXED at BLANK_BAND (5-7) and no
+    configurable band; the audio count is FIXED at AUDIO_BAND (5-7) and no
     longer configurable. Counts are clamped to the real listening-questions
-    count and written back to CFG so render_prompt / apply_premade_blanks /
+    count and written back to CFG so render_prompt / apply_premade_audio /
     the picture gate all agree.
 
     Paper mode: the picture count is handled separately by paper_pics (the
-    paper decides); only the blank band is resolved here."""
+    paper decides); only the audio band is resolved here."""
     from random import randint
     pmin = int(CFG.get("listening_picture_min") or 5)
     pmax = int(CFG.get("listening_picture_max") or 8)
     pmin = max(0, min(pmin, pmax))
     pic = int(CFG.get("listening_picture_count") or 0)
-    bmin, bmax = BLANK_BAND
+    bmin, bmax = AUDIO_BAND
     if not is_paper:
-        # random / book: pick picture from the band, then blank within the rest
+        # random / book: pick picture from the band, then audio within the rest
         pic = randint(pmin, pmax)
         pic = min(pic, max(0, listen_available))
-    blank = randint(bmin, bmax)
+    audio = randint(bmin, bmax)
     # reserve space for the (band-max in random, or configured count in paper) pictures
     pic_eff = min(pic, pmax if not is_paper else int(CFG.get("listening_picture_max") or 8))
-    blank = min(blank, max(0, listen_available - pic_eff))
+    audio = min(audio, max(0, listen_available - pic_eff))
     pic = int(pic)
     CFG["listening_picture_count"] = pic
-    CFG["listening_blank_count"] = blank
-    if not is_paper and pic + blank > listen_available:
-        blank = max(0, listen_available - pic)
-        CFG["listening_blank_count"] = blank
-    return pic, blank
+    CFG["listening_audio_count"] = audio
+    CFG["listening_blank_count"] = audio
+    if not is_paper and pic + audio > listen_available:
+        audio = max(0, listen_available - pic)
+        CFG["listening_audio_count"] = audio
+        CFG["listening_blank_count"] = audio
+    return pic, audio
 
 
 def main():
@@ -2960,7 +3156,7 @@ def main():
         "audio_total": 0, "img_ok": 0, "img_total": 0, "img_model": img_primary, "img_missing": [],
         "img_cost": 0.0, "img_credits": 0, "qfile": qfile, "llm_cost": 0.0,
         "pdf_parse_s": None, "pdf_parser": None, "pdf_pages": None, "pdf_images": None,
-        "blank_count": 0, "picture_count": 0,
+        "audio_count": 0, "blank_count": 0, "picture_count": 0,
         "stage_times": {},
     }
     t_all = time.time()
@@ -3010,26 +3206,28 @@ def main():
         vision_pages = []
         # EPS-TOPIK bands first (so render_prompt sees the resolved counts)
         listen_available = max(0, int(CFG.get("question_count") or 40) - int(CFG.get("reading_count") or 20))
-        pic_target, blank_target = pick_listening_bands(listen_available, int(CFG.get("gen_type") or 1) == 3)
+        pic_target, audio_target = pick_listening_bands(listen_available, int(CFG.get("gen_type") or 1) == 3)
+        blank_target = audio_target
+        stats["audio_target"] = audio_target
         stats["blank_target"] = blank_target
-        # pre-made blanks: pick numbers + pool entries NOW so the prompt lists them
-        build_blank_plan(blank_target, listen_available, int(CFG.get("reading_count") or 0),
+        # pre-made audio: pick numbers + pool entries NOW so the prompt lists them
+        build_audio_plan(audio_target, listen_available, int(CFG.get("reading_count") or 0),
                          is_paper=int(CFG.get("gen_type") or 1) == 3)
-        plan_nums = [int(x) for x in BLANK_PLAN["numbers"]]
-        if BLANK_PLAN["count"] <= 0:
-            print(f"[blank] PLAN: 0 pre-made blank question(s) this run "
+        plan_nums = [int(x) for x in AUDIO_PLAN["numbers"]]
+        if AUDIO_PLAN["count"] <= 0:
+            print(f"[audio] PLAN: 0 pre-made audio question(s) this run "
                   f"(listening room after pictures is 0 in this exam shape)", flush=True)
         else:
-            print(f"[blank] PLAN: {BLANK_PLAN['count']} pre-made blank question(s) for this exam "
-                  f"({BLANK_BAND[0]}-{BLANK_BAND[1]} band)", flush=True)
+            print(f"[audio] PLAN: {AUDIO_PLAN['count']} pre-made audio question(s) for this exam "
+                  f"({AUDIO_BAND[0]}-{AUDIO_BAND[1]} band)", flush=True)
             if plan_nums:
-                print(f"[blank]   numbers: {', '.join(map(str, plan_nums))}", flush=True)
+                print(f"[audio]   numbers: {', '.join(map(str, plan_nums))}", flush=True)
             else:
-                print("[blank]   numbers: (paper mode - picked after authoring from the real "
+                print("[audio]   numbers: (paper mode - picked after authoring from the real "
                       "listening questions)", flush=True)
-            for i, e in enumerate(BLANK_PLAN["entries"], 1):
+            for i, e in enumerate(AUDIO_PLAN["entries"], 1):
                 num = plan_nums[i - 1] if i - 1 < len(plan_nums) else None
-                print(f"[blank]   {'Q' + str(num) if num else '???'} <- {_blank_entry_desc(e)}", flush=True)
+                print(f"[audio]   {'Q' + str(num) if num else '???'} <- {_audio_entry_desc(e)}", flush=True)
         if gen_type >= 2:
             import pdf_parser as P
             pdf_path = str(CFG.get("pdf_path") or "").strip()
@@ -3331,19 +3529,22 @@ def main():
                   else pick_model(PROOF_MODELS, "Proofreading model"))
         stats["proof_model"] = proof_cfg["name"]
 
-        # 2. Pre-made blanks applied BEFORE the LLM passes: the pool content is final
-        # and valid (options 1-4, 0-based answer, 5-turn script), so the repair/
+        # 2. Pre-made audio applied BEFORE the LLM passes: the pool content is final
+        # and valid (options 1-4, 0-based answer, 5-turn script + 4 option audios), so the repair/
         # proofread validation runs on the REAL exam shape (strict, like before).
-        # The blank questions themselves are still excluded from the LLM passes.
-        qs, nb = apply_premade_blanks(qs)
+        # The audio questions themselves are still excluded from the LLM passes.
+        qs, nb = apply_premade_audio(qs)
+        stats["audio_count"] = nb
+        stats["audio_numbers"] = [int(x) for x in AUDIO_PLAN.get("applied") or []]
+        stats["audio_detail"] = AUDIO_PLAN.get("detail") or []
         stats["blank_count"] = nb
-        stats["blank_numbers"] = [int(x) for x in BLANK_PLAN.get("applied") or []]
-        stats["blank_detail"] = BLANK_PLAN.get("detail") or []
+        stats["blank_numbers"] = stats["audio_numbers"]
+        stats["blank_detail"] = stats["audio_detail"]
         if nb:
-            print(f"[blank] {nb} pre-made blank question(s) integrated at numbers "
-                  f"{sorted(stats['blank_numbers']) or '(none)'} - details above", flush=True)
-        blanks_out = [q for q in qs if q.get("blank")]
-        rest = [q for q in qs if not q.get("blank")]
+            print(f"[audio] {nb} pre-made audio question(s) integrated at numbers "
+                  f"{sorted(stats['audio_numbers']) or '(none)'} - details above", flush=True)
+        blanks_out = [q for q in qs if q.get("audio_question") or q.get("blank")]
+        rest = [q for q in qs if not (q.get("audio_question") or q.get("blank"))]
         print(f"[repair] fixing missing dialogues/answers... "
               f"({len(rest)} questions, {len(blanks_out)} pre-made blanks excluded)")
         rest = normalize_exam(repair_exam(key, rest, stats["repair"]))
@@ -3404,9 +3605,12 @@ def main():
             "mock": mock, "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "dry_mode": dm, "questions": len(qs),
             "gen_type": gen_type,
-            "blank_count": stats.get("blank_count", 0),
-            "blank_numbers": stats.get("blank_numbers", []),
-            "blank_detail": stats.get("blank_detail", []),
+            "audio_count": stats.get("audio_count", stats.get("blank_count", 0)),
+            "audio_numbers": stats.get("audio_numbers", stats.get("blank_numbers", [])),
+            "audio_detail": stats.get("audio_detail", stats.get("blank_detail", [])),
+            "blank_count": stats.get("blank_count", stats.get("audio_count", 0)),
+            "blank_numbers": stats.get("blank_numbers", stats.get("audio_numbers", [])),
+            "blank_detail": stats.get("blank_detail", stats.get("audio_detail", [])),
             "script_expanded": stats.get("script_expanded", 0),
             "audio_fallback_clips": stats.get("audio_fallback_clips", 0),
             "picture_count": stats.get("picture_count", 0),
@@ -3505,6 +3709,16 @@ def main():
     stats["audio_total"] = sum(1 for q in qs if q.get("section") == "listening")
     stats["stage_times"]["audio"] = stage_secs()
 
+    # 4b. Option audios (2x2 audio players for audio questions)
+    print("[option_audios] generating option audios for audio questions...")
+    try:
+        oa_ok = run_option_audios(mock, qs, ids, headers)
+        stats["option_audios_ok"] = oa_ok
+    except Exception as e:
+        print(f"[option_audios] failed: {str(e)[:150]}")
+        stats["option_audios_ok"] = 0
+    stats["stage_times"]["option_audios"] = stage_secs()
+
     # 5. Images
     pdf_images_map = {}
     paper_photos_map = {}
@@ -3551,9 +3765,12 @@ def main():
         "mock": mock, "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "questions": stats["audio_total"] + sum(1 for q in qs if q.get("section") == "reading"),
         "gen_type": gen_type,
-        "blank_count": stats.get("blank_count", 0),
-        "blank_numbers": stats.get("blank_numbers", []),
-        "blank_detail": stats.get("blank_detail", []),
+        "audio_count": stats.get("audio_count", stats.get("blank_count", 0)),
+        "audio_numbers": stats.get("audio_numbers", stats.get("blank_numbers", [])),
+        "audio_detail": stats.get("audio_detail", stats.get("blank_detail", [])),
+        "blank_count": stats.get("blank_count", stats.get("audio_count", 0)),
+        "blank_numbers": stats.get("blank_numbers", stats.get("audio_numbers", [])),
+        "blank_detail": stats.get("blank_detail", stats.get("audio_detail", [])),
         "script_expanded": stats.get("script_expanded", 0),
         "audio_fallback_clips": stats.get("audio_fallback_clips", 0),
         "picture_count": stats.get("picture_count", 0),

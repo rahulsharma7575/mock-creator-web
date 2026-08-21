@@ -571,27 +571,28 @@ th.sortable:hover{color:var(--amber2)}
                             </div>
                           </div>
                           <div class="audio-card" style="margin-top:1rem">
-                            <div class="audio-card-h"><span v-html="ic('database',14)"></span>Blank question pool</div>
+                            <div class="audio-card-h"><span v-html="ic('headphone',14)"></span>Audio question pool — 2×2 option audios</div>
                             <div class="audio-card-b">
                               <div class="flex items-center gap-2 flex-wrap mb-2">
-                                <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" :style="blankPool.active?'background:rgba(47,125,79,.12);color:var(--green)':'background:var(--panel2);color:var(--mut)'">
-                                  {{ blankPool.active ? 'Uploaded pool · ' + blankPool.count + ' questions' : 'Using the system bundled pool' }}
+                                <span class="f-mono text-[11px] px-2.5 py-1 rounded-lg" :style="(audioPool.active||blankPool.active)?'background:rgba(47,125,79,.12);color:var(--green)':'background:var(--panel2);color:var(--mut)'">
+                                  {{ (audioPool.active||blankPool.active) ? 'Uploaded pool · ' + (audioPool.count||blankPool.count) + ' questions' : 'Using the system bundled pool' }}
                                 </span>
-                                <span v-if="blankPool.file" class="f-mono text-[10px]" style="color:var(--mut)">{{ blankPool.file }} · {{ blankPool.updated }}</span>
+                                <span v-if="audioPool.file||blankPool.file" class="f-mono text-[10px]" style="color:var(--mut)">{{ audioPool.file||blankPool.file }} · {{ audioPool.updated||blankPool.updated }}</span>
                               </div>
-                              <div v-if="blankPool.note" class="text-[11px] mb-2 flex items-center gap-1.5" style="color:var(--amber2)"><span v-html="ic('alertTriangle',12)"></span>{{ blankPool.note }}</div>
-                              <div v-if="blankPool.verify && blankPool.verify.checking" class="text-[11px] mb-2" style="color:var(--mut)">Checking JSON…</div>
-                              <div v-else-if="blankPool.verify && blankPool.verify.ok" class="text-[11px] mb-2" style="color:var(--green)">JSON valid — {{ blankPool.verify.count }} questions ready to upload.</div>
-                              <div v-else-if="blankPool.verify && blankPool.verify.error" class="text-[11px] mb-2" style="color:var(--red)">{{ blankPool.verify.error }}</div>
-                              <div v-else-if="blankPool.verify && blankPool.verify.count" class="text-[11px] mb-2" style="color:var(--red)">JSON invalid — {{ blankPool.verify.totalBad }} problem(s): {{ blankPool.verify.errors.join(' · ') }}</div>
-                              <div v-if="blankPool.fileName" class="text-[11px] mb-2" style="color:var(--ink)">Picked: {{ blankPool.fileName }}</div>
+                              <div v-if="audioPool.note||blankPool.note" class="text-[11px] mb-2 flex items-center gap-1.5" style="color:var(--amber2)"><span v-html="ic('alertTriangle',12)"></span>{{ audioPool.note||blankPool.note }}</div>
+                              <div v-if="(audioPool.verify||blankPool.verify) && (audioPool.verify||blankPool.verify).checking" class="text-[11px] mb-2" style="color:var(--mut)">Checking JSON…</div>
+                              <div v-else-if="(audioPool.verify||blankPool.verify) && (audioPool.verify||blankPool.verify).ok" class="text-[11px] mb-2" style="color:var(--green)">JSON valid — {{ (audioPool.verify||blankPool.verify).count }} questions ready to upload. Each will get 4 option audios (2×2 players).</div>
+                              <div v-else-if="(audioPool.verify||blankPool.verify) && (audioPool.verify||blankPool.verify).error" class="text-[11px] mb-2" style="color:var(--red)">{{ (audioPool.verify||blankPool.verify).error }}</div>
+                              <div v-else-if="(audioPool.verify||blankPool.verify) && (audioPool.verify||blankPool.verify).count" class="text-[11px] mb-2" style="color:var(--red)">JSON invalid — {{ (audioPool.verify||blankPool.verify).totalBad }} problem(s): {{ (audioPool.verify||blankPool.verify).errors.join(' · ') }}</div>
+                              <div v-if="audioPool.fileName||blankPool.fileName" class="text-[11px] mb-2" style="color:var(--ink)">Picked: {{ audioPool.fileName||blankPool.fileName }}</div>
                               <div class="flex gap-2 items-center flex-wrap">
-                                <button type="button" class="btn btn-ghost btn-sm" :disabled="blankPool.busy" @click="$refs.blankPoolInput.click()"><span v-html="ic('upload',13)"></span>Choose blank_questions.json…</button>
-                                <button type="button" class="btn btn-amber btn-sm" :disabled="blankPool.busy || !blankPool._file || !(blankPool.verify && blankPool.verify.ok)" @click="uploadBlankPool">Save to pool</button>
-                                <button type="button" class="btn btn-ghost btn-sm" v-if="blankPool.id" :disabled="blankPool.busy" @click="resetBlankPool"><span v-html="ic('x',13)"></span>Reset to bundled</button>
+                                <button type="button" class="btn btn-ghost btn-sm" :disabled="(audioPool.busy||blankPool.busy)" @click="$refs.audioPoolInput.click()"><span v-html="ic('upload',13)"></span>Choose audio_questions.json…</button>
+                                <button type="button" class="btn btn-amber btn-sm" :disabled="(audioPool.busy||blankPool.busy) || !((audioPool._file||blankPool._file)) || !((audioPool.verify||blankPool.verify) && (audioPool.verify||blankPool.verify).ok)" @click="uploadAudioPool">Save to pool</button>
+                                <button type="button" class="btn btn-ghost btn-sm" v-if="audioPool.id||blankPool.id" :disabled="audioPool.busy||blankPool.busy" @click="resetAudioPool"><span v-html="ic('x',13)"></span>Reset to bundled</button>
+                                <input ref="audioPoolInput" type="file" accept=".json,.json.gz,.gz,application/json,application/gzip" class="hidden" @change="onAudioPoolPick">
                                 <input ref="blankPoolInput" type="file" accept=".json,.json.gz,.gz,application/json,application/gzip" class="hidden" @change="onBlankPoolPick">
                               </div>
-                              <div class="text-[10px] mt-2 leading-relaxed" style="color:var(--mut)">Format: [{"man": "질문", "woman": {"1": "…", "2": "…", "3": "…", "4": "…"}, "answer": 2}, …]. Upload as .json or compressed .json.gz (server upload cap is 5 MB, so compress large pools — 100k questions fits easily). The file is verified again by the worker before runs; if no pool is uploaded the system falls back to its bundled file, then to author-generated blanks.</div>
+                              <div class="text-[10px] mt-2 leading-relaxed" style="color:var(--mut)">Format: [{"man": "질문", "woman": {"1": "…", "2": "…", "3": "…", "4": "…"}, "answer": 2}, …]. Upload as .json or compressed .json.gz (server upload cap is 5 MB — compress large pools). The file is verified by the worker before runs; if no pool is uploaded the system falls back to its bundled audio pool (250 questions), then to author-generated audio questions. Each audio question renders with 4 separate option audios in a 2×2 player grid (field <b>option_audios</b>).</div>
                             </div>
                           </div>
                           <datalist id="ttsModelList"><option v-for="o in ttsOptions" :key="o" :value="o">{{ o }}</option></datalist>
@@ -1155,6 +1156,6 @@ th.sortable:hover{color:var(--amber2)}
 <script src="lib/vue.global.prod.js"></script>
 <script src="lib/anime.min.js"></script>
 <script src="lib/icons.js?v=35"></script>
-<script src="app.min.js?v=36"></script>
+<script src="app.min.js?v=37"></script>
 </body>
 </html>

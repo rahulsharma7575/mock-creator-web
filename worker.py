@@ -107,12 +107,15 @@ CONFIG_MAP = {
     "tts_female_speed": "tts_female_speed",
     "tts_fallback_male_speed": "tts_fallback_male_speed",
     "tts_fallback_female_speed": "tts_fallback_female_speed",
-    "listening_blank_count": "listening_blank_count",
+    "listening_audio_count": "listening_audio_count",
+    "listening_blank_count": "listening_audio_count",
     "listening_picture_count": "listening_picture_count",
     "listening_picture_min": "listening_picture_min",
     "listening_picture_max": "listening_picture_max",
-    "listening_blank_min": "listening_blank_min",
-    "listening_blank_max": "listening_blank_max",
+    "listening_blank_min": "listening_audio_count",
+    "listening_blank_max": "listening_audio_count",
+    "listening_audio_min": "listening_audio_count",
+    "listening_audio_max": "listening_audio_count",
     "reading_image_count": "reading_image_count",
     "gemini_vision_scan": "gemini_vision_scan",
     "image_style_prompt": "image_style_prompt",
@@ -184,15 +187,15 @@ def download_file(path, dest):
 
 
 # ---------------------------------------------------------------------------
-# Blank question pool: the admin can upload blank_questions.json in the /creator
-# GUI (blank_pool record). The worker downloads + verifies it once (cached by
+# Audio question pool: the admin can upload audio_questions.json in the /creator
+# GUI (audio_pool record). The worker downloads + verifies it once (cached by
 # the record's updated timestamp) and exposes it to the pipeline via the
-# MOCK_BLANK_POOL env var. No uploaded pool -> the pipeline uses its bundled
-# file, then falls back to author-generated blanks.
+# MOCK_AUDIO_POOL env var (MOCK_BLANK_POOL kept as deprecated alias). No uploaded
+# pool -> the pipeline uses its bundled file, then falls back to author-generated audio.
 # ---------------------------------------------------------------------------
 
-POOL_CACHE = WORK_ROOT / "blank_pool.json"
-POOL_META = WORK_ROOT / "blank_pool_meta.json"
+POOL_CACHE = WORK_ROOT / "audio_pool.json"
+POOL_META = WORK_ROOT / "audio_pool_meta.json"
 
 
 def validate_blank_pool(data):
@@ -233,11 +236,20 @@ def _pool_stale():
         pass
 
 
-def sync_blank_pool():
-    """Download + verify the uploaded blank pool (cached by record updated).
-    Returns the verified local path, or None (use the bundled file)."""
+def validate_audio_pool(data):
+    return validate_blank_pool(data)
+
+def sync_audio_pool():
+    """Download + verify the uploaded audio pool (cached by record updated).
+    Returns the verified local path, or None (use the bundled file).
+    Falls back to blank_pool collection during migration."""
     try:
-        recs = (api("GET", "/api/collections/blank_pool/records?perPage=1&sort=-updated") or {}).get("items") or []
+        recs = (api("GET", "/api/collections/audio_pool/records?perPage=1&sort=-updated") or {}).get("items") or []
+        if not recs:
+            try:
+                recs = (api("GET", "/api/collections/blank_pool/records?perPage=1&sort=-updated") or {}).get("items") or []
+            except Exception:
+                recs = []
         if not recs:
             _pool_stale()
             return None
@@ -251,8 +263,22 @@ def sync_blank_pool():
         meta = _pool_meta()
         if meta.get("updated") == rec_updated and POOL_CACHE.exists():
             return POOL_CACHE
+        # detect source collection (audio_pool preferred)
+        src_col = "audio_pool"
+        if rec.get("collectionName") == "blank_pool" or rec.get("collectionId") == "c_blank_pool":
+            src_col = "blank_pool"
+        # fallback detection via trying audio_pool fetch fail already handled, so remaining rec is audio
+        # but if we fell back via second GET, rec belongs to blank_pool
+        # heuristic: if we fetched blank_pool second, src_col is blank_pool when audio had 0 recs
+        try:
+            # re-check: if audio had items we would have src audio; if blank fallback triggered, mark blank
+            chk_audio = (api("GET", "/api/collections/audio_pool/records?perPage=1&sort=-updated") or {}).get("items") or []
+            if not chk_audio:
+                src_col = "blank_pool"
+        except Exception:
+            pass
         from urllib.parse import quote
-        size = download_file(f"/api/files/blank_pool/{rid}/{quote(fname)}", POOL_CACHE)
+        size = download_file(f"/api/files/{src_col}/{rid}/{quote(fname)}", POOL_CACHE)
         try:
             raw = POOL_CACHE.read_bytes()
             if raw[:2] == b"\x1f\x8b":  # gzip upload (PB 0.39 hard-caps uploads at 5MB)
@@ -266,11 +292,20 @@ def sync_blank_pool():
         if ok:
             POOL_META.write_text(json.dumps({"updated": rec_updated, "count": count}), encoding="utf-8")
             try:
-                api("PATCH", f"/api/collections/blank_pool/records/{rid}",
+                api("PATCH", f"/api/collections/{src_col}/records/{rid}",
                     {"count": count, "active": True, "note": ""})
             except Exception:
                 pass
-            log(f"[pool] uploaded blank pool verified: {count} questions ({size:,} bytes)")
+            # keep both collections in sync for migration
+            try:
+                if src_col == "blank_pool":
+                    # also mirror to audio_pool if empty
+                    ac = (api("GET", "/api/collections/audio_pool/records?perPage=1&sort=-updated") or {}).get("items") or []
+                    if not ac:
+                        api("POST", "/api/collections/audio_pool/records", {"count": count, "active": True, "note": "migrated from blank_pool"})
+            except Exception:
+                pass
+            log(f"[pool] uploaded audio pool verified: {count} questions ({size:,} bytes) [{src_col}]")
             return POOL_CACHE
         _pool_stale()
         try:
@@ -278,15 +313,18 @@ def sync_blank_pool():
         except Exception:
             pass
         try:
-            api("PATCH", f"/api/collections/blank_pool/records/{rid}",
+            api("PATCH", f"/api/collections/{src_col}/records/{rid}",
                 {"active": False, "note": "invalid pool: " + " | ".join(errs[:3])[:300]})
         except Exception:
             pass
-        log(f"[pool] WARNING: uploaded blank pool is invalid ({errs[0] if errs else '?'}) - using bundled")
+        log(f"[pool] WARNING: uploaded audio pool is invalid ({errs[0] if errs else '?'}) - using bundled")
         return None
     except Exception as e:
-        log(f"[pool] WARNING: could not sync uploaded blank pool ({e}) - using bundled")
+        log(f"[pool] WARNING: could not sync uploaded audio pool ({e}) - using bundled")
         return None
+
+def sync_blank_pool():
+    return sync_audio_pool()
 
 
 def get_jobs(status):
@@ -579,10 +617,10 @@ def run_job(job):
     workdir.mkdir(parents=True, exist_ok=True)
     (workdir / "mocks").mkdir(parents=True, exist_ok=True)
 
-    # blank pool: refresh the uploaded pool cache (cheap when unchanged)
+    # audio pool: refresh the uploaded pool cache (cheap when unchanged)
     pool_path = None
     if kind != "pdf_test":
-        pool_path = sync_blank_pool()
+        pool_path = sync_audio_pool()
 
     # PDF generation modes need the uploaded document on disk before the pipeline starts
     log_tail = ""
@@ -683,6 +721,7 @@ def run_job(job):
     env["MOCK_ROOT"] = str(workdir / "mocks")
     env["MOCK_CONFIG"] = str(cfgfile)
     if pool_path:
+        env["MOCK_AUDIO_POOL"] = str(pool_path)
         env["MOCK_BLANK_POOL"] = str(pool_path)
     cmd = [sys.executable, str(MOCK_NEXT), "--config", str(cfgfile)]
     if kind.startswith("dry_"):
