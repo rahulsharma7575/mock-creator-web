@@ -131,7 +131,6 @@ SCHEMA = [
         f("tts_fallback_male_speed", "number", min=0, max=2.0),
         f("tts_fallback_female_speed", "number", min=0, max=2.0),
         f("listening_audio_count", "number", min=0, max=10),
-        f("listening_blank_count", "number", min=0, max=10),
         f("audio_workers", "number", min=1, max=16),
         f("prompts_json", "json", maxSize=2097152),
         f("active", "bool"),
@@ -288,8 +287,7 @@ DEFAULT_CONFIG = {
     "tts_female_speed": 0.0,
     "tts_fallback_male_speed": 0.0,
     "tts_fallback_female_speed": 0.0,
-    "listening_audio_count": 5,          # resolved by the pipeline (AUDIO_BAND 5-7, pre-made pool)
-    "listening_blank_count": 5,          # deprecated alias for listening_audio_count (kept for migration)
+    "listening_audio_count": 5,          # resolved by the pipeline (AUDIO_BAND 5-8, pre-made pool)
     "listening_picture_count": 5,
     "listening_picture_min": 5,
     "listening_picture_max": 8,
@@ -622,7 +620,7 @@ function ensureCollections() {
     }
   } catch (errB) {}
   try {
-    // audio pool rename: migrate any existing blank_pool record + migrate mock_config field value
+    // full removal: migrate blank_pool -> audio_pool once, then delete blank_pool collection
     var oldPoolCol = null; try { oldPoolCol = $app.findCollectionByNameOrId("blank_pool") } catch(errOP) {}
     if (oldPoolCol) {
       var audioCol = null; try { audioCol = $app.findCollectionByNameOrId("audio_pool") } catch(errA) {}
@@ -635,23 +633,21 @@ function ensureCollections() {
             nr.set("count", r.getInt("count")); nr.set("active", r.getBool("active")); nr.set("note", r.getString("note"))
             $app.save(nr); $app.logger().info("migrated blank_pool record to audio_pool")
           }
-        }} catch(errMigPool) { try { $app.logger().info("audio_pool migrate failed: " + String(errMigPool)) } catch(e){} }
+        }} catch(errMigPool) {}
+        // remove old blank_pool records then collection is left empty; delete via DAO if possible
+        try { var delRecs = $app.findRecordsByFilter("blank_pool", "", "", 200, 0); for(var di=0; di<delRecs.length; di++) $app.delete(delRecs[di]); } catch(errDelRecs){}
       }
-    }
-    // listening count field value migrate: blank -> audio
-    try {
-      var cfgColM = $app.findCollectionByNameOrId("mock_config")
-      var hasAudio = false; try { hasAudio = !!cfgColM.fields.getByName("listening_audio_count") } catch(e) { hasAudio=false }
-      var hasBlank = false; try { hasBlank = !!cfgColM.fields.getByName("listening_blank_count") } catch(e) { hasBlank=false }
-      if (hasAudio && hasBlank) {
-        var cfgs = $app.findRecordsByFilter("mock_config", "", "", 200, 0)
-        for (var cci=0; cci<cfgs.length; cci++) {
-          var cv = cfgs[cci].getInt("listening_audio_count")
-          var bv = cfgs[cci].getInt("listening_blank_count")
-          if ((!cv || cv===0) && bv) { cfgs[cci].set("listening_audio_count", bv); $app.save(cfgs[cci]) }
+      // remove listening_blank_count field from mock_config if exists
+      try {
+        var cfgColR = $app.findCollectionByNameOrId("mock_config")
+        var hasBlankF = false; try { hasBlankF = !!cfgColR.fields.getByName("listening_blank_count") } catch(e) {}
+        if (hasBlankF) {
+          // PocketBase 0.39: remove field via collection fields array
+          for(var fi=cfgColR.fields.length-1; fi>=0; fi--) { if(cfgColR.fields[fi].name==="listening_blank_count") cfgColR.fields.remove(fi) }
+          $app.save(cfgColR); $app.logger().info("removed deprecated listening_blank_count field")
         }
-      }
-    } catch(errMigField) {}
+      } catch(errBlkField){}
+    }
   } catch(errMigAll) {}
 """,
     "".join(
@@ -1074,7 +1070,7 @@ try {
 )
 
 # GET /api/creator/audio-pool-status - superuser only - uploaded audio-question
-# pool status (file, verified count, worker note). Also keeps blank-pool-status as deprecated alias.
+# pool status (file, verified count, worker note).
 route(
     "audio-pool-status", "GET", "/api/creator/audio-pool-status", "$apis.requireSuperuserAuth()",
     """
@@ -1085,8 +1081,6 @@ try {
     var list = $app.findRecordsByFilter("audio_pool", "", "-updated", 1, 0)
     if (list && list.length > 0) rec = list[0]
   } catch (err) {}
-  // fallback: old blank_pool if audio_pool empty (migration period)
-  if (!rec) { try { var list2 = $app.findRecordsByFilter("blank_pool", "", "-updated", 1, 0); if (list2 && list2.length) rec = list2[0] } catch(err2){} }
   if (!rec) return e.json(200, { ok: true, id: "", active: false, count: 0, file: "", updated: "", note: "" })
   var fname = ""
   try { fname = rec.getString("file") || "" } catch (errF) {}
@@ -1108,7 +1102,6 @@ try {
     var list = $app.findRecordsByFilter("audio_pool", "", "-updated", 1, 0)
     if (list && list.length > 0) rec = list[0]
   } catch (err) {}
-  if (!rec) { try { var list2 = $app.findRecordsByFilter("blank_pool", "", "-updated", 1, 0); if (list2 && list2.length) rec = list2[0] } catch(err2){} }
   if (!rec) return e.json(200, { ok: true, id: "", active: false, count: 0, file: "", updated: "", note: "" })
   var fname = ""
   try { fname = rec.getString("file") || "" } catch (errF) {}

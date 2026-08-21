@@ -108,14 +108,9 @@ CONFIG_MAP = {
     "tts_fallback_male_speed": "tts_fallback_male_speed",
     "tts_fallback_female_speed": "tts_fallback_female_speed",
     "listening_audio_count": "listening_audio_count",
-    "listening_blank_count": "listening_audio_count",
     "listening_picture_count": "listening_picture_count",
     "listening_picture_min": "listening_picture_min",
     "listening_picture_max": "listening_picture_max",
-    "listening_blank_min": "listening_audio_count",
-    "listening_blank_max": "listening_audio_count",
-    "listening_audio_min": "listening_audio_count",
-    "listening_audio_max": "listening_audio_count",
     "reading_image_count": "reading_image_count",
     "gemini_vision_scan": "gemini_vision_scan",
     "image_style_prompt": "image_style_prompt",
@@ -241,15 +236,9 @@ def validate_audio_pool(data):
 
 def sync_audio_pool():
     """Download + verify the uploaded audio pool (cached by record updated).
-    Returns the verified local path, or None (use the bundled file).
-    Falls back to blank_pool collection during migration."""
+    Returns the verified local path, or None (use the bundled file)."""
     try:
         recs = (api("GET", "/api/collections/audio_pool/records?perPage=1&sort=-updated") or {}).get("items") or []
-        if not recs:
-            try:
-                recs = (api("GET", "/api/collections/blank_pool/records?perPage=1&sort=-updated") or {}).get("items") or []
-            except Exception:
-                recs = []
         if not recs:
             _pool_stale()
             return None
@@ -263,49 +252,26 @@ def sync_audio_pool():
         meta = _pool_meta()
         if meta.get("updated") == rec_updated and POOL_CACHE.exists():
             return POOL_CACHE
-        # detect source collection (audio_pool preferred)
-        src_col = "audio_pool"
-        if rec.get("collectionName") == "blank_pool" or rec.get("collectionId") == "c_blank_pool":
-            src_col = "blank_pool"
-        # fallback detection via trying audio_pool fetch fail already handled, so remaining rec is audio
-        # but if we fell back via second GET, rec belongs to blank_pool
-        # heuristic: if we fetched blank_pool second, src_col is blank_pool when audio had 0 recs
-        try:
-            # re-check: if audio had items we would have src audio; if blank fallback triggered, mark blank
-            chk_audio = (api("GET", "/api/collections/audio_pool/records?perPage=1&sort=-updated") or {}).get("items") or []
-            if not chk_audio:
-                src_col = "blank_pool"
-        except Exception:
-            pass
         from urllib.parse import quote
-        size = download_file(f"/api/files/{src_col}/{rid}/{quote(fname)}", POOL_CACHE)
+        size = download_file(f"/api/files/audio_pool/{rid}/{quote(fname)}", POOL_CACHE)
         try:
             raw = POOL_CACHE.read_bytes()
-            if raw[:2] == b"\x1f\x8b":  # gzip upload (PB 0.39 hard-caps uploads at 5MB)
+            if raw[:2] == b"\x1f\x8b":
                 import gzip
                 raw = gzip.decompress(raw)
                 POOL_CACHE.write_bytes(raw)
             data = json.loads(raw.decode("utf-8"))
-            ok, count, errs = validate_blank_pool(data)
+            ok, count, errs = validate_audio_pool(data)
         except Exception as e:
             ok, count, errs = False, 0, [f"JSON parse failed: {e}"]
         if ok:
             POOL_META.write_text(json.dumps({"updated": rec_updated, "count": count}), encoding="utf-8")
             try:
-                api("PATCH", f"/api/collections/{src_col}/records/{rid}",
+                api("PATCH", f"/api/collections/audio_pool/records/{rid}",
                     {"count": count, "active": True, "note": ""})
             except Exception:
                 pass
-            # keep both collections in sync for migration
-            try:
-                if src_col == "blank_pool":
-                    # also mirror to audio_pool if empty
-                    ac = (api("GET", "/api/collections/audio_pool/records?perPage=1&sort=-updated") or {}).get("items") or []
-                    if not ac:
-                        api("POST", "/api/collections/audio_pool/records", {"count": count, "active": True, "note": "migrated from blank_pool"})
-            except Exception:
-                pass
-            log(f"[pool] uploaded audio pool verified: {count} questions ({size:,} bytes) [{src_col}]")
+            log(f"[pool] uploaded audio pool verified: {count} questions ({size:,} bytes)")
             return POOL_CACHE
         _pool_stale()
         try:
@@ -313,7 +279,7 @@ def sync_audio_pool():
         except Exception:
             pass
         try:
-            api("PATCH", f"/api/collections/{src_col}/records/{rid}",
+            api("PATCH", f"/api/collections/audio_pool/records/{rid}",
                 {"active": False, "note": "invalid pool: " + " | ".join(errs[:3])[:300]})
         except Exception:
             pass
@@ -322,9 +288,6 @@ def sync_audio_pool():
     except Exception as e:
         log(f"[pool] WARNING: could not sync uploaded audio pool ({e}) - using bundled")
         return None
-
-def sync_blank_pool():
-    return sync_audio_pool()
 
 
 def get_jobs(status):

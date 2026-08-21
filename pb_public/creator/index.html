@@ -585,14 +585,26 @@ th.sortable:hover{color:var(--amber2)}
                               <div v-else-if="(audioPool.verify||blankPool.verify) && (audioPool.verify||blankPool.verify).error" class="text-[11px] mb-2" style="color:var(--red)">{{ (audioPool.verify||blankPool.verify).error }}</div>
                               <div v-else-if="(audioPool.verify||blankPool.verify) && (audioPool.verify||blankPool.verify).count" class="text-[11px] mb-2" style="color:var(--red)">JSON invalid — {{ (audioPool.verify||blankPool.verify).totalBad }} problem(s): {{ (audioPool.verify||blankPool.verify).errors.join(' · ') }}</div>
                               <div v-if="audioPool.fileName||blankPool.fileName" class="text-[11px] mb-2" style="color:var(--ink)">Picked: {{ audioPool.fileName||blankPool.fileName }}</div>
-                              <div class="flex gap-2 items-center flex-wrap">
-                                <button type="button" class="btn btn-ghost btn-sm" :disabled="(audioPool.busy||blankPool.busy)" @click="$refs.audioPoolInput.click()"><span v-html="ic('upload',13)"></span>Choose audio_questions.json…</button>
+                              <div class="pdf-drop" :class="{drag:audioPool.drag}" @dragover.prevent="audioPool.drag=true" @dragleave="audioPool.drag=false" @drop.prevent="onAudioPoolDrop" @click="$refs.audioPoolInput.click()" style="cursor:pointer;padding:18px 14px">
+                                <div class="pdf-drop-ico" v-html="ic('upload',22)"></div>
+                                <div class="pdf-drop-t">Drop audio_questions.json or .json.gz here or <span class="pdf-browse">browse</span></div>
+                                <div class="pdf-drop-s">Single preset: 5-8 questions per exam, 1 voice asks (man) + 2nd voice reads 4 options → 2×2 option_audios. Verified before runs.</div>
+                              </div>
+                              <div class="flex gap-2 items-center flex-wrap mt-3">
+                                <button type="button" class="btn btn-ghost btn-sm" :disabled="(audioPool.busy||blankPool.busy)" @click="$refs.audioPoolInput.click()"><span v-html="ic('upload',13)"></span>Choose file…</button>
                                 <button type="button" class="btn btn-amber btn-sm" :disabled="(audioPool.busy||blankPool.busy) || !((audioPool._file||blankPool._file)) || !((audioPool.verify||blankPool.verify) && (audioPool.verify||blankPool.verify).ok)" @click="uploadAudioPool">Save to pool</button>
                                 <button type="button" class="btn btn-ghost btn-sm" v-if="audioPool.id||blankPool.id" :disabled="audioPool.busy||blankPool.busy" @click="resetAudioPool"><span v-html="ic('x',13)"></span>Reset to bundled</button>
                                 <input ref="audioPoolInput" type="file" accept=".json,.json.gz,.gz,application/json,application/gzip" class="hidden" @change="onAudioPoolPick">
                                 <input ref="blankPoolInput" type="file" accept=".json,.json.gz,.gz,application/json,application/gzip" class="hidden" @change="onBlankPoolPick">
                               </div>
-                              <div class="text-[10px] mt-2 leading-relaxed" style="color:var(--mut)">Format: [{"man": "질문", "woman": {"1": "…", "2": "…", "3": "…", "4": "…"}, "answer": 2}, …]. Upload as .json or compressed .json.gz (server upload cap is 5 MB — compress large pools). The file is verified by the worker before runs; if no pool is uploaded the system falls back to its bundled audio pool (250 questions), then to author-generated audio questions. Each audio question renders with 4 separate option audios in a 2×2 player grid (field <b>option_audios</b>).</div>
+                              <div v-if="(audioPool.preview||[]).length" class="mt-3 overflow-x-auto">
+                                <div class="text-[11px] font-bold mb-1" style="color:var(--mut)">Preview (first {{ audioPool.preview.length }} of {{ (audioPool.verify&&audioPool.verify.count)||0 }})</div>
+                                <table class="w-full text-xs" style="border-collapse:collapse">
+                                  <thead><tr style="color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.06em"><th class="text-left p-1">#</th><th class="text-left p-1">Question (man)</th><th class="text-left p-1">①</th><th class="text-left p-1">②</th><th class="text-left p-1">③</th><th class="text-left p-1">④</th><th class="text-left p-1">Ans</th></tr></thead>
+                                  <tbody><tr v-for="r in audioPool.preview" :key="r.idx" style="border-top:1px solid var(--line)"><td class="p-1 f-mono">{{r.idx}}</td><td class="p-1" style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" :title="r.man">{{r.man}}</td><td class="p-1" style="max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" :title="r.w1">{{r.w1}}</td><td class="p-1" style="max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" :title="r.w2">{{r.w2}}</td><td class="p-1" style="max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" :title="r.w3">{{r.w3}}</td><td class="p-1" style="max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" :title="r.w4">{{r.w4}}</td><td class="p-1 f-mono" style="color:var(--green)">{{r.ans}}</td></tr></tbody>
+                                </table>
+                              </div>
+                              <div class="text-[10px] mt-2 leading-relaxed" style="color:var(--mut)">Format: [{"man": "질문", "woman": {"1": "…", "2": "…", "3": "…", "4": "…"}, "answer": 2}, …]. Upload as .json or compressed .json.gz (cap 5 MB). Worker verifies before runs; fallback = bundled audio pool (250), then author-generated. Each audio question: main audio (asker V1/V2 random) + 4× option_audios (reader opposite) in 2×2 grid.</div>
                             </div>
                           </div>
                           <datalist id="ttsModelList"><option v-for="o in ttsOptions" :key="o" :value="o">{{ o }}</option></datalist>
@@ -1156,6 +1168,6 @@ th.sortable:hover{color:var(--amber2)}
 <script src="lib/vue.global.prod.js"></script>
 <script src="lib/anime.min.js"></script>
 <script src="lib/icons.js?v=35"></script>
-<script src="app.min.js?v=37"></script>
+<script src="app.min.js?v=38"></script>
 </body>
 </html>
