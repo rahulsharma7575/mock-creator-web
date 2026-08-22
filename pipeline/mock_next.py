@@ -721,6 +721,73 @@ def slug_cfg(slug, choices):
     return {"key": "x", "name": slug, "slug": slug, "extra": {}, "default": False}
 
 
+def _extract_json_block(s):
+    """Recover the first balanced JSON value from LLM output (fence/prose safe)."""
+    m = re.search(r"```(?:json)?[ \t]*\r?\n?([\s\S]*?)```", s or "")
+    if m:
+        s = m.group(1).strip()
+    else:
+        s = (s or "").strip()
+    start = -1
+    for i, ch in enumerate(s):
+        if ch in "[{":
+            start = i
+            break
+    if start < 0:
+        return s
+    opener = s[start]
+    closer = "]" if opener == "[" else "}"
+    depth = 0
+    in_str = False
+    esc = False
+    for i in range(start, len(s)):
+        ch = s[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == opener:
+            depth += 1
+        elif ch == closer:
+            depth -= 1
+            if depth == 0:
+                return s[start:i + 1]
+    return s[start:]
+
+
+def _repair_json(s):
+    """Lenient repair for common LLM JSON mistakes (unquoted/single-quoted keys,
+    single-quoted string values, trailing commas)."""
+    s = re.sub(r"([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*:)", r'\1"\2"\3', s)
+    s = re.sub(r"([{,]\s*)'([^']+)'(\s*:)", r'\1"\2"\3', s)
+    s = re.sub(r":\s*'([^']*)'([,}\]])", r': "\1"\2', s)
+    s = re.sub(r",\s*([\]}])", r"\1", s)
+    return s
+
+
+def parse_json_lenient(content):
+    """json.loads with a robust ladder: direct -> balanced block -> repair."""
+    try:
+        return json.loads(content, strict=False)
+    except json.JSONDecodeError as first:
+        block = _extract_json_block(content)
+        if block != (content or "").strip():
+            try:
+                return json.loads(block, strict=False)
+            except json.JSONDecodeError:
+                pass
+        try:
+            return json.loads(_repair_json(block), strict=False)
+        except json.JSONDecodeError:
+            raise first
+
+
 def chat_json(key, model, system, user, max_tokens=32000, temperature=0.7, extra=None):
     payload = {
         "model": model,
@@ -737,8 +804,7 @@ def chat_json(key, model, system, user, max_tokens=32000, temperature=0.7, extra
     if "choices" not in j:
         raise RuntimeError(f"LLM HTTP {r.status_code}: {json.dumps(j, ensure_ascii=False)[:300]}")
     content = j["choices"][0]["message"].get("content") or ""
-    content = re.sub(r"^```(?:json)?|```$", "", content.strip()).strip()
-    return json.loads(content, strict=False), j.get("usage", {})
+    return parse_json_lenient(content), j.get("usage", {})
 
 
 AUTHOR_SYSTEM = """You are a senior EPS-TOPIK UBT exam writer and psychometric expert. Output ONLY valid JSON."""
@@ -1583,6 +1649,17 @@ def image_bounds():
     return lo, hi
 
 
+def _is_instruction_only_text(qt):
+    """True when the stem is JUST a generic TOPIK instruction with no
+    question-specific content (e.g. "다음 그림을 보고 알맞은 단어를 고르십시오.").
+
+    Real papers repeat these verbatim across questions of the SAME TYPE (image /
+    audio / listening); the substance is the picture + audio + options, so
+    identical stems are NOT duplicates (Q2 dup Q1, Q13 dup Q1 etc. in paper mode)."""
+    s = re.sub(r"^Q\d+\.\s*", "", (qt or "").strip())
+    return "\n" not in s and len(s) <= 60
+
+
 def validate_exam(qs, stage="final"):
     """stage='author' = structure only (repair pass fixes the rest); 'final' = everything.
 
@@ -1609,10 +1686,10 @@ def validate_exam(qs, stage="final"):
             errs.append(f"Q{n}: bad question_text")
         elif re.search(r"<(?!/*보기>)[a-zA-Z/]", qt):
             errs.append(f"Q{n}: unexpected html-like tag in question_text")
-        elif q.get("section") == "listening":
-            # LISTENING: the instruction stem is intentionally identical across
-            # questions ("다음을 듣고 알맞은 것을 고르십시오."); the real content is
-            # the audio + options/images. Do NOT flag shared stems as duplicates.
+        elif q.get("section") == "listening" or _is_instruction_only_text(qt):
+            # LISTENING / generic stems: the instruction is intentionally identical
+            # across questions ("다음을 듣고 ...", "그림을 보고 ..."); the real
+            # content is the audio/picture + options. Do NOT flag as duplicates.
             pass
         elif seen_texts.get(qt):
             errs.append(f"Q{n}: question_text duplicates Q{seen_texts[qt]}")
@@ -3462,7 +3539,7 @@ def main():
                 print(f"[author] gemini ({gmodel}) attempt {attempt + 1}...")
                 try:
                     raw, _usage = gemini_author(sys_prompt, user_prompt, gmodel, vision=vision_pages if vision_pages else None)
-                    gqs = json.loads(raw.strip(), strict=False)
+                    gqs = parse_json_lenient(raw)
                     if isinstance(gqs, dict):
                         for k in ("questions", "items", "results", "data", "exam"):
                             if isinstance(gqs.get(k), list):
