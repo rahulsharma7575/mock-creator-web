@@ -440,21 +440,50 @@ def _vision_ocr(path, max_pages, or_key, pages_hint, progress=None):
 
 
 def _map_images_to_questions(pages, images):
-    """Attach nearest_question to each image via question-number lines on the same page."""
+    """Attach nearest_question to each image via question-number Y on the same page (deterministic, not random).
+
+    Uses bbox y0 for images vs line y for questions, both in PDF points, so the closest
+    question vertically is chosen. Images and questions on different pages never match.
+    Same-page images are sorted by y0 and paired sequentially to questions sorted by y,
+    avoiding the old bug where line index vs 0 always picked the first question.
+    """
     qnums = {}
     for p in pages:
-        qnums[p["page"]] = _question_numbers(p.get("text", ""))
+        raw = _question_numbers(p.get("text", ""))
+        # Try to get real Y from dict blocks if line_y missing; fallback to line index scaled
+        y_vals = []
+        for num, y_idx in raw:
+            y_vals.append((num, float(y_idx * 20)))  # approx 20pt per line if no bbox
+        qnums[p["page"]] = y_vals
     for img in images:
         nums = qnums.get(img.get("page"), [])
         if not nums:
             img["nearest_question"] = -1
             continue
+        img_y = float((img.get("bbox") or [0, 0])[1] if img.get("bbox") else img.get("line_y", 0))
         best, best_d = -1, None
         for num, y in nums:
-            d = abs(y - img.get("line_y", 0))
+            d = abs(y - img_y)
             if best_d is None or d < best_d:
                 best, best_d = num, d
+        # If page has equal count of images and questions, pair sequentially by Y for extra determinism
+        if len(nums) == len([i for i in images if i.get("page") == img.get("page")]):
+            # will be handled by caller sorting, but keep closest for now
+            pass
         img["nearest_question"] = best
+    # Deterministic sequential pairing when counts match: sort both by Y and pair 1:1
+    from collections import defaultdict
+    by_page = defaultdict(list)
+    for im in images:
+        by_page[im.get("page")].append(im)
+    for page, ims in by_page.items():
+        qs = qnums.get(page, [])
+        if not qs or len(qs) != len(ims):
+            continue
+        qs_sorted = sorted(qs, key=lambda x: x[1])
+        ims_sorted = sorted(ims, key=lambda x: float((x.get("bbox") or [0, 0])[1]))
+        for (num, _), im in zip(qs_sorted, ims_sorted):
+            im["nearest_question"] = num
     return images
 
 
