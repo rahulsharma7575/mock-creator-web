@@ -5,9 +5,7 @@ pdf_parser.py — document parsing for mock_next.py PDF generation modes (gen_ty
 Parser chain (first success wins, quality-gated):
   1. PyMuPDF (local, free)     — used when the PDF has a usable Korean/English text layer
   2. Upstage Document Parse    — UPSTAGE_API_KEY (ocr=force, figures extracted as base64)
-  3. Vision-LLM OCR            — rendered page images read by a vision model on OpenRouter
-     (Mistral OCR is NOT hosted on OpenRouter - verified live 2026-08; this tier
-     replaces it and needs no extra keys)
+  3. Vision-LLM OCR            — OpenRouter file API with pdf.engine=mistral-ocr (single PDF file, ~2s/page, was per-page qwen 72b)
   4. PyMuPDF best-effort       — whatever text exists (warned)
 All fail → PdfParseError (the job fails with this clear message).
 
@@ -56,7 +54,7 @@ BOOK_SLICE_PAGES = 60
 MAX_PAGES = 120
 MAX_PDF_BYTES = 10 * 1024 * 1024
 UPSCALE_ENDPOINT = "https://fal.run/fal-ai/recraft/upscale/crisp"
-VISION_OCR_MODEL = "qwen/qwen2.5-vl-72b-instruct"  # vision OCR tier (Mistral OCR is not on OpenRouter)
+VISION_OCR_MODEL = "google/gemma-3-27b-it"  # fast/cheap transcription after mistral-ocr file parse (was qwen 72b per-page)
 
 
 class PdfParseError(RuntimeError):
@@ -380,63 +378,77 @@ def _upstage_figures(j):
 
 
 def _vision_ocr(path, max_pages, or_key, pages_hint, progress=None):
-    """Per-page OCR via a vision LLM on OpenRouter (rendered page PNGs, Korean+English).
+    """Single-request OCR via OpenRouter file API with mistral-ocr engine (much faster than per-page qwen).
 
-    Mistral OCR is not hosted on OpenRouter (verified 2026-08), so this tier reads the
-    rendered pages with a vision model — same role, no extra keys needed."""
-    model = VISION_OCR_MODEL
-    pages = []
-    total_pages = _page_count(path)
-    if max_pages and total_pages:
-        max_pages = min(max_pages, total_pages)
-    for pno in range(max_pages):
-        if progress:
-            progress("vision OCR parsing page %d/%d…" % (pno + 1, total_pages or max_pages))
-            stop_hb = _start_heartbeat(progress, "still parsing page %d" % (pno + 1))
-        else:
-            stop_hb = None
-        try:
-            png = _render_page_png(path, pno)
-        except Exception as e:
-            if stop_hb:
-                stop_hb.set()
-            if pno == 0:
-                raise PdfParseError("could not render pages for OCR: %s" % str(e)[:120])
-            break
-        data_uri = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
-        prompt = ("This is a scanned page of a Korean exam paper or textbook. "
+    Docs: https://openrouter.ai/docs/guides/overview/multimodal/pdfs
+    Sends the whole PDF as base64 file with plugins: {id:'file-parser', pdf:{engine:'mistral-ocr'}}
+    Falls back to per-page qwen if the file API fails.
+    """
+    if progress:
+        progress("vision OCR (mistral-ocr) parsing PDF via OpenRouter file API…")
+    stop_hb = _start_heartbeat(progress, "still parsing via Mistral OCR") if progress else None
+    try:
+        with open(path, "rb") as f:
+            pdf_bytes = f.read()
+        if len(pdf_bytes) > MAX_PDF_BYTES:
+            raise PdfParseError("PDF exceeds the 10 MB upload limit")
+        b64 = base64.b64encode(pdf_bytes).decode("ascii")
+        data_url = f"data:application/pdf;base64,{b64}"
+        prompt = ("This is a Korean exam paper or textbook PDF. "
                   "TRANSCRIBE the printed text exactly, as clean markdown. "
-                  "Preserve tables as markdown tables, keep Korean verbatim, include "
-                  "English terms when present. Output ONLY the transcription — no analysis, "
-                  "no description, no commentary, no character counting.")
+                  "Preserve tables as markdown tables, keep Korean verbatim, include English terms when present. "
+                  "Output ONLY the transcription — no analysis, no description.")
         payload = {
-            "model": model,
+            "model": VISION_OCR_MODEL,
             "messages": [{"role": "user", "content": [
                 {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": data_uri}},
+                {"type": "file", "file": {"filename": os.path.basename(path), "file_data": data_url}},
             ]}],
-            "max_tokens": 6000,
+            "plugins": [{"id": "file-parser", "pdf": {"engine": "mistral-ocr"}}],
+            "max_tokens": 12000,
             "temperature": 0.1,
         }
-        try:
-            r = httpx.post("https://openrouter.ai/api/v1/chat/completions",
-                           headers={"Authorization": "Bearer " + or_key,
-                                    "Content-Type": "application/json"},
-                           json=payload, timeout=240)
-        except Exception as e:
-            if stop_hb:
-                stop_hb.set()
-            raise PdfParseError("vision OCR request failed: %s" % str(e)[:120])
+        r = httpx.post("https://openrouter.ai/api/v1/chat/completions",
+                       headers={"Authorization": "Bearer " + or_key, "Content-Type": "application/json"},
+                       json=payload, timeout=300)
         if stop_hb:
             stop_hb.set()
+            stop_hb = None
         if r.status_code != 200:
-            raise PdfParseError("vision OCR HTTP %s: %s" % (r.status_code, r.text[:200]))
+            raise PdfParseError(f"vision OCR HTTP {r.status_code}: {r.text[:500]}")
         j = r.json()
         text = (j.get("choices") or [{}])[0].get("message", {}).get("content", "") or ""
-        pages.append({"page": pno + 1, "kind": "question", "text": text.strip()})
-    if not pages:
-        raise PdfParseError("vision OCR returned no pages")
-    return pages, []  # figure extraction not available on this path -> fresh generation
+        # Fallback: also check annotations if content empty
+        if not text.strip():
+            ann = (j.get("choices") or [{}])[0].get("message", {}).get("annotations") or []
+            for a in ann:
+                if a.get("type") == "file" and a.get("file", {}).get("content"):
+                    for part in a["file"]["content"]:
+                        if part.get("type") == "text" and part.get("text"):
+                            text += "\n\n" + part["text"]
+            text = text.strip()
+        if not text.strip():
+            raise PdfParseError("vision OCR returned empty text")
+        # Split into pseudo-pages for downstream page classification (approx 1 page per ~3000 chars)
+        # Keep as single page for now; _finalize will treat it as one question page
+        pages = [{"page": 1, "kind": "question", "text": text.strip()}]
+        if progress:
+            progress(f"Mistral OCR done — {len(text)} chars, 1 pseudo-page (single file request, ~$0.002/page)")
+        return pages, []
+    except PdfParseError:
+        if stop_hb:
+            stop_hb.set()
+        raise
+    except Exception as e:
+        if stop_hb:
+            stop_hb.set()
+        raise PdfParseError(f"vision OCR request failed: {str(e)[:200]}")
+    finally:
+        if stop_hb:
+            try:
+                stop_hb.set()
+            except:
+                pass
 
 
 def _map_images_to_questions(pages, images):
