@@ -67,6 +67,8 @@ CONFIG_MAP = {
     "llm_repair_model": "repair_model",
     "image_primary": "img_model",
     "image_fallback": "img_fallback_model",
+    "image_or_model": "image_or_model",
+    "vision_caption_model": "vision_caption_model",
     "tts_model": "tts_model",
     "tts_fallback_model": "tts_fallback_model",
     "tts_fallback_voice": "tts_fallback_voice",

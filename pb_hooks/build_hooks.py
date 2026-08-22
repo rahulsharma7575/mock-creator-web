@@ -87,6 +87,8 @@ SCHEMA = [
         f("llm_repair_model", "text", max=200),
         f("image_primary", "text", max=200),
         f("image_fallback", "text", max=200),
+        f("image_or_model", "text", max=200),
+        f("vision_caption_model", "text", max=200),
         f("image_style_prompt", "text", max=2000),
         f("tts_model", "text", max=200),
         f("tts_fallback_model", "text", max=200),
@@ -310,6 +312,8 @@ META_FIELDS = [
     ("image_primary", "Image provider", "select", "Images", "fal-ai (Fal.ai) | z-image (Magnific) | black-forest-labs/flux.2-klein-4b (OpenRouter)", ["fal-ai/z-image/turbo", "z-image", "black-forest-labs/flux.2-klein-4b"]),
     ("image_style_prompt", "Image style prompt", "text", "Images", "Style instruction wrapped around every generated image (flat colourful EPS-TOPIK vector style by default)."),
     ("image_fallback", "Fallback image model", "text", "Images", "Deprecated - providers fall back automatically, keep empty"),
+    ("image_or_model", "OpenRouter image fallback model", "text", "Images", "OpenRouter IMAGE model used ONLY as the fallback when the primary provider (Magnific z-image) is down or out of credits. MUST be an OpenRouter IMAGE model — the pipeline generates via /api/v1/images/generations, so a text/chat model will 400 and the run falls back to Fal.ai. Default black-forest-labs/flux.2-klein-4b. The run preflight verifies this model ([OK] = exists in the catalog)."),
+    ("vision_caption_model", "Vision caption model (paper mode)", "text", "PDF", "OpenRouter VISION model used ONLY in PAPER-PDF mode: writes ONE short English sentence per extracted paper photo (question-photo matching + picture-option descriptions). MUST accept image input — a VL model like qwen/qwen2.5-vl-72b-instruct. NEVER a text-only or tiny model — captions come out blank and photo matching degrades. The run preflight verifies it ([OK] = exists and accepts images)."),
     ("image_count", "Image questions target", "number", "Images", "How many questions carry a picture, spread randomly across reading AND listening. Applies to RANDOM generation only - Paper PDF mode follows the paper."),
     ("listening_picture_count", "Picture listening questions", "number", "Images", "How many LISTENING questions use 4 separate photos as options (audio plays, student taps the matching photo). Photos 1-4 appear in a 2x2 grid with the number overlaid. Flat colourful EPS-TOPIK style."),
     ("image_count_min", "Image questions min", "number", "Images", "Minimum (18)"),
@@ -403,7 +407,8 @@ function ensureCollections() {
                       "tts_natural_pacing", "tts_polish", "tts_atempo_models",
                       "tts_male_speed", "tts_female_speed", "tts_fallback_male_speed",
                       "tts_fallback_female_speed", "listening_audio_count", "listening_picture_count",
-                      "image_style_prompt", "push_enabled"]
+                      "image_style_prompt", "push_enabled",
+                      "image_or_model", "vision_caption_model"]
     var missingField = false
     for (var nfi = 0; nfi < needFields.length; nfi++) {
       var hasIt = false
@@ -578,6 +583,26 @@ function ensureCollections() {
       $app.save(mRec)
     }
   } catch (errS) {}
+  try {
+    // upsert missing model-config rows (existing installs never got them)
+    var mColM2 = $app.findCollectionByNameOrId("mock_config_meta")
+    var modelMetaDefs = [
+      ["image_or_model", "OpenRouter image fallback model", "text", "Images", "OpenRouter IMAGE model used ONLY as the fallback when the primary provider (Magnific z-image) is down or out of credits. MUST be an OpenRouter IMAGE model — the pipeline generates via /api/v1/images/generations, so a text/chat model will 400 and the run falls back to Fal.ai. Default black-forest-labs/flux.2-klein-4b. The run preflight verifies this model ([OK] = exists in the catalog).", null],
+      ["vision_caption_model", "Vision caption model (paper mode)", "text", "PDF", "OpenRouter VISION model used ONLY in PAPER-PDF mode: writes ONE short English sentence per extracted paper photo (question-photo matching + picture-option descriptions). MUST accept image input — a VL model like qwen/qwen2.5-vl-72b-instruct. NEVER a text-only or tiny model — captions come out blank and photo matching degrades. The run preflight verifies it ([OK] = exists and accepts images).", null]
+    ]
+    for (var mmi = 0; mmi < modelMetaDefs.length; mmi++) {
+      var mdef = modelMetaDefs[mmi]
+      var mRecM = null
+      try { mRecM = $app.findFirstRecordByData("mock_config_meta", "field", mdef[0]) } catch (errM3) {}
+      if (!mRecM) { mRecM = new Record(mColM2); mRecM.set("field", mdef[0]) }
+      mRecM.set("label", mdef[1])
+      mRecM.set("ftype", mdef[2])
+      mRecM.set("group", mdef[3])
+      mRecM.set("help", mdef[4])
+      if (mdef[5]) mRecM.set("options", mdef[5])
+      $app.save(mRecM)
+    }
+  } catch (errM4) { try { $app.logger().info("mig-modelmeta: " + String(errM4)) } catch (errL2) {} }
   try {
     var mT = $app.findFirstRecordByData("mock_config_meta", "field", "tts_model")
     if (mT.getString("ftype") !== "select") { mT.set("ftype", "select"); mT.set("options", ["fish-audio/s2.1-pro-free:free", "microsoft/mai-voice-2-flash", "x-ai/grok-voice-tts-1.0"]); mT.set("label", "TTS model"); mT.set("help", "Model that reads the listening scripts aloud. Options load from the models API."); $app.save(mT) }
