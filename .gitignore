@@ -7,3 +7,5 @@ data/
 __pycache__/
 *.pyc
 .DS_Store
+PROJECT_CONTEXT.md
+!PROJECT_CONTEXT.md.example
