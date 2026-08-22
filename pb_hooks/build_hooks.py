@@ -649,6 +649,15 @@ function ensureCollections() {
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 """,
     "".join(
         "var k{0} = new Record(models); k{0}.set(\"kind\", {1}); k{0}.set(\"model\", {2}); k{0}.set(\"display\", {3}); k{0}.set(\"notes\", {4}); $app.save(k{0});\n".format(

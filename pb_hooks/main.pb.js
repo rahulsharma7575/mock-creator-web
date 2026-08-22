@@ -282,6 +282,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -667,6 +676,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -1029,6 +1047,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -1392,6 +1419,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -1784,6 +1820,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -2161,6 +2206,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -2542,6 +2596,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -2944,6 +3007,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -3320,6 +3392,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -3694,6 +3775,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -4058,6 +4148,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -4425,6 +4524,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -4841,6 +4949,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -5214,6 +5331,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -5587,6 +5713,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -6009,6 +6144,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -6443,6 +6587,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -6819,6 +6972,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -7201,6 +7363,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
@@ -7616,6 +7787,15 @@ var m47 = new Record(meta); m47.set("field", "active"); m47.set("label", "Config
       } catch(errBlkField){}
     }
   } catch(errMigAll) {}
+  try {
+    // pdf_parser mistral removed — migrate any existing mistral configs to auto
+    var misConfigs = $app.findRecordsByFilter("mock_config", "pdf_parser = 'mistral'", "", 200, 0)
+    for (var mi=0; mi<misConfigs.length; mi++) {
+      misConfigs[mi].set("pdf_parser", "auto")
+      $app.save(misConfigs[mi])
+    }
+    if (misConfigs.length) $app.logger().info("migrated " + misConfigs.length + " mistral pdf_parser configs to auto")
+  } catch (errMi) {}
 
   }
   if ($app.countRecords("mock_models") === 0) {
