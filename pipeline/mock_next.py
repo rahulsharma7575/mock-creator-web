@@ -3200,9 +3200,11 @@ def main():
             pdf_path = str(CFG.get("pdf_path") or "").strip()
             if pdf_path and os.path.exists(pdf_path):
                 resume_parser = str(CFG.get("pdf_parser") or "auto").strip().lower()
+                print(f"[pdf] RESUME REAL REQUEST: file={os.path.basename(pdf_path)} | parser='{resume_parser}' | UPSTAGE={'SET' if os.environ.get('UPSTAGE_API_KEY') else 'NOT SET'}", flush=True)
                 pdf_doc = P.parse_pdf(pdf_path, gen_type=gen_type, parser=resume_parser,
                                       upstage_key=os.environ.get("UPSTAGE_API_KEY", ""),
-                                      or_key=key, progress=lambda m: None)
+                                      or_key=key, progress=lambda m: print(f"[pdf resume] {m}", flush=True))
+                print(f"[pdf] RESUME REAL RESULT: parser_used='{pdf_doc['parser_used']}' | {len(pdf_doc['pages'])} pages | {len(pdf_doc['images'])} images", flush=True)
                 stats["pdf_parser"] = pdf_doc["parser_used"]
                 stats["pdf_pages"] = len(pdf_doc["pages"])
                 stats["pdf_images"] = len(pdf_doc["images"])
@@ -3257,11 +3259,13 @@ def main():
             parser_mode = str(CFG.get("pdf_parser") or "auto").strip().lower()
             if parser_mode not in ("auto", "local", "upstage", "mistral"):
                 parser_mode = "auto"
+            print(f"[pdf] REAL REQUEST: file={os.path.basename(pdf_path)} | {os.path.getsize(pdf_path)/1048576:.2f} MB | gen_type={gen_type} | selected parser='{parser_mode}' (config pdf_parser='{CFG.get('pdf_parser')}') | UPSTAGE_API_KEY={'SET' if os.environ.get('UPSTAGE_API_KEY') else 'NOT SET'} | OPENROUTER_API_KEY={'SET' if key else 'NOT SET'} | chain={' -> '.join([parser_mode] + [p for p in ('local','upstage','mistral') if p != parser_mode]) if parser_mode!='auto' else 'local -> upstage -> mistral'}", flush=True)
             t_pdf = time.time()
             pdf_progress = lambda m: print("[pdf %ds] %s" % (int(time.time() - t_all), m), flush=True)
             pdf_doc = P.parse_pdf(pdf_path, gen_type=gen_type, parser=parser_mode,
                                   upstage_key=os.environ.get("UPSTAGE_API_KEY", ""),
                                   or_key=key, progress=pdf_progress)
+            print(f"[pdf] REAL RESULT: parser_used='{pdf_doc['parser_used']}' | {len(pdf_doc['pages'])} pages | {len(pdf_doc['images'])} images | {len(pdf_doc['text'])} chars | excluded={pdf_doc['stats'].get('excluded_pages')} | {int(time.time()-t_pdf)}s", flush=True)
             stats["pdf_parse_s"] = int(time.time() - t_pdf)
             stats["pdf_parser"] = pdf_doc["parser_used"]
             stats["pdf_pages"] = len(pdf_doc["pages"])

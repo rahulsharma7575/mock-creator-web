@@ -520,6 +520,8 @@ def parse_pdf(path, gen_type=3, parser="auto", upstage_key="", or_key="", max_pa
 
     local_pages, local_images = [], []
     local_error = ""
+    if progress:
+        progress(f"PDF request: {filename} | {os.path.getsize(path)/1048576:.2f} MB | gen_type={gen_type} (want_images={want_images}) | max_pages={max_pages} | selected parser='{sel}' → chain: {' → '.join(chain)} | UPSTAGE_API_KEY={'set' if upstage_key else 'NOT SET'} | OPENROUTER_API_KEY={'set' if or_key else 'NOT SET'}")
 
     def _merge_local_images(online_images, parser_name, progress):
         """Paper mode: if an online parser produced 0 images, reuse the NATIVE
@@ -649,6 +651,13 @@ def _finalize(pages, images, gen_type, parser_used, progress=None):
         progress("parsed via %s — %d pages, %d extracted images, %d text chars%s" % (
             parser_used, len(pages), len(images), len(doc["text"]),
             (" (excluded pages: %s)" % doc["stats"]["excluded_pages"]) if doc["stats"]["excluded_pages"] else ""))
+        if images:
+            for im in images[:8]:
+                progress(f"  image {im.get('id')} page {im.get('page')} → Q{im.get('nearest_question')} ({len(im.get('png') or b'') } bytes) bbox={im.get('bbox')}")
+        # Log per-page text stats for real-data audit
+        for p in pages[:5]:
+            st = _text_stats(p.get("text",""))
+            progress(f"  page {p['page']} kind={p['kind']} letters={st['letters']} korean_ratio={st['korean_ratio']} chars={st['chars']}")
     return doc
 
 
