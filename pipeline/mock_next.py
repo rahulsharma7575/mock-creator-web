@@ -109,6 +109,14 @@ DEFAULTS = {
     # to z-image while Magnific does not expose it on the REST API)
     "img_model": "z-image",
     "img_fallback_model": "p-image-ideogram-1k",
+    # OpenRouter IMAGE model used as fallback when the primary provider (Magnific)
+    # is down/out of credits. Must be an OpenRouter IMAGE model (pipeline calls
+    # /api/v1/images/generations) — never a text/chat model.
+    "image_or_model": "black-forest-labs/flux.2-klein-4b",
+    # OpenRouter VISION model used in PAPER-PDF mode only: writes one short English
+    # sentence per extracted paper photo (question<->photo matching + picture
+    # descriptions). Must support vision (image_url input), never a text-only model.
+    "vision_caption_model": "qwen/qwen2.5-vl-72b-instruct",
     "img_workers": 3,
     "img_retries": 2,
     "img_fallback_retries": 2,
@@ -548,7 +556,8 @@ PROOF_MODELS = [
     {"key": "2", "name": "gemini-3.5-flash", "slug": "google/gemini-3.5-flash",
      "price": "$1.50/$9.00 per M (best quality)", "extra": {"reasoning_effort": "minimal"}},
 ]
-IMG_MODEL_NANO = "black-forest-labs/flux.2-klein-4b"   # OpenRouter image provider (flux.2 klein)
+IMG_MODEL_NANO = "black-forest-labs/flux.2-klein-4b"   # OpenRouter image provider (flux.2 klein) - image_or_model default
+VISION_CAPTION_MODEL = "qwen/qwen2.5-vl-72b-instruct"  # OpenRouter vision provider (paper-photo captions) - vision_caption_model default
 
 # Provider fallback chain (switch PROVIDER, never a model of the same provider).
 # Primary from config is tried first, then the other providers in order.
@@ -1215,7 +1224,7 @@ def vision_caption(key, png_bytes):
     """One short English sentence describing a picture (OpenRouter vision model)."""
     data_uri = "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
     payload = {
-        "model": "qwen/qwen2.5-vl-72b-instruct",
+        "model": str(CFG.get("vision_caption_model") or VISION_CAPTION_MODEL),
         "messages": [{"role": "user", "content": [
             {"type": "text", "text": "Describe this picture in ONE short English sentence "
                                     "(who/what/action/location). No analysis, no commentary."},
@@ -2076,6 +2085,11 @@ def create_records(qs, headers):
                 "explanation": q.get("explanation", ""),
                 "difficulty": DIFF_MAP.get(str(q.get("difficulty", "hard")).lower(), "hard"),
                 "is_active": bool(CFG.get("is_active", True)),
+                # audio questions (pre-made pool: 1 question voice + 4 answer
+                # audios). Without this flag the teacher app renders them as
+                # general listening with "1 2 3 4" options (isAudioQ expects
+                # audioQuestion === true on the record).
+                "audio_question": bool(q.get("audio_question")),
             }
             if is_pic and not ca:
                 print(f"[push] WARNING: picture question has NO correct_answer — "
@@ -2122,6 +2136,31 @@ def ensure_picture_record_flags(headers, record_id, q):
         print(f"[push] flag repair {record_id} HTTP {pr.status_code}: {pr.text[:200]}")
         return False
     print(f"[push] repaired picture flags on {record_id}: {list(need.keys())}")
+    return True
+
+
+def ensure_audio_question_flag(headers, record_id, q):
+    """Self-heal the audio_question flag on already-pushed records.
+
+    Older pushes created pre-made audio questions without the audio_question
+    flag, so the teacher app rendered them as general listening with 1/2/3/4
+    options even though the 4 option_audios are uploaded. PATCH only the scalar
+    flag (never a full body — that would drop file fields)."""
+    if not q.get("audio_question"):
+        return True
+    chk = httpx.get(CFG["pb_base"] + f"/api/collections/questions/records/{record_id}",
+                    headers=headers, params={"fields": "audio_question"}, timeout=30)
+    if chk.status_code != 200:
+        print(f"[push] audio-flag check failed for {record_id}: HTTP {chk.status_code}")
+        return False
+    if chk.json().get("audio_question"):
+        return True
+    pr = httpx.patch(CFG["pb_base"] + f"/api/collections/questions/records/{record_id}",
+                     headers=headers, json={"audio_question": True}, timeout=30)
+    if pr.status_code not in (200, 201):
+        print(f"[push] audio-flag repair {record_id} HTTP {pr.status_code}: {pr.text[:200]}")
+        return False
+    print(f"[push] repaired audio_question flag on {record_id}")
     return True
 
 
@@ -2427,7 +2466,8 @@ def gen_image_or(key, prompt, model="z-image"):
 
 def gen_image_nano(key, prompt):
     r = httpx.post(CFG["or_img"], headers={"Authorization": f"Bearer {key}"},
-                   json={"model": IMG_MODEL_NANO, "prompt": prompt, "n": 1}, timeout=300)
+                   json={"model": str(CFG.get("image_or_model") or IMG_MODEL_NANO),
+                         "prompt": prompt, "n": 1}, timeout=300)
     j = r.json()
     if r.status_code != 200:
         raise RuntimeError(f"img HTTP {r.status_code}: {str(j.get('error'))[:150]}")
@@ -2632,7 +2672,8 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
             gave_up = False
             for attempt in range(tries):
                 try:
-                    if model == "nano-banana" or model == "black-forest-labs/flux.2-klein-4b":
+                    if model == "nano-banana" or model == "black-forest-labs/flux.2-klein-4b" \
+                            or model == str(CFG.get("image_or_model") or IMG_MODEL_NANO):
                         data, usage = gen_image_nano(key, prompt)
                         used = usage.get("cost", 0)
                     elif str(model).startswith("fal-ai/"):
@@ -2763,7 +2804,8 @@ def run_images(key, qs, record_ids, headers, work_dir, img_model=None, pdf_image
                 tries = img_retries if mi == 0 else fb_retries
                 for attempt in range(tries):
                     try:
-                        if model == "nano-banana" or model == "black-forest-labs/flux.2-klein-4b":
+                        if model == "nano-banana" or model == "black-forest-labs/flux.2-klein-4b" \
+                                or model == str(CFG.get("image_or_model") or IMG_MODEL_NANO):
                             d2, u2 = gen_image_nano(key, prompt)
                             used_sum += u2.get("cost", 0)
                         elif str(model).startswith("fal-ai/"):
@@ -3026,7 +3068,8 @@ def dry_images_pass(key, qs, base_dir):
         fprompt = f"{CFG['image_style_prompt']}. Scene: {prompt}."
         for model in chain:
             try:
-                if model == "nano-banana" or model == "black-forest-labs/flux.2-klein-4b":
+                if model == "nano-banana" or model == "black-forest-labs/flux.2-klein-4b" \
+                        or model == str(CFG.get("image_or_model") or IMG_MODEL_NANO):
                     data, usage = gen_image_nano(key, fprompt)
                     used_cost = usage.get("cost", 0)
                     used_credits = 0
@@ -3244,6 +3287,74 @@ def _tts_rate_hint(model: str):
     return None
 
 
+_OR_CATS = None
+
+
+def or_model_catalog():
+    """Fetch + cache the OpenRouter model catalog (public endpoint, no key needed)."""
+    global _OR_CATS
+    if _OR_CATS is None:
+        try:
+            r = httpx.get("https://openrouter.ai/api/v1/models", timeout=30)
+            r.raise_for_status()
+            _OR_CATS = r.json().get("data") or []
+        except Exception as e:
+            print(f"[verify] could not fetch OpenRouter model catalog: {str(e)[:90]} — checks skipped")
+            _OR_CATS = []
+    return _OR_CATS
+
+
+def _or_find(slug):
+    clean = str(slug or "").split(":")[0].strip()
+    for m in or_model_catalog():
+        if m.get("id") == clean:
+            return m
+    return None
+
+
+def verify_or_models():
+    """Non-fatal OpenRouter model checks for the configured models (preflight).
+
+    Warn-only by design: the provider chains already degrade (a dead image
+    fallback simply skips to the next provider), so we never block a run — we
+    report loudly so a disappeared/renamed model (e.g. a retired image model)
+    is spotted BEFORE it silently wastes a run. Vision detection uses
+    architecture.input_modalities ('image'), because the catalog does not
+    expose an /images/generations capability tag — for image models
+    existence is the only reliable signal."""
+    cats = or_model_catalog()
+    if not cats:
+        return
+    vision_cap = {"image": "vision (image input)"}
+    for cfg_key, slug, kind in (
+        ("image_or_model", str(CFG.get("image_or_model") or IMG_MODEL_NANO), "image GEN"),
+        ("vision_caption_model", str(CFG.get("vision_caption_model") or VISION_CAPTION_MODEL), "vision"),
+    ):
+        m = _or_find(slug)
+        if m is None:
+            print(f"  [VERIFY] {cfg_key}='{slug}' (OpenRouter {kind}) — NOT in the model catalog "
+                  f"(removed/renamed?). Run continues: image fallback skips to the next provider, "
+                  f"photo captions may fail. Set a current model in the Images/PDF config.")
+            continue
+        if kind == "vision":
+            mods = (m.get("architecture") or {}).get("input_modalities") or []
+            if "image" in mods:
+                print(f"  [OK] {cfg_key}='{slug}' — {vision_cap.get('image')}")
+            else:
+                print(f"  [VERIFY] {cfg_key}='{slug}' exists but is NOT a vision model "
+                      f"(inputs: {mods}) — photo captions will be blank. Use a VL model "
+                      f"like qwen/qwen2.5-vl-72b-instruct.")
+        else:
+            print(f"  [OK] {cfg_key}='{slug}' (OpenRouter image GEN) — present in catalog")
+    for label, slug in (("author", CFG.get("author_model")),
+                        ("proofread", CFG.get("proof_model")),
+                        ("repair", CFG.get("repair_model"))):
+        s = str(slug or "")
+        if s and ":" not in s and _or_find(s) is None:
+            print(f"  [VERIFY] {label} model '{s}' — NOT in the OpenRouter catalog (removed?). "
+                  f"Review the LLM config.")
+
+
 def preflight_checks():
     """Non-fatal pre-flight diagnostics printed once at run start.
 
@@ -3278,6 +3389,8 @@ def preflight_checks():
         parser = str(CFG.get("pdf_parser") or "auto")
         if parser == "upstage" and not os.environ.get("UPSTAGE_API_KEY"):
             print("  [WARN] pdf_parser=upstage but UPSTAGE_API_KEY unset — falls back to local")
+
+    verify_or_models()
 
     print("— preflight done —")
 
@@ -3911,6 +4024,8 @@ def main():
     for q, rid in zip(qs, ids):
         if q.get("picture_options") and rid:
             ensure_picture_record_flags(headers, rid, q)
+        elif q.get("audio_question") and rid:
+            ensure_audio_question_flag(headers, rid, q)
 
     # 3b. Exam record + question links (admin dashboard visibility)
     exam_id, exam_created = create_exam(mock, qs, headers)
