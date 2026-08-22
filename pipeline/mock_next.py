@@ -1721,7 +1721,7 @@ def fetch_last_sets():
     n = max(1, int(CFG.get("dedup_sets", 5)))
     try:
         r = httpx.get(CFG["pb_base"] + "/api/collections/exams/records", headers=headers,
-                      params={"perPage": 200, "fields": "id,title"}, timeout=10)
+                      params={"perPage": 200, "fields": "id,title,code"}, timeout=10)
         r.raise_for_status()
         exams = r.json().get("items", [])
         if not exams:
@@ -1729,7 +1729,8 @@ def fetch_last_sets():
             return None, None
         pairs = []
         for e in exams:
-            m = re.search(r"Mock Test (\d+)", e.get("title") or "")
+            m = re.search(r"UBT-2026[-\s]*?(\d+)", str(e.get("code") or "")) \
+                or re.search(r"Mock Test (\d+)", str(e.get("title") or ""))
             if m:
                 pairs.append((int(m.group(1)), e.get("id")))
         pairs.sort(key=lambda x: x[0], reverse=True)
@@ -2078,9 +2079,13 @@ def create_exam(mock, qs, headers):
     r = httpx.get(CFG["pb_base"] + "/api/collections/exams/records", headers=headers,
                   params={"perPage": 200, "fields": "id,title,code"}, timeout=30)
     existing = r.json().get("items", [])
+    # serial MUST come from `code` first: code carries the unique index and stays
+    # clean, while titles are often corrupted (e.g. "Mock Test 98cxzvxvdfgdfgdfgdf")
+    # which makes the title regex under-count and reuse an existing code.
     serials = []
     for e in existing:
-        m = re.search(r"Mock Test (\d+)", e.get("title") or "")
+        m = re.search(r"UBT-2026[-\s]*?(\d+)", str(e.get("code") or "")) \
+            or re.search(r"Mock Test (\d+)", str(e.get("title") or ""))
         if m:
             serials.append(int(m.group(1)))
     serial = (max(serials) + 1) if serials else 1
