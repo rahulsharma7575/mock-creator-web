@@ -277,8 +277,8 @@ createApp({
       if(!scope||scope.has('PDF')){
         if(c.upscale_pdf_images)add('PDF','info','Extracted paper images will be upscaled via Fal.ai recraft/crisp (FAL_KEY) - falls back to the raw image on failure');
         if(!c.tts_male_voice&&!c.tts_female_voice)add('PDF','info','Listening voices left empty - auto-picked per TTS model (fish free / MAI InJoon-Haena)');
-        if(c.pdf_parser==='local')add('PDF','info','Parser: Local (PyMuPDF) — scanned PDFs without a text layer fail over to Upstage/Mistral automatically');
-        if(c.pdf_parser==='upstage')add('PDF','info','Parser: Upstage first — falls to Mistral, then local, on failure');
+        if(c.pdf_parser==='local')add('PDF','info','Parser: Local (PyMuPDF) — scanned PDFs without a text layer fail over to Upstage automatically');
+        if(c.pdf_parser==='upstage')add('PDF','info','Parser: Upstage first — falls to local on failure');
       }
       if((c.timeout_s||600)<20)add('Advanced','warn',`LLM timeout (${c.timeout_s}s) is very low - may cause timeouts`);
       if(!scope){this.valIssues=[];for(const g in this.groupIssues){for(const i of this.groupIssues[g])this.valIssues.push({...i,group:g});}}
