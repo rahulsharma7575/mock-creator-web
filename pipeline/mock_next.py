@@ -1013,6 +1013,33 @@ def fix_numeric_option_questions(qs):
     return fixed
 
 
+def fix_audio_stub_questions(qs):
+    """Re-stamp the audio-pool stub questions the author emits.
+
+    For the pre-picked audio numbers the prompt tells the model to output ONLY a
+    stub. Models often echo the literal prompt template (incl. the "<number>"
+    placeholder) copy-pasted across stubs -> duplicate question_text, or blank
+    the question_text -> bad question_text. Both fail author validation, even
+    though this content is deterministic and replaced by _premade_audio_ify AFTER
+    the LLM passes. Force the real per-number stub (unique "Q<N>. ..." text +
+    digit options) now so author-stage validation always passes."""
+    fixed = 0
+    for q in qs:
+        if not isinstance(q, dict):
+            continue
+        if not q.get("audio_question") or q.get("picture_options"):
+            continue
+        if q.get("section") != "listening":
+            continue
+        opts = q.get("options") or []
+        if not (isinstance(opts, list) and len(opts) == 4
+                and all(re.fullmatch(r"[1-4]", str(o).strip()) for o in opts)):
+            continue
+        _audio_ify(q)
+        fixed += 1
+    return fixed
+
+
 def paper_autofill(qs):
     """Paper-mode only: printed papers often omit the stem for photo-listening
     questions (the audio + 4 photos ARE the question). Fill the standard
@@ -3400,6 +3427,7 @@ def main():
                     # author often emits 1/2/3/4 options without the format flag —
                     # auto-tag BEFORE validation so the exam can pass authoring
                     fix_numeric_option_questions(gqs)
+                    fix_audio_stub_questions(gqs)
                     if gen_type == 3:
                         paper_autofill(gqs)
                     gerrs = validate_exam(gqs, stage="author")
@@ -3476,6 +3504,7 @@ def main():
                 # author often emits 1/2/3/4 options without the format flag —
                 # auto-tag BEFORE validation so the exam can pass authoring
                 fix_numeric_option_questions(qs)
+                fix_audio_stub_questions(qs)
                 if gen_type == 3:
                     paper_autofill(qs)
                 errs = validate_exam(qs, stage="author")
