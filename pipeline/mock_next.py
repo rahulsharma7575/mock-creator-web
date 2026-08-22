@@ -3199,8 +3199,10 @@ def main():
             import pdf_parser as P
             pdf_path = str(CFG.get("pdf_path") or "").strip()
             if pdf_path and os.path.exists(pdf_path):
-                pdf_doc = P.parse_pdf(pdf_path, gen_type=gen_type, parser="local",
-                                      upstage_key="", or_key=key, progress=lambda m: None)
+                resume_parser = str(CFG.get("pdf_parser") or "auto").strip().lower()
+                pdf_doc = P.parse_pdf(pdf_path, gen_type=gen_type, parser=resume_parser,
+                                      upstage_key=os.environ.get("UPSTAGE_API_KEY", ""),
+                                      or_key=key, progress=lambda m: None)
                 stats["pdf_parser"] = pdf_doc["parser_used"]
                 stats["pdf_pages"] = len(pdf_doc["pages"])
                 stats["pdf_images"] = len(pdf_doc["images"])
@@ -3252,7 +3254,9 @@ def main():
             pdf_path = str(CFG.get("pdf_path") or "").strip()
             if not pdf_path or not os.path.exists(pdf_path):
                 sys.exit("FAILED: generation type %d requires a PDF file (pdf_path missing on the worker)" % gen_type)
-            parser_mode = "local" if str(CFG.get("pdf_parser", "auto")) == "local" else "auto"
+            parser_mode = str(CFG.get("pdf_parser") or "auto").strip().lower()
+            if parser_mode not in ("auto", "local", "upstage", "mistral"):
+                parser_mode = "auto"
             t_pdf = time.time()
             pdf_progress = lambda m: print("[pdf %ds] %s" % (int(time.time() - t_all), m), flush=True)
             pdf_doc = P.parse_pdf(pdf_path, gen_type=gen_type, parser=parser_mode,

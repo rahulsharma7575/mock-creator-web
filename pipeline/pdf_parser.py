@@ -539,7 +539,7 @@ def parse_pdf(path, gen_type=3, parser="auto", upstage_key="", or_key="", max_pa
                                  gen_type, "upstage", progress)
             if progress:
                 progress("Upstage output failed the quality gate, trying the next parser")
-        except PdfParseError as e:
+        except Exception as e:
             if progress:
                 progress("Upstage failed: %s" % str(e)[:160])
         return None
@@ -556,7 +556,7 @@ def parse_pdf(path, gen_type=3, parser="auto", upstage_key="", or_key="", max_pa
                                  gen_type, "mistral", progress)
             if progress:
                 progress("Mistral (vision OCR) output failed the quality gate")
-        except PdfParseError as e:
+        except Exception as e:
             if progress:
                 progress("Mistral (vision OCR) failed: %s" % str(e)[:160])
         return None
