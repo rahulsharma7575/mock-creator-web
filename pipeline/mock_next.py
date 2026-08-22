@@ -1479,8 +1479,33 @@ def strip_html(text):
     return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", " ", out).strip()
 
 
+def strip_q_prefix(text):
+    if not isinstance(text, str):
+        return text
+    s = text.strip()
+    # Remove leading Q numbers repeatedly: Q1, Q1., Q1), Q1:, Q1 Q2, 1., 1) etc.
+    s = re.sub(r'^\s*(?:Q\s*\d+\s*[\.\)\:\-]?\s*)+', '', s, flags=re.IGNORECASE)
+    # Also handle bare leading number without Q (e.g. "1. 다음...")
+    if re.match(r'^\s*\d+\s*[\.\)\:\-]\s+', s):
+        # Only strip if what remains is substantial (avoid stripping "1" alone)
+        tmp = re.sub(r'^\s*\d+\s*[\.\)\:\-]\s*', '', s)
+        if len(tmp.strip()) >= 10:
+            s = tmp
+    return s.strip()
+
+
+def strip_option_prefix(text):
+    if not isinstance(text, str):
+        return text
+    s = text.strip()
+    # Remove leading 1., 1), 1- , ① etc. Handles "1. 가을" , "① 가을" , "1) 가을"
+    # Require punctuation for Arabic numbers to avoid stripping "1번" -> "번"
+    s2 = re.sub(r'^\s*(?:[0-9]+\s*[\.\)\:\-]\s*|[①②③④]\s*)', '', s)
+    return s2 if s2.strip() else s
+
+
 def sanitize_exam(qs):
-    """Deterministic cleanup of model quirks: HTML tags + control chars in text fields."""
+    """Deterministic cleanup of model quirks: HTML tags + control chars + duplicate Q/option numbers."""
     if not isinstance(qs, list):
         return qs
     for q in qs:
@@ -1488,10 +1513,18 @@ def sanitize_exam(qs):
             continue
         for field in ("question_text", "explanation", "imagePrompt"):
             if isinstance(q.get(field), str):
-                q[field] = strip_html(q[field])
+                v = strip_html(q[field])
+                if field == "question_text":
+                    v = strip_q_prefix(v)
+                q[field] = v
         opts = q.get("options")
         if isinstance(opts, list):
-            q["options"] = [strip_html(o) if isinstance(o, str) else o for o in opts]
+            # Don't strip placeholder audio/picture options ["1","2","3","4"]
+            is_placeholder = len(opts) == 4 and all(str(o).strip() in ("1", "2", "3", "4") for o in opts)
+            if not is_placeholder:
+                q["options"] = [strip_option_prefix(strip_html(o)) if isinstance(o, str) else o for o in opts]
+            else:
+                q["options"] = [strip_html(o) if isinstance(o, str) else o for o in opts]
         listening = q.get("listening")
         if isinstance(listening, dict):
             script = listening.get("audioScript")
