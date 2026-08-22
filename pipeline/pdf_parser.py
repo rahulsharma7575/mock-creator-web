@@ -417,10 +417,11 @@ def _vision_ocr(path, max_pages, or_key, pages_hint, progress=None):
         if r.status_code != 200:
             raise PdfParseError(f"vision OCR HTTP {r.status_code}: {r.text[:500]}")
         j = r.json()
-        text = (j.get("choices") or [{}])[0].get("message", {}).get("content", "") or ""
-        # Fallback: also check annotations if content empty
-        if not text.strip():
-            ann = (j.get("choices") or [{}])[0].get("message", {}).get("annotations") or []
+        msg = (j.get("choices") or [{}])[0].get("message", {}) or {}
+        text = msg.get("content", "") or ""
+        ann = msg.get("annotations") or j.get("error", {}).get("metadata", {}).get("file_annotations") or []
+        # Extract text from annotations if content empty (mistral-ocr stores parsed text there)
+        if not text.strip() and ann:
             for a in ann:
                 if a.get("type") == "file" and a.get("file", {}).get("content"):
                     for part in a["file"]["content"]:
@@ -429,12 +430,31 @@ def _vision_ocr(path, max_pages, or_key, pages_hint, progress=None):
             text = text.strip()
         if not text.strip():
             raise PdfParseError("vision OCR returned empty text")
+        # Extract images from annotations (mistral-ocr capped at 8 per PDF as per OpenRouter docs)
+        images = []
+        for a in ann:
+            if a.get("type") == "file" and a.get("file", {}).get("content"):
+                for part in a["file"]["content"]:
+                    if part.get("type") == "image_url" and part.get("image_url", {}).get("url"):
+                        url = part["image_url"]["url"]
+                        if url.startswith("data:image"):
+                            try:
+                                b64 = url.split(",", 1)[1]
+                                png = base64.b64decode(b64)
+                                if png and len(png) < 6*1024*1024:
+                                    images.append({"id": f"mr_img{len(images)+1}", "page": 1, "png": png})
+                                    if len(images) >= 8:
+                                        break
+                            except Exception:
+                                continue
+                if len(images) >= 8:
+                    break
         # Split into pseudo-pages for downstream page classification (approx 1 page per ~3000 chars)
         # Keep as single page for now; _finalize will treat it as one question page
         pages = [{"page": 1, "kind": "question", "text": text.strip()}]
         if progress:
-            progress(f"Mistral OCR done — {len(text)} chars, 1 pseudo-page (single file request, ~$0.002/page)")
-        return pages, []
+            progress(f"Mistral OCR done — {len(text)} chars, {len(images)} images (capped at 8 by OpenRouter), 1 pseudo-page (single file request, ~$0.002/page)")
+        return pages, images
     except PdfParseError:
         if stop_hb:
             stop_hb.set()
@@ -536,22 +556,27 @@ def parse_pdf(path, gen_type=3, parser="auto", upstage_key="", or_key="", max_pa
         progress(f"PDF request: {filename} | {os.path.getsize(path)/1048576:.2f} MB | gen_type={gen_type} (want_images={want_images}) | max_pages={max_pages} | selected parser='{sel}' → chain: {' → '.join(chain)} | UPSTAGE_API_KEY={'set' if upstage_key else 'NOT SET'} | OPENROUTER_API_KEY={'set' if or_key else 'NOT SET'}")
 
     def _merge_local_images(online_images, parser_name, progress):
-        """Paper mode: if an online parser produced 0 images, reuse the NATIVE
-        images extracted by PyMuPDF (the reliable source — online OCR tiers
-        often return figures as text/tables or miss them entirely)."""
-        if online_images or not want_images:
+        """Paper mode: use the richest image set (online vs native PyMuPDF).
+        Online OCR tiers (Upstage base64, Mistral file API capped at 8) often miss figures,
+        while native PyMuPDF extracts exact xref PNGs. Choose the larger set, not just fallback on 0."""
+        if not want_images:
             return online_images
-        if local_images:
-            imgs = list(local_images)
-        else:
+        # If we have no local yet, try to get it once
+        local_pool = local_images
+        if not local_pool:
             try:
-                _, imgs = _pymupdf_parse(path, max_pages, True, None)
+                _, local_pool = _pymupdf_parse(path, max_pages, True, None)
             except Exception:
-                imgs = []
-        if imgs and progress:
-            progress("%s text OK but 0 images — reused %d native images from PyMuPDF"
-                     % (parser_name, len(imgs)))
-        return imgs
+                local_pool = []
+        if not online_images and local_pool:
+            if progress:
+                progress(f"{parser_name} text OK but 0 images — reused {len(local_pool)} native images from PyMuPDF")
+            return list(local_pool)
+        if online_images and local_pool and len(local_pool) > len(online_images):
+            if progress:
+                progress(f"{parser_name} gave {len(online_images)} images but native has {len(local_pool)} — using native (more complete)")
+            return list(local_pool)
+        return online_images
 
     def try_local():
         nonlocal local_pages, local_images, local_error
