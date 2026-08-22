@@ -60,6 +60,8 @@ DEFAULTS = {
     "pb_email": "shiva@cld.com.np",
     "pb_pass": "",
     "subject_id": "illfosglou0e3j6",        # Korean Language UBT
+    "subject_name": "Korean Language UBT",  # display name (auto-created if missing)
+    "subject_code": "",                     # leave empty to avoid idx_subjects_code UNIQUE collision
     # exam shape
     "question_count": 40,
     "reading_count": 20,
@@ -1701,6 +1703,41 @@ def pb_headers():
                    json={"identity": CFG["pb_email"], "password": CFG["pb_pass"]}, timeout=30)
     r.raise_for_status()
     return {"Authorization": "Bearer " + r.json()["token"]}
+
+
+def ensure_subject(headers):
+    """Self-heal the subject relation BEFORE any question/exam create.
+
+    questions.subject and exams.subject are REQUIRED relations to `subjects`. If
+    the target record is missing (e.g. the collection was cleared), every create
+    fails with validation_missing_rel_records. Recreate the configured subject
+    (forcing its id so it stays consistent with existing records) so the push
+    never dies on a missing subject. Worker auth is a superuser, so this is
+    allowed despite subjects.createRule being null (superuser bypasses rules)."""
+    sid = str(CFG.get("subject_id") or "")
+    if not sid:
+        raise RuntimeError("CFG subject_id is empty")
+    if not re.fullmatch(r"[a-z0-9]{15}", sid):
+        raise RuntimeError(f"CFG subject_id {sid!r} is not a valid 15-char [a-z0-9] id - "
+                           f"cannot force-create the subject record")
+    r = httpx.get(CFG["pb_base"] + "/api/collections/subjects/records/" + sid,
+                  headers=headers, timeout=30)
+    if r.status_code == 200:
+        return True
+    if r.status_code != 404:
+        raise RuntimeError(f"subject lookup {sid} failed HTTP {r.status_code}: {r.text[:150]}")
+    body = {"id": sid, "name": str(CFG.get("subject_name") or "Korean Language UBT"),
+            "is_active": True}
+    code = str(CFG.get("subject_code") or "")
+    if code:
+        body["code"] = code
+    r2 = httpx.post(CFG["pb_base"] + "/api/collections/subjects/records",
+                    headers=headers, json=body, timeout=30)
+    if r2.status_code not in (200, 201):
+        raise RuntimeError(f"subject create {sid} failed HTTP {r2.status_code}: {r2.text[:200]}")
+    print(f"[pb] created missing subject '{body['name']}' ({sid})", flush=True)
+    return True
+
 
 
 def fetch_last_sets():
@@ -3756,6 +3793,7 @@ def main():
     # upload PATCHes a dead id and silently fails (404), which is exactly
     # the "[upload] image -> p9_img3 HTTP 404" failure.
     headers = pb_headers()
+    ensure_subject(headers)
     missing = [q for q in qs if not q.get("pbId")]
     stale = []
     if not missing:
