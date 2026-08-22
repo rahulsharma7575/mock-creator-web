@@ -96,7 +96,7 @@ SCHEMA = [
         f("tts_female_voice", "text", max=200),
         f("tts_fallback_male_voice", "text", max=200),
         f("tts_fallback_female_voice", "text", max=200),
-        f("pdf_parser", "select", values=["auto", "local", "upstage", "mistral"], maxSelect=1),
+        f("pdf_parser", "select", values=["auto", "local", "upstage"], maxSelect=1),
         f("upscale_pdf_images", "bool"),
         f("question_count", "number", min=1, max=200),
         f("reading_count", "number", min=0, max=50),
@@ -332,7 +332,7 @@ META_FIELDS = [
     ("push_exam_type", "Exam type on push", "text", "Push", "exam_type for the auto-created exam (mock/ubt/practice/official)"),
     ("push_exam_status", "Exam status on push", "select", "Push", "draft = review-then-publish | published = immediate", ["draft", "published"]),
     ("push_enabled", "Upload to teacher app", "bool", "Push", "On = exams are uploaded to the end-user app after generation | Off = generated locally only, nothing is uploaded"),
-    ("pdf_parser", "PDF parser", "select", "PDF", "Auto = PyMuPDF first, cloud OCR when scanned/garbled | Local = PyMuPDF only | Upstage = cloud OCR first | Mistral = OpenRouter vision OCR first. Selected parser runs first; on failure it falls to the next online parser, then local.", ["auto", "local", "upstage", "mistral"]),
+    ("pdf_parser", "PDF parser", "select", "PDF", "Auto = PyMuPDF first, cloud OCR when scanned/garbled | Local = PyMuPDF only | Upstage = cloud OCR first. Selected parser runs first; on failure it falls to local.", ["auto", "local", "upstage"]),
     ("upscale_pdf_images", "Upscale extracted paper images", "bool", "PDF", "Every image extracted from the PDF is upscaled via fal-ai/recraft/upscale/crisp before upload (bills FAL credits); on failure the raw extracted image is used"),
     ("audio_gap_ms", "Gap between clips (ms)", "number", "Audio", "Pause between sentences inside a clip. 300-500 ms sounds natural; lower feels rushed."),
     ("sample_rate", "Sample rate (Hz)", "number", "Audio", "MUST match the TTS model: 44100 for fish-audio / grok-voice, 24000 for mai-voice. Wrong rate makes audio play too fast or slow."),
@@ -421,7 +421,7 @@ function ensureCollections() {
     try {
       var pf = cfgCol4.fields.getByName("pdf_parser")
       var pfv = (pf && ((pf.options && pf.options.values) || pf.values)) || []
-      pdfFieldOk = pfv.indexOf("upstage") >= 0 && pfv.indexOf("mistral") >= 0
+      pdfFieldOk = pfv.indexOf("upstage") >= 0
     } catch (errF) { pdfFieldOk = false }
     // always import when any field is missing OR the pdf_parser select values are stale
     if (missingField || !pdfFieldOk) {
@@ -546,7 +546,7 @@ function ensureCollections() {
   } catch (errR) {}
   try {
     var pdfMetaDefs = [
-      ["pdf_parser", "PDF parser", "select", "PDF", "Auto = PyMuPDF first, cloud OCR when scanned/garbled | Local = PyMuPDF only | Upstage = cloud OCR first | Mistral = OpenRouter vision OCR first. Selected parser runs first; on failure it falls to the next online parser, then local.", ["auto", "local", "upstage", "mistral"]],
+      ["pdf_parser", "PDF parser", "select", "PDF", "Auto = PyMuPDF first, cloud OCR when scanned/garbled | Local = PyMuPDF only | Upstage = cloud OCR first. Selected parser runs first; on failure it falls to local.", ["auto", "local", "upstage"]],
       ["upscale_pdf_images", "Upscale extracted paper images", "bool", "PDF", "Every image extracted from the PDF is upscaled via fal-ai/recraft/upscale/crisp before upload (bills FAL credits); on failure the raw extracted image is used", null],
       ["tts_male_voice", "Male listening voice", "text", "Audio", "Voice for the male speaker (V1) in listening dialogues. Leave empty to auto-pick per TTS model (fish-audio free male / MAI ko-KR-InJoon). Use the speaker icon to hear a sample.", null],
       ["tts_female_voice", "Female listening voice", "text", "Audio", "Voice for the female speaker (V2) in listening dialogues. Leave empty to auto-pick per TTS model (fish-audio free female / MAI ko-KR-Haena). Use the speaker icon to hear a sample.", null],
@@ -722,7 +722,7 @@ try {
   try {
     var pf = $app.findCollectionByNameOrId("mock_config").fields.getByName("pdf_parser")
     var pv = (pf && ((pf.options && pf.options.values) || pf.values)) || []
-    pdfOk = pv.indexOf("upstage") >= 0 && pv.indexOf("mistral") >= 0
+    pdfOk = pv.indexOf("upstage") >= 0
   } catch (errF) {}
   if (!pdfOk) missing.push("mock_config.pdf_parser (values)")
   return e.json(200, { ok: missing.length === 0, version: version, migrations_ok: missing.length === 0, missing: missing })
@@ -1225,7 +1225,7 @@ try {
   var focus = (q.get("focus") || "").trim()
   if (focus.length > 500) focus = focus.substring(0, 500)
   var parserQ = (q.get("parser") || "").trim()
-  if (["auto", "local", "upstage", "mistral"].indexOf(parserQ) === -1) parserQ = ""
+  if (["auto", "local", "upstage"].indexOf(parserQ) === -1) parserQ = ""
   var ov = {}
   if (focus) ov.focus = focus
   if (parserQ) ov.pdf_parser = parserQ

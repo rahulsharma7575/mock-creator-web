@@ -135,7 +135,7 @@ DEFAULTS = {
     "tts_fallback_female_voice": "",              # fallback model female speaker (empty = auto per fallback model)
     "gen_type": 1,                      # 1 = random standard | 2 = book PDF | 3 = printed paper PDF
     "pdf_path": "",                     # worker-downloaded PDF for gen_type 2/3
-    "pdf_parser": "auto",               # auto (PyMuPDF -> Upstage -> Mistral) | local (PyMuPDF only)
+    "pdf_parser": "auto",               # auto (PyMuPDF -> Upstage) | local (PyMuPDF only) | upstage (Upstage first)
     "upscale_pdf_images": True,         # recraft/upscale/crisp on extracted paper images (fal credits)
     "tts_rate": 44100,
     "tts_gap_ms": 400,
@@ -3126,7 +3126,7 @@ def preflight_checks():
     if gen_type == 3:
         parser = str(CFG.get("pdf_parser") or "auto")
         if parser == "upstage" and not os.environ.get("UPSTAGE_API_KEY"):
-            print("  [WARN] pdf_parser=upstage but UPSTAGE_API_KEY unset — falls back to local/mistral")
+            print("  [WARN] pdf_parser=upstage but UPSTAGE_API_KEY unset — falls back to local")
 
     print("— preflight done —")
 
@@ -3290,9 +3290,9 @@ def main():
             if not pdf_path or not os.path.exists(pdf_path):
                 sys.exit("FAILED: generation type %d requires a PDF file (pdf_path missing on the worker)" % gen_type)
             parser_mode = str(CFG.get("pdf_parser") or "auto").strip().lower()
-            if parser_mode not in ("auto", "local", "upstage", "mistral"):
+            if parser_mode not in ("auto", "local", "upstage"):
                 parser_mode = "auto"
-            print(f"[pdf] REAL REQUEST: file={os.path.basename(pdf_path)} | {os.path.getsize(pdf_path)/1048576:.2f} MB | gen_type={gen_type} | selected parser='{parser_mode}' (config pdf_parser='{CFG.get('pdf_parser')}') | UPSTAGE_API_KEY={'SET' if os.environ.get('UPSTAGE_API_KEY') else 'NOT SET'} | OPENROUTER_API_KEY={'SET' if key else 'NOT SET'} | chain={' -> '.join([parser_mode] + [p for p in ('local','upstage','mistral') if p != parser_mode]) if parser_mode!='auto' else 'local -> upstage -> mistral'}", flush=True)
+            print(f"[pdf] REAL REQUEST: file={os.path.basename(pdf_path)} | {os.path.getsize(pdf_path)/1048576:.2f} MB | gen_type={gen_type} | selected parser='{parser_mode}' (config pdf_parser='{CFG.get('pdf_parser')}') | UPSTAGE_API_KEY={'SET' if os.environ.get('UPSTAGE_API_KEY') else 'NOT SET'} | chain={' -> '.join([parser_mode] + [p for p in ('local','upstage') if p != parser_mode]) if parser_mode!='auto' else 'local -> upstage'}", flush=True)
             t_pdf = time.time()
             pdf_progress = lambda m: print("[pdf %ds] %s" % (int(time.time() - t_all), m), flush=True)
             pdf_doc = P.parse_pdf(pdf_path, gen_type=gen_type, parser=parser_mode,
