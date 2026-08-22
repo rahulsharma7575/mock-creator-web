@@ -1609,6 +1609,11 @@ def validate_exam(qs, stage="final"):
             errs.append(f"Q{n}: bad question_text")
         elif re.search(r"<(?!/*보기>)[a-zA-Z/]", qt):
             errs.append(f"Q{n}: unexpected html-like tag in question_text")
+        elif q.get("section") == "listening":
+            # LISTENING: the instruction stem is intentionally identical across
+            # questions ("다음을 듣고 알맞은 것을 고르십시오."); the real content is
+            # the audio + options/images. Do NOT flag shared stems as duplicates.
+            pass
         elif seen_texts.get(qt):
             errs.append(f"Q{n}: question_text duplicates Q{seen_texts[qt]}")
         else:
